@@ -11,6 +11,46 @@ import numpy as np
 import h5py
 import odpy.hdf5 as odhdf5
 
+def getGroupNames( filenm ):
+  h5file = h5py.File( filenm, "r" )
+  ret = list()
+  for groupnm in h5file.keys():
+    if isinstance( h5file[groupnm], h5py.Group ):
+      ret.append( groupnm )
+  h5file.close()
+  return ret
+
+def getNrGroups( filenm ):
+  return len(getGroupNames(filenm))
+
+def getGroupSize( filenm, groupnm ):
+  h5file = h5py.File( filenm, "r" )
+  group = h5file[groupnm]
+  size = len(group)
+  h5file.close()
+  return size
+
+def getCubeLets( filenm, groupnm ):
+  h5file = h5py.File( filenm, "r" )
+  group = h5file[groupnm]
+  cubelets = list()  
+  for dsetnm in group:
+    dset = group[dsetnm]
+    # Do something with the position?
+    cubelet = np.array( dset )
+    cubelets.append( cubelet.squeeze() )
+  h5file.close()
+  return cubelets
+
+def getAllCubeLets( filenm ):
+  groupnms = getGroupNames( filenm )
+  cubelets = list()
+  for groupnm in groupnms:
+    cubelets.append( { 'group': groupnm,
+                       'data': getCubeLets(filenm,groupnm)
+                     })
+  return cubelets
+
 def validInfo( info ):
   try:
     type = odhdf5.getText(info,"Type")
