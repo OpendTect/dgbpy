@@ -99,7 +99,7 @@ def getAllCubeLets( filenm, decim=None ):
   groupnms = getGroupNames( filenm )
   cubelets = list()
   for groupnm in groupnms:
-    cubelets.append( getCubeLets(filenm,infos['base'],groupnm,decim) )
+    cubelets.append( getCubeLets(filenm,infos,groupnm,decim) )
   totsz = 0
   allx = list()
   ally = list()
@@ -195,7 +195,7 @@ def getInfo( filenm ):
     input.update({surveyfp[1]: inp})
     idx += 1
 
-  baseinfo = {
+  info = {
     'type': type,
     'stepout': stepout,
     'classification': classification,
@@ -206,27 +206,27 @@ def getInfo( filenm ):
   h5file.close()
 
   if type == 'Log-Log Prediction':
-    return getWellInfo( baseinfo, filenm )
+    return getWellInfo( info, filenm )
   elif type == 'Seismic Classification':
-    return getAttribInfo( baseinfo, filenm )
+    return getAttribInfo( info, filenm )
 
   print( "Unrecognized dataset type: ", type )
   raise KeyError
 
-def getWellInfo( baseinfo, filenm ):
+def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, "r" )
   infods = odhdf5.getInfoDataSet( h5file )
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
   h5file.close()
-  return {
-    'base': baseinfo,
+  info.update({
     'zstep': zstep,
     'range': marker,
-  }
+  })
+  return info
 
-def getAttribInfo( baseinfo, filenm ):
+def getAttribInfo( info, filenm ):
   h5file = h5py.File( filenm, "r" )
   infods = odhdf5.getInfoDataSet( h5file )
   nrsurveys = odhdf5.getIntValue( infods, 'Number of Surveys' )
@@ -237,7 +237,5 @@ def getAttribInfo( baseinfo, filenm ):
     idx += 1
 
   h5file.close()
-  return {
-    'base': baseinfo,
-    'surveys': survlist
-  }
+  info.update({'surveys': survlist})
+  return info
