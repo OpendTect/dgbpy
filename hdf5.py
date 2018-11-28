@@ -6,7 +6,7 @@
 # tools for reading hdf5 files for NN training
 #
 
-
+from os import path
 import numpy as np
 import h5py
 import odpy.hdf5 as odhdf5
@@ -30,26 +30,87 @@ def getGroupSize( filenm, groupnm ):
   h5file.close()
   return size
 
-def getCubeLets( filenm, groupnm ):
+def get_np_shape( step, nrpts=None ):
+  ret = ()
+  if nrpts != None:
+    ret += (nrpts,)
+  if isinstance( step, int ):
+    ret += ( step*2+1, )
+    return ret
+  for i in step:
+    ret += (i*2+1,)
+  return ret
+
+def getCubeLets( filenm, infos, groupnm, decim ):
+  nrattribs = 0
+  try:
+    nrattribs = len( infos['input'][groupnm]['Logs'] )
+  except KeyError:
+    nrattribs = 1
+  stepout = infos['stepout']
+  isclass = infos['classification']
+  if decim != None:
+    if decim < 0 or decim > 100:
+      print( "Decimation percentage not within [0,100]" )
+      raise ValueError
   h5file = h5py.File( filenm, "r" )
   group = h5file[groupnm]
-  cubelets = list()  
-  for dsetnm in group:
-    dset = group[dsetnm]
-    # Do something with the position?
-    cubelet = np.array( dset )
-    cubelets.append( cubelet.squeeze() )
-  h5file.close()
-  return cubelets
+  dsetnms = list(group.keys())
+  nrpts = len(dsetnms)
+  if decim != None:
+    np.random.shuffle( dsetnms )
+    nrpts = int(nrpts*(decim/100))
+    if nrpts < 1:
+      return {}
+    del dsetnms[nrpts:]
+  shape = None
+  if nrattribs==1:
+    shape = get_np_shape(stepout,nrpts)
+  else:
+    if stepout > 0:
+      shape = ( nrpts, nrattribs, stepout*2+1 )
+    else:
+      shape = ( nrpts, nrattribs )
 
-def getAllCubeLets( filenm ):
+  cubelets = np.empty( shape, np.float32 )
+  outdtype = np.float32
+  if isclass:
+    outdtype = np.uint8
+  output = np.empty( nrpts, outdtype )
+  idx = 0
+  for dsetnm in dsetnms:
+    dset = group[dsetnm]
+    cubelets[idx] = np.array( dset ).squeeze()
+    if isclass :
+      output[idx] = odhdf5.getIntValue( dset, 'Value' )
+    else:
+      output[idx] = odhdf5.getDValue( dset, 'Value' )
+    idx += 1
+
+  h5file.close()
+  ret = {
+    'x': cubelets,
+    'y': output
+  }
+  return ret
+
+def getAllCubeLets( filenm, decim=None ):
+  infos = getInfo( filenm )
   groupnms = getGroupNames( filenm )
   cubelets = list()
   for groupnm in groupnms:
-    cubelets.append( { 'group': groupnm,
-                       'data': getCubeLets(filenm,groupnm)
-                     })
-  return cubelets
+    cubelets.append( getCubeLets(filenm,infos['base'],groupnm,decim) )
+  totsz = 0
+  allx = list()
+  ally = list()
+  for cubelet in cubelets:
+    totsz += len(cubelet['x'])
+    allx.append( cubelet['x'] )
+    ally.append( cubelet['y'] )
+  return {
+    'x': np.concatenate( allx ),
+    'y': np.concatenate( ally )
+  }
 
 def validInfo( info ):
   try:
@@ -59,19 +120,19 @@ def validInfo( info ):
     return False
   return True
 
-def getBaseInfo( info, reqtype ):
+def getInfo( filenm ):
+  h5file = h5py.File( filenm, "r" )
+  info = odhdf5.getInfoDataSet( h5file )
   if not validInfo( info ):
+    h5file.close()
     return {}
 
   type = odhdf5.getText(info,'Type')
-  if type != reqtype:
-    print( "Wrong type of training dataset. Should be: "+reqtype )
-    raise KeyError
-
   stepout = odhdf5.getIStepInterval(info,"Stepout") 
+  classification = True
   ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
   idx = 0
-  examples = list()
+  examples = {}
   while idx < ex_sz:
     namestr = "Examples."+str(idx)+".Name"
     logstr = "Examples."+str(idx)+".Log"
@@ -90,24 +151,33 @@ def getBaseInfo( info, reqtype ):
       example_id.append(odhdf5.getText(info,"Examples."+str(idx)+".ID."+str(idy)))
       idy += 1
     example = {
-      "name": odhdf5.getText( info, exname ),
       "type": extype,
-      "id": example_id
+      "dbkey": example_id
     }
+    grouplbl = odhdf5.getText( info, exname )
     surveystr = "Examples."+str(idx)+".Survey"
     if odhdf5.hasAttr( info, surveystr ):
-      surveynm = odhdf5.getText(info, surveystr )
-      example.update({'Survey': odhdf5.getText(info, surveystr )})
+      surveyfp = path.split( odhdf5.getText(info, surveystr ) )
+      grouplbl = surveyfp[1]
+      lognm = odhdf5.getText( info, exname )
+      if not "itho" in lognm and not "lass" in lognm:
+        classification = False
+      example.update({
+        'target': lognm,
+        'path': surveyfp[0]
+        })
 
-    examples.append( example )
+    examples.update({grouplbl: example})
     idx += 1
 
   inp_sz = odhdf5.getIntValue(info,"Input.Size")
   idx = 0
-  input = list()
+  input = {}
   while idx < inp_sz:
+    surveyfp = path.split( odhdf5.getText(info,"Input."+str(idx)+".Survey") )
     inp = {
-      "survey": odhdf5.getText(info,"Input."+str(idx)+".Survey")
+      'path': surveyfp[0],
+      'id': idx
     }
     logsstr = "Input."+str(idx)+".Logs"
     if odhdf5.hasAttr( info, logsstr ):
@@ -120,23 +190,45 @@ def getBaseInfo( info, reqtype ):
       while idy < inpp_sz:
         inp_id.append(odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy)))
         idy += 1
-      inp.update({'id': inp_id})
+      inp.update({'dbkey': inp_id})
 
-    input.append( inp )
+    input.update({surveyfp[1]: inp})
     idx += 1
 
-  return {
+  baseinfo = {
     'type': type,
     'stepout': stepout,
+    'classification': classification,
     'interpolated': odhdf5.getBoolValue(info,"Edge extrapolation"),
     'examples': examples,
     'input': input
   }
+  h5file.close()
 
-def getAttribInfo( filenm ):
+  if type == 'Log-Log Prediction':
+    return getWellInfo( baseinfo, filenm )
+  elif type == 'Seismic Classification':
+    return getAttribInfo( baseinfo, filenm )
+
+  print( "Unrecognized dataset type: ", type )
+  raise KeyError
+
+def getWellInfo( baseinfo, filenm ):
   h5file = h5py.File( filenm, "r" )
   infods = odhdf5.getInfoDataSet( h5file )
-  baseinfo = getBaseInfo( infods, 'Seismic Classification' )
+  zstep = odhdf5.getDValue(infods,"Z step") 
+  marker = (odhdf5.getText(infods,"Top marker"),
+            odhdf5.getText(infods,"Bottom marker"))
+  h5file.close()
+  return {
+    'base': baseinfo,
+    'zstep': zstep,
+    'range': marker,
+  }
+
+def getAttribInfo( baseinfo, filenm ):
+  h5file = h5py.File( filenm, "r" )
+  infods = odhdf5.getInfoDataSet( h5file )
   nrsurveys = odhdf5.getIntValue( infods, 'Number of Surveys' )
   survlist = list()
   idx = 0
@@ -148,18 +240,4 @@ def getAttribInfo( filenm ):
   return {
     'base': baseinfo,
     'surveys': survlist
-  }
-
-def getWellInfo( filenm ):
-  h5file = h5py.File( filenm, "r" )
-  infods = odhdf5.getInfoDataSet( h5file )
-  baseinfo = getBaseInfo( infods, 'Log-Log Prediction' )
-  zstep = odhdf5.getDValue(infods,"Z step") 
-  marker = (odhdf5.getText(infods,"Top marker"),
-            odhdf5.getText(infods,"Bottom marker"))
-  h5file.close()
-  return {
-    'base': baseinfo,
-    'zstep': zstep,
-    'range': marker,
   }
