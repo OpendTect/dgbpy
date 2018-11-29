@@ -7,7 +7,9 @@
 # is called by the DeepLearning plugin
 #
 
-import odpy.iopar
+from odpy.common import *
+import odpy.iopar as iopar
+
 import sys
 import struct
 import numpy
@@ -18,16 +20,13 @@ inpfile = sys.stdin.buffer
 #outfile = open( "/tmp/out.dat", "w" );
 outfile = sys.stdout
 
-def dbg_msg( s ):
-  odpy.common.dbg_msg( s )
-
 def send_msg( typ, msg ):
   outfile.write( typ + ": " + msg + "\n" )
 
 def read_iopar_line( inpfile ):
-  return odpy.iopar.read_line( inpfile, True )
+  return iopar.read_line( inpfile, True )
 
-dbg_msg( "deeplearning_apply started" )
+log_msg( "Deeplearning Apply Module Started" )
 
 arrsz = 0
 nn_file = ""

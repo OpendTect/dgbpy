@@ -7,17 +7,13 @@
 # is called by the DeepLearning plugin
 #
 
-import odpy.iopar
+from odpy.common import *
+import odpy.iopar as iopar
+
 import sys
 import os.path
 
 inpfile = sys.stdin
-outfile = sys.stdout
-
-def dbg_msg( s ):
-  odpy.common.dbg_msg( s )
-
-dbg_msg( "Entered deeplearning_train" )
 
 if len(sys.argv) < 2:
   dbg_msg( "Reading pars from stdin" )
@@ -26,11 +22,10 @@ else:
   inpfile = open( sys.argv[1], "r" )
 
 def read_iopar_line( fp ):
-  return odpy.iopar.read_line( fp, False )
+  return iopar.read_line( fp, False )
 
 apply_type = ""
 data_file = ""
-standalone = 0
 while True:
 
   res = read_iopar_line( inpfile )
@@ -38,21 +33,22 @@ while True:
   if ky == "!":
     break;
 
-  if ky == "Type":
-    apply_type = res[1]
-  if ky == "File name":
+  if ky == "Data File":
     data_file = res[1]
-  if ky == "Standalone":
-    standalone = res[1].lower()[:1] == "y"
+  if ky == "Learning Type":
+    apply_type = res[1]
+  if ky == "Log File":
+    set_log_file( res[1] )
 
+log_msg( "Deeplearning Training Module Started" )
 dbg_msg( "Data file is: " + data_file )
 
 if not os.path.exists( data_file ):
-  dbg_msg( "Error: data file does not exist: " + data_file )
+  log_msg( "Error: data file does not exist: " + data_file )
   exit( 1 )
 
 from subprocess import call
 call(["od_DispMsg", "Training not implemented yet"])
 
-dbg_msg( "Quitting deeplearning_train" )
+log_msg( "Deeplearning Training Module Finished" )
 exit( 0 )
