@@ -14,11 +14,12 @@ import sys
 import os.path
 
 inpfile = sys.stdin
+lm = LogManager()
 
 if len(sys.argv) < 2:
-  dbg_msg( "Reading pars from stdin" )
+  lm.std_msg( "Reading pars from stdin" )
 else:
-  dbg_msg( "Reading pars from " + sys.argv[1] )
+  lm.std_msg( "Reading pars from " + sys.argv[1] )
   inpfile = open( sys.argv[1], "r" )
 
 def read_iopar_line( fp ):
@@ -40,15 +41,15 @@ while True:
   if ky == "Log File":
     set_log_file( res[1] )
 
-log_msg( "Deeplearning Training Module Started" )
-dbg_msg( "Data file is: " + data_file )
+lm.log_msg( "Deeplearning Training Module Started" )
+lm.std_msg( "Data file is: " + data_file )
 
 if not os.path.exists( data_file ):
-  log_msg( "Error: data file does not exist: " + data_file )
+  lm.log_msg( "Error: data file does not exist: " + data_file )
   exit( 1 )
 
 from subprocess import call
 call(["od_DispMsg", "Training not implemented yet"])
 
-log_msg( "Deeplearning Training Module Finished" )
+lm.log_msg( "Deeplearning Training Module Finished" )
 exit( 0 )

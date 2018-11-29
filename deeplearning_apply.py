@@ -19,14 +19,15 @@ import numpy
 inpfile = sys.stdin.buffer
 #outfile = open( "/tmp/out.dat", "w" );
 outfile = sys.stdout
+lm = LogManager()
 
 def send_msg( typ, msg ):
-  outfile.write( typ + ": " + msg + "\n" )
+  print( typ + ": " + msg, file=outfile )
 
 def read_iopar_line( inpfile ):
   return iopar.read_line( inpfile, True )
 
-log_msg( "Deeplearning Apply Module Started" )
+lm.log_msg( "Deeplearning Apply Module Started" )
 
 arrsz = 0
 nn_file = ""
@@ -93,5 +94,5 @@ while True:
 
 
 send_msg( "BYE", str(nrprocessed) )
-dbg_msg( "deeplearning_apply exiting" )
+lm.std_msg( "deeplearning_apply exiting" )
 exit( 0 )
