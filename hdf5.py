@@ -159,11 +159,8 @@ def getInfo( filenm ):
     if odhdf5.hasAttr( info, surveystr ):
       surveyfp = path.split( odhdf5.getText(info, surveystr ) )
       grouplbl = surveyfp[1]
-      lognm = odhdf5.getText( info, exname )
-      if not "itho" in lognm and not "lass" in lognm:
-        classification = False
       example.update({
-        'target': lognm,
+        'target': odhdf5.getText( info, exname ),
         'path': surveyfp[0]
         })
 
@@ -198,7 +195,7 @@ def getInfo( filenm ):
   info = {
     'type': type,
     'stepout': stepout,
-    'classification': classification,
+    'classification': True,
     'interpolated': odhdf5.getBoolValue(info,"Edge extrapolation"),
     'examples': examples,
     'input': input
@@ -216,6 +213,7 @@ def getInfo( filenm ):
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, "r" )
   infods = odhdf5.getInfoDataSet( h5file )
+  info['classification'] = odhdf5.getText(infods,'Target Value Type') == "ID"
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
