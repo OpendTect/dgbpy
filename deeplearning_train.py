@@ -14,7 +14,7 @@ import sys
 import os.path
 
 inpfile = sys.stdin
-lm = LogManager()
+lm = LogManager(argv)
 
 if len(sys.argv) < 2:
   lm.std_msg( "Reading pars from stdin" )
@@ -39,7 +39,7 @@ while True:
   if ky == "Learning Type":
     apply_type = res[1]
   if ky == "Log File":
-    set_log_file( res[1] )
+    lm.set_log_file( res[1] )
 
 lm.log_msg( "Deeplearning Training Module Started" )
 lm.std_msg( "Data file is: " + data_file )

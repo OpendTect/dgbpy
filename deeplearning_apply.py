@@ -19,7 +19,7 @@ import numpy
 inpfile = sys.stdin.buffer
 #outfile = open( "/tmp/out.dat", "w" );
 outfile = sys.stdout
-lm = LogManager()
+lm = LogManager(argv)
 
 def send_msg( typ, msg ):
   print( typ + ": " + msg, file=outfile )
