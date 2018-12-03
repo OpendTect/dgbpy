@@ -80,6 +80,8 @@ class WidgetGallery(QDialog):
     self.dodecimate.setTristate( False )
     self.dodecimate.setChecked( False )
     self.decimatefld = getSpinBox(self.paramgrp,1,99,10)
+    self.decimatefld.setDisabled( True )
+    self.dodecimate.toggled.connect(self.decimatefld.setEnabled)
 
     self.batchfld = getSpinBox(self.paramgrp,1,1000,16)
     self.patiencefld = getSpinBox(self.paramgrp,1,1000,10)
