@@ -11,15 +11,24 @@ from odpy.common import *
 import odpy.iopar as iopar
 
 import sys
+import argparse
 import struct
 import numpy
+
+parser = argparse.ArgumentParser(prog='PROG',description='Application of a trained machine learning model')
+parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
+parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
+                    default='sys.stdout',help='Progress report output')
+parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
+                    default='sys.stdout',help='Standard output')
+args = vars(parser.parse_args())
+lm = LogManager(args)
 
 #inpfile = open( "/tmp/inp.dat", "rb" );
 # for binary read, need to use stdin.buffer
 inpfile = sys.stdin.buffer
 #outfile = open( "/tmp/out.dat", "w" );
 outfile = sys.stdout
-lm = LogManager(argv)
 
 def send_msg( typ, msg ):
   print( typ + ": " + msg, file=outfile )

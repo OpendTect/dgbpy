@@ -12,15 +12,22 @@ import odpy.iopar as iopar
 
 import sys
 import os.path
+import argparse
 
-inpfile = sys.stdin
-lm = LogManager(argv)
+parser = argparse.ArgumentParser(prog='PROG',description='Training a machine learning model')
+parser.add_argument('parfile',type=argparse.FileType('r'),
+                    help='OpendTect parameter file')
+parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
+parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
+                    default='sys.stdout',help='Progress report output')
+parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
+                    default='sys.stdout',help='Standard output')
+args = vars(parser.parse_args())
 
-if len(sys.argv) < 2:
-  lm.std_msg( "Reading pars from stdin" )
-else:
-  lm.std_msg( "Reading pars from " + sys.argv[1] )
-  inpfile = open( sys.argv[1], "r" )
+lm = LogManager(args)
+inpfile = args['parfile']
+lm.std_msg( "Reading pars from " + inpfile )
+inpfile = open( inpfile, "r" )
 
 def read_iopar_line( fp ):
   return iopar.read_line( fp, False )
