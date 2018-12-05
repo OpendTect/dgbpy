@@ -138,23 +138,26 @@ def getInfo( filenm ):
     logstr = "Examples."+str(idx)+".Log"
     if odhdf5.hasAttr( info, namestr ):
       exname = namestr
-      extype = "Point-Set"
+      extype = "Point-Sets"
     elif odhdf5.hasAttr( info, logstr ):
       exname = logstr
-      extype = "Log"
+      extype = "Logs"
     else:
       raise KeyError
+    grouplbl = odhdf5.getText( info, exname )
+    example = {}
     example_sz = odhdf5.getIntValue(info,"Examples."+str(idx)+".Size")
-    example_id = list()
     idy = 0
     while idy < example_sz:
-      example_id.append(odhdf5.getText(info,"Examples."+str(idx)+".ID."+str(idy)))
+      exyname = odhdf5.getText(info,"Examples."+str(idx)+".Name."+str(idy))
+      exidstr = odhdf5.getText(info,"Examples."+str(idx)+".ID."+str(idy))
+      exstruct = {'name': exyname, 'id': idy, 'dbkey': exidstr}
+      survstr = "Examples."+str(idx)+".Survey."+str(idy)
+      if odhdf5.hasAttr( info, survstr ):
+        exstruct.update({'location': odhdf5.getText(info,survstr)})
+      example = {extype: exstruct}
       idy += 1
-    example = {
-      "type": extype,
-      "dbkey": example_id
-    }
-    grouplbl = odhdf5.getText( info, exname )
+    example.update({'id': idx})
     surveystr = "Examples."+str(idx)+".Survey"
     if odhdf5.hasAttr( info, surveystr ):
       surveyfp = path.split( odhdf5.getText(info, surveystr ) )
@@ -181,13 +184,14 @@ def getInfo( filenm ):
       inp.update({'Logs': odhdf5.getText(info, logsstr )})
     inpsizestr = "Input."+str(idx)+".Size"
     if odhdf5.hasAttr( info, inpsizestr ):
-      inp_id = list()
       idy = 0
       inpp_sz = odhdf5.getIntValue(info,inpsizestr)
       while idy < inpp_sz:
-        inp_id.append(odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy)))
+        dsname = odhdf5.getText(info,"Input."+str(idx)+".Name."+str(idy))
+        dbkey = odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy))
+        inpstruct = { 'name': dsname, 'id': idy, 'dbkey': dbkey } 
+        inp.update({'Attributes': inpstruct })
         idy += 1
-      inp.update({'dbkey': inp_id})
 
     input.update({surveyfp[1]: inp})
     idx += 1
@@ -205,7 +209,7 @@ def getInfo( filenm ):
   if type == 'Log-Log Prediction':
     return getWellInfo( info, filenm )
   elif type == 'Seismic Classification':
-    return getAttribInfo( info, filenm )
+    return info
 
   print( "Unrecognized dataset type: ", type )
   raise KeyError
@@ -222,18 +226,4 @@ def getWellInfo( info, filenm ):
     'zstep': zstep,
     'range': marker,
   })
-  return info
-
-def getAttribInfo( info, filenm ):
-  h5file = h5py.File( filenm, "r" )
-  infods = odhdf5.getInfoDataSet( h5file )
-  nrsurveys = odhdf5.getIntValue( infods, 'Number of Surveys' )
-  survlist = list()
-  idx = 0
-  while idx < nrsurveys:
-    survlist.append( odhdf5.getText(infods,"Survey."+str(idx)) )
-    idx += 1
-
-  h5file.close()
-  info.update({'surveys': survlist})
   return info
