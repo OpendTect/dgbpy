@@ -22,7 +22,7 @@ parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argpars
 parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
                     default='sys.stdout',help='Standard output')
 args = vars(parser.parse_args())
-lm = LogManager(args)
+initLogging(args)
 
 #inpfile = open( "/tmp/inp.dat", "rb" );
 # for binary read, need to use stdin.buffer
@@ -36,7 +36,7 @@ def send_msg( typ, msg ):
 def read_iopar_line( inpfile ):
   return iopar.read_line( inpfile, True )
 
-lm.log_msg( "Deeplearning Apply Module Started" )
+log_msg( "Deeplearning Apply Module Started" )
 
 arrsz = 0
 nn_file = ""
@@ -103,5 +103,5 @@ while True:
 
 
 send_msg( "BYE", str(nrprocessed) )
-lm.std_msg( "deeplearning_apply exiting" )
+std_msg( "deeplearning_apply exiting" )
 exit( 0 )

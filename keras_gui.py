@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QDialog, QDialogButtonBox,
                              QFrame, QFormLayout, QHBoxLayout, QLineEdit,
                              QPushButton, QSizePolicy,
                              QSpinBox, QVBoxLayout, QWidget)
+from odpy.common import *
 
 def getSpinBox(min,max,defval):
   ret = QSpinBox()
@@ -44,7 +45,6 @@ def addSeparator(layout):
 class WidgetGallery(QDialog):
   def __init__(self, args, parent=None):
     super(WidgetGallery, self).__init__(parent)
-    self.lm = odcommon.LogManager( args )
     self.h5filenm = args['h5file'].name
 
     mainform = QFormLayout()
@@ -69,12 +69,13 @@ class WidgetGallery(QDialog):
                                                 "HDF5 Files (*.hdf5 *.h5)",
                                                 self.filenmfld) )
 
-    if self.lm.log_file.name != '<stdout>':
-      (self.logfld, self.lognmfld, self.logselbut) = getFileInput( self.lm.log_file.name )
+    if has_log_file():
+      logfile = get_log_file()
+      (self.logfld, self.lognmfld, self.logselbut) = getFileInput( logfile )
       layout.addRow( "&Log File", self.logfld )
       layout.labelForField(self.logfld).setBuddy(self.logselbut)
       self.logselbut.clicked.connect(lambda: selectInput(self,"Select Log File",
-                                                os.path.dirname( self.lm.log_file.name ),
+                                                os.path.dirname( logfile ),
                                                 "Log Files (*.txt *.TXT *.log)",
                                                 self.lognmfld) )
 
@@ -125,10 +126,12 @@ class WidgetGallery(QDialog):
 
   def doApply(self):
     params = self.getParams();
-    self.lm.log_msg( "Input: " + os.path.basename(self.filenmfld.text()) )
-    if self.lognmfld != None:
-      self.lm.log_msg( "Log: " + os.path.basename(self.lognmfld.text()) )
-    self.lm.log_msg( params )
+    log_msg( "Input: " + os.path.basename(self.filenmfld.text()) )
+    try:
+      log_msg( "Log: " + os.path.basename(self.lognmfld.text()) )
+    except AttributeError:
+      pass
+    log_msg( params )
 
 
 def setStyleSheet( app ):
@@ -144,7 +147,6 @@ if __name__ == '__main__':
     import os
     import argparse
     import signal
-    import odpy.common as odcommon
 
     parser = argparse.ArgumentParser(prog='PROG',description='Select parameters for training a Keras model')
     parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
@@ -157,8 +159,9 @@ if __name__ == '__main__':
                         type=argparse.FileType('a'),
                         default='sys.stdout',help='Standard output')
     args = vars(parser.parse_args())
+    initLogging(args)
 
-    app = QApplication(sys.argv)
+    app = QApplication(['Keras Model training'])
     gallery = WidgetGallery(args)
     gallery.show()
     setStyleSheet( app )
