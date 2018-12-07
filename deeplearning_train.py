@@ -8,7 +8,6 @@
 #
 
 from odpy.common import *
-import odpy.iopar as iopar
 
 import sys
 import os.path
@@ -16,51 +15,60 @@ import argparse
 import subprocess
 
 parser = argparse.ArgumentParser(prog='PROG',description='Training a machine learning model')
-parser.add_argument('parfile',type=argparse.FileType('r'),
-                    help='OpendTect parameter file')
+parser.add_argument('train',type=argparse.FileType('r'),help='Training dataset')
 parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
-parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
+datagrp = parser.add_argument_group('Data')
+datagrp.add_argument('--dataroot',dest='dtectdata',metavar='DIR',nargs=1,
+                     help='Survey Data Root')
+datagrp.add_argument('--survey',dest='survey',nargs=1,
+                     help='Survey name')
+odappl = parser.add_argument_group('OpendTect application')
+odappl.add_argument('--dtectappl',metavar='DIR',nargs=1,help='Path to OpendTect executables')
+odappl.add_argument('--qtstylesheet',metavar='qss',nargs=1,type=argparse.FileType('r'),
+                    help='Qt StyleSheet template')
+loggrp = parser.add_argument_group('Logging')
+loggrp.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
                     default='sys.stdout',help='Progress report output')
-parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
+loggrp.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
                     default='sys.stdout',help='Standard output')
 args = vars(parser.parse_args())
 initLogging(args)
-
-inpfile = args['parfile'].name
-std_msg( "Reading pars from " + inpfile )
-inpfile = open( inpfile, "r" )
-
-def read_iopar_line( fp ):
-  return iopar.read_line( fp, False )
-
-apply_type = ""
-data_file = ""
-while True:
-
-  res = read_iopar_line( inpfile )
-  ky = res[0]
-  if ky == "!":
-    break;
-
-  if ky == "Data File":
-    data_file = res[1]
-  if ky == "Learning Type":
-    apply_type = res[1]
-  if ky == "Log File":
-    set_log_file( res[1] )
-
 log_msg( "Deeplearning Training Module Started" )
-std_msg( "Data file is: " + data_file )
-
-if not os.path.exists( data_file ):
-  log_msg( "Error: data file does not exist: " + data_file )
-  exit( 1 )
+log_msg( " " )
 
 guipath = os.path.join( os.path.dirname(os.path.realpath(__file__)), 'keras_gui.py' )
-logfilenm = get_log_file()
-stdoutfilenm = get_stdlog_file()
 
-subprocess.call(['python3',guipath,data_file,'--log',logfilenm,'--syslog',stdoutfilenm])
+machcmd = list()
+machcmd.append( 'python3' )
+machcmd.append( guipath )
+machcmd.append( args['train'].name )
+dataroot = args['dtectdata']
+if dataroot != None:
+  machcmd.append( '--dataroot' )
+  machcmd.append( dataroot[0] )
+survey = args['survey']
+if survey != None:
+  machcmd.append( '--survey' )
+  machcmd.append( survey[0] )
+dtectappl = args['dtectappl']
+if dtectappl != None:
+  machcmd.append( '--dtectappl' )
+  machcmd.append( dtectappl[0] )
+stylesheet = args['qtstylesheet']
+if stylesheet != None:
+  machcmd.append( '--qtstylesheet' )
+  machcmd.append( stylesheet[0].name )
+if 'logfile' in args:
+  machcmd.append( '--log' )
+  machcmd.append( args['logfile'].name )
+if 'syslog' in args:
+  machcmd.append( '--syslog' )
+  machcmd.append( args['sysout'] )
 
+subprocess.call( machcmd )
+
+log_msg( " " )
 log_msg( "Deeplearning Training Module Finished" )
+log_msg( " " )
+log_msg( "Finished batch processing." )
 sys.exit( 0 )

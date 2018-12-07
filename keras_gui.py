@@ -126,17 +126,21 @@ class WidgetGallery(QDialog):
 
   def doApply(self):
     params = self.getParams();
+    log_msg( params )
+    return
     log_msg( "Input: " + os.path.basename(self.filenmfld.text()) )
     try:
       log_msg( "Log: " + os.path.basename(self.lognmfld.text()) )
     except AttributeError:
       pass
-    log_msg( params )
 
 
-def setStyleSheet( app ):
-  cssfile = open( "/auto/d29/arnaud/dev/od/data/Styles/default.qss", "r" )
-  qtcss = cssfile.read()
+def setStyleSheet( app, args ):
+  qtstylesheet = args['qtstylesheet']
+  if qtstylesheet == None:
+    return
+  cssfile = qtstylesheet[0]
+  qtcss = qtstylesheet[0].read()
   cssfile.close()
   app.setStyleSheet( qtcss )
 
@@ -150,13 +154,20 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(prog='PROG',description='Select parameters for training a Keras model')
     parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
-    parser.add_argument('h5file',type=argparse.FileType('r'),
-                        help='HDF5 file containing the training data')
-    parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',
-                        type=argparse.FileType('a'),
+    parser.add_argument('h5file',type=argparse.FileType('r'),help='HDF5 file containing the training data')
+    datagrp = parser.add_argument_group('Data')
+    datagrp.add_argument('--dataroot',dest='dtectdata',metavar='DIR',nargs=1,
+                         help='Survey Data Root')
+    datagrp.add_argument('--survey',dest='survey',nargs=1,
+                         help='Survey name')
+    odappl = parser.add_argument_group('OpendTect application')
+    odappl.add_argument('--dtectappl',metavar='DIR',nargs=1,help='Path to OpendTect executables')
+    odappl.add_argument('--qtstylesheet',metavar='qss',nargs=1,type=argparse.FileType('r'),
+                        help='Qt StyleSheet template')
+    loggrp = parser.add_argument_group('Logging')
+    loggrp.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
                         default='sys.stdout',help='Progress report output')
-    parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',
-                        type=argparse.FileType('a'),
+    loggrp.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
                         default='sys.stdout',help='Standard output')
     args = vars(parser.parse_args())
     initLogging(args)
@@ -164,7 +175,7 @@ if __name__ == '__main__':
     app = QApplication(['Keras Model training'])
     gallery = WidgetGallery(args)
     gallery.show()
-    setStyleSheet( app )
+    setStyleSheet( app, args )
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec_()) 
