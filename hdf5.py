@@ -128,7 +128,7 @@ def getInfo( filenm ):
     return {}
 
   type = odhdf5.getText(info,'Type')
-  stepout = odhdf5.getIStepInterval(info,"Stepout") 
+  stepout = odhdf5.getIStepInterval(info,"Trace.Stepout") 
   classification = True
   ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
   idx = 0
