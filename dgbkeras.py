@@ -97,9 +97,8 @@ def train(model,training,params,trainfile=None):
 
   return model
 
-def save( model, inputinfo, params, fnm ):
+def save( model, inpfnm, outfnm ):
   log_msg( 'Saving model.' )
-  model.save( fnm )
-  dgbhdf5.addInfo( inputinfo,'origin', fnm )
-  dgbhdf5.addInfo( params,'parameters', fnm )
+  model.save( outfnm )
+  dgbhdf5.addInfo( inpfnm, outfnm )
   log_msg( 'Model saved.' )

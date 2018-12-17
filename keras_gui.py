@@ -153,7 +153,7 @@ def doTrain(params,trainfile,outnm,args):
     outfnm = dgbmlio.getSaveLoc( args, outnm )
   except FileNotFoundError:
     raise
-  dgbkeras.save( model, training['info'], params, outfnm )
+  dgbkeras.save( model, trainfile, outfnm )
   return os.path.isfile( outfnm )
 
 

@@ -230,7 +230,15 @@ def getWellInfo( info, filenm ):
   return info
 
 
-def addInfo( info, keynm, modelfnm ):
-  h5file = h5py.File( modelfnm, 'a' )
-  h5file.attrs[keynm] = json.dumps( info )
-  h5file.close()
+def addInfo( inpfile, filenm ):
+  h5filein = h5py.File( inpfile, 'r' )
+  h5fileout = h5py.File( filenm, 'a' )
+  dsinfoin = odhdf5.getInfoDataSet( h5filein )
+  dsinfoout = odhdf5.ensureHasDataset( h5fileout )
+  attribman = dsinfoin.attrs
+  for attribkey in attribman:
+    dsinfoout.attrs[attribkey] = attribman[attribkey]
+  h5filein.close()
+  odhdf5.setAttr( dsinfoout, 'Version', str(1) )
+  odhdf5.setAttr( dsinfoout, 'Model.Type', 'Keras' )
+  h5fileout.close()
