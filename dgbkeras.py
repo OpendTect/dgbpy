@@ -7,6 +7,7 @@ from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
 from keras.layers.normalization import BatchNormalization
 from keras.models import (Sequential)
 from odpy.common import *
+import dgbpy.hdf5 as dgbhdf5
 
 lastlayernm = 'pre-softmax_layer'
 
@@ -96,7 +97,9 @@ def train(model,training,params,trainfile=None):
 
   return model
 
-def save( model, fnm ):
+def save( model, inputinfo, params, fnm ):
   log_msg( 'Saving model.' )
   model.save( fnm )
+  dgbhdf5.addInfo( inputinfo,'origin', fnm )
+  dgbhdf5.addInfo( params,'parameters', fnm )
   log_msg( 'Model saved.' )

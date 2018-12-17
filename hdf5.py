@@ -7,6 +7,7 @@
 #
 
 from os import path
+import json
 import numpy as np
 import h5py
 import odpy.hdf5 as odhdf5
@@ -227,3 +228,9 @@ def getWellInfo( info, filenm ):
     'range': marker,
   })
   return info
+
+
+def addInfo( info, keynm, modelfnm ):
+  h5file = h5py.File( modelfnm, 'a' )
+  h5file.attrs[keynm] = json.dumps( info )
+  h5file.close()
