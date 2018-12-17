@@ -45,6 +45,7 @@ def addSeparator(layout):
 class WidgetGallery(QDialog):
   def __init__(self, args, parent=None):
     super(WidgetGallery, self).__init__(parent)
+    self.args = args
     self.h5filenm = args['h5file'].name
 
     mainform = QFormLayout()
@@ -80,8 +81,6 @@ class WidgetGallery(QDialog):
                                                 self.lognmfld) )
 
   def createParametersGroupBox(self,layout):
-    self.iterfld = getSpinBox(1,100,15)
-    self.epochfld = getSpinBox(1,1000,15)
     self.dodecimate = QCheckBox( "&Decimate input" )
     self.dodecimate.setTristate( False )
     self.dodecimate.setChecked( False )
@@ -89,12 +88,16 @@ class WidgetGallery(QDialog):
     self.decimatefld.setSuffix("%")
     self.decimatefld.setDisabled( True )
     self.dodecimate.toggled.connect(self.decimatefld.setEnabled)
+    self.iterfld = getSpinBox(1,100,15)
+    self.iterfld.setDisabled( True )
+    self.dodecimate.toggled.connect(self.iterfld.setEnabled)
+    self.epochfld = getSpinBox(1,1000,15)
     self.batchfld = getSpinBox(1,1000,16)
     self.patiencefld = getSpinBox(1,1000,10)
 
+    layout.addRow( self.dodecimate, self.decimatefld )
     layout.addRow( "Number of &Iterations", self.iterfld )
     layout.addRow( "Number of &Epochs", self.epochfld )
-    layout.addRow( self.dodecimate, self.decimatefld )
     layout.addRow( "Number of &Batch", self.batchfld )
     layout.addRow( "&Patience", self.patiencefld )
 
@@ -115,25 +118,20 @@ class WidgetGallery(QDialog):
 
   def getParams(self):
     ret = {
-      'num_tot_iterations': self.iterfld.value(),
+      'decimation': None,
+      'num_tot_iterations': 1,
       'epochs': self.epochfld.value(),
       'batch_size': self.batchfld.value(),
       'opt_patience': self.patiencefld.value()
     }
     if self.dodecimate.isChecked():
-      ret.update({'num_train_ex': self.decimatefld.value()})
+      ret['decimation'] = self.decimatefld.value()
+      ret['num_tot_iterations'] = self.iterfld.value()
     return ret
 
   def doApply(self):
     params = self.getParams();
-    log_msg( params )
-    return
-    log_msg( "Input: " + os.path.basename(self.filenmfld.text()) )
-    try:
-      log_msg( "Log: " + os.path.basename(self.lognmfld.text()) )
-    except AttributeError:
-      pass
-
+    success = doTrain( params, self.filenmfld.text(), self.modelfld.text(), self.args )
 
 def setStyleSheet( app, args ):
   qtstylesheet = args['qtstylesheet']
@@ -143,6 +141,20 @@ def setStyleSheet( app, args ):
   qtcss = qtstylesheet[0].read()
   cssfile.close()
   app.setStyleSheet( qtcss )
+
+def doTrain(params,trainfile,outnm,args):
+  import dgbpy.mlio as dgbmlio
+  training = dgbmlio.getTrainingData( trainfile, params['decimation'] )
+  import dgbpy.dgbkeras as dgbkeras
+  model = dgbkeras.getDefaultModel(training['info'])
+  model = dgbkeras.train( model, training, params, trainfile=trainfile )
+  outfnm = None
+  try:
+    outfnm = dgbmlio.getSaveLoc( args, outnm )
+  except FileNotFoundError:
+    raise
+  dgbkeras.save( model, outfnm )
+  return os.path.isfile( outfnm )
 
 
 if __name__ == '__main__':
@@ -161,7 +173,7 @@ if __name__ == '__main__':
     datagrp.add_argument('--survey',dest='survey',nargs=1,
                          help='Survey name')
     odappl = parser.add_argument_group('OpendTect application')
-    odappl.add_argument('--dtectappl',metavar='DIR',nargs=1,help='Path to OpendTect executables')
+    odappl.add_argument('--dtectexec',metavar='DIR',nargs=1,help='Path to OpendTect executables')
     odappl.add_argument('--qtstylesheet',metavar='qss',nargs=1,type=argparse.FileType('r'),
                         help='Qt StyleSheet template')
     loggrp = parser.add_argument_group('Logging')

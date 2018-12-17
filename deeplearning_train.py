@@ -12,7 +12,7 @@ from odpy.common import *
 import sys
 import os.path
 import argparse
-import subprocess
+from subprocess import call
 
 parser = argparse.ArgumentParser(prog='PROG',description='Training a machine learning model')
 parser.add_argument('train',type=argparse.FileType('r'),help='Training dataset')
@@ -23,7 +23,7 @@ datagrp.add_argument('--dataroot',dest='dtectdata',metavar='DIR',nargs=1,
 datagrp.add_argument('--survey',dest='survey',nargs=1,
                      help='Survey name')
 odappl = parser.add_argument_group('OpendTect application')
-odappl.add_argument('--dtectappl',metavar='DIR',nargs=1,help='Path to OpendTect executables')
+odappl.add_argument('--dtectexec',metavar='DIR',nargs=1,help='Path to OpendTect executables')
 odappl.add_argument('--qtstylesheet',metavar='qss',nargs=1,type=argparse.FileType('r'),
                     help='Qt StyleSheet template')
 loggrp = parser.add_argument_group('Logging')
@@ -50,10 +50,10 @@ survey = args['survey']
 if survey != None:
   machcmd.append( '--survey' )
   machcmd.append( survey[0] )
-dtectappl = args['dtectappl']
-if dtectappl != None:
-  machcmd.append( '--dtectappl' )
-  machcmd.append( dtectappl[0] )
+dtectexec = args['dtectexec']
+if dtectexec != None:
+  machcmd.append( '--dtectexec' )
+  machcmd.append( dtectexec[0] )
 stylesheet = args['qtstylesheet']
 if stylesheet != None:
   machcmd.append( '--qtstylesheet' )
@@ -65,7 +65,13 @@ if 'syslog' in args:
   machcmd.append( '--syslog' )
   machcmd.append( args['sysout'] )
 
-subprocess.call( machcmd )
+try:
+  retcode = call( machcmd, stdout=args['logfile'], stderr=args['sysout'] )
+  if retcode < 0:
+    std_msg("Terminated by signal", -retcode)
+except OSError as e:
+  log_msg("Execution failed:", e)
+  raise
 
 log_msg( " " )
 log_msg( "Deeplearning Training Module Finished" )
