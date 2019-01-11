@@ -9,8 +9,6 @@
 
 from random import random
 
-import pandas as pd
-
 from bokeh.layouts import row, column
 from bokeh.models import Button, CustomJS, ColumnDataSource
 from bokeh.models.widgets import Panel, Tabs
@@ -74,9 +72,7 @@ def file_callback(attr,old,new):
     prefix, b64_contents = raw_contents.split(",", 1)
     file_contents = base64.b64decode(b64_contents)
     file_io = StringIO(file_contents)
-    df = pd.read_excel(file_io)
     print( "file contents:" )
-    print( df )
 
 file_source.on_change('data', file_callback)
 
