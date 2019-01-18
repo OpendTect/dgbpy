@@ -10,98 +10,124 @@
 from odpy.common import *
 import odpy.iopar as iopar
 
-import sys
 import argparse
-import struct
 import numpy
+import struct
+import sys
 
-parser = argparse.ArgumentParser(prog='PROG',description='Application of a trained machine learning model')
-parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
-parser.add_argument('--log',dest='logfile',metavar='file',nargs='?',type=argparse.FileType('a'),
-                    default='sys.stdout',help='Progress report output')
-parser.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
-                    default='sys.stdout',help='Standard output')
-args = vars(parser.parse_args())
-initLogging(args)
 
-#inpfile = open( "/tmp/inp.dat", "rb" );
-# for binary read, need to use stdin.buffer
-inpfile = sys.stdin.buffer
-#outfile = open( "/tmp/out.dat", "w" );
-outfile = sys.stdout
+# -- IO tools
 
-def send_msg( typ, msg ):
-  print( typ + ": " + msg, file=outfile )
+inpstrm = sys.stdin.buffer
+outtxtstrm = sys.stdout
+outstrm = outtxtstrm.buffer
 
-def read_iopar_line( inpfile ):
-  return iopar.read_line( inpfile, True )
-
-log_msg( "Deeplearning Apply Module Started" )
-
-arrsz = 0
-nn_file = ""
-apply_type = ""
-while True:
-
-  res = read_iopar_line( inpfile )
-  ky = res[0]
-  if ky == "!":
-    break;
-
-  if ky == "Type":
-    apply_type = res[1]
-  if ky == "Data Size":
-    arrsz = int(res[1])
-  if ky == "File name":
-    nn_file = res[1]
-
-# TODO read nn_file here
-nn_arrsz = arrsz
-
-if nn_arrsz < 1:
-  send_msg( "ERR", "Cannot read deep learning network:" + nn_file )
-
-# sanity check
-if arrsz > 0 and arrsz != nn_arrsz:
-  send_msg( "ERR", "Input size mismatch (read "
-                 + str(nn_arrsz) + ", got" + str(arrsz) + ")" )
+def exit_err( msg ):
+  outstrm.write( b"ERR" )
+  outtxtstrm.write( str(len(msg)) + ' ' + msg + '\n' )
   exit( 1 )
 
-# report agreed number of floats per input tensor that needs to be transferred
-send_msg( "RDY", str(nn_arrsz) )
-nrprocessed = 0
 
-# to reduce the data transfer duplication, a 'sliding' version of the input
-# arrays can be transferred.
-# we need to 'window' through the data to get the actual apply tensors
+# -- command line parser
+
+parser = argparse.ArgumentParser(
+            description='Application of a trained machine learning model')
+parser.add_argument( '-v', '--version',
+            action='version',version='%(prog)s 1.0')
+parser.add_argument( '--log',
+            dest='logfile', metavar='file', nargs='?',
+            type=argparse.FileType('a'), default='sys.stdout',
+            help='Progress report output' )
+parser.add_argument( '--syslog',
+            dest='sysout', metavar='stdout', nargs='?',
+            type=argparse.FileType('a'), default='sys.stdout',
+            help='Standard output' )
+parser.add_argument( 'parfilename',
+            help='The input parameter file' )
+args = parser.parse_args()
+initLogging( vars(args) )
+print( args.parfilename )
+
+
+# -- read parameter file
+
+try:
+  parfile = open( args.parfilename, "r" );
+except IOError:
+  exit_err( "Cannot open parameter file " + args.parfilename )
+
+def read_iopar_line():
+  return iopar.read_line( parfile, False )
+
+zstart = 0
+zstop = -1
+zstep = 1
+keras_file = ""
+outputs = []
+total_nr_inpsamps = 0
+nroutsamps = 0
+
+for i in range(4): # dispose of file header
+  read_iopar_line()
 
 while True:
 
-  rawnrpts = inpfile.read( 4 );
-  if len(rawnrpts) < 4 or rawnrpts.decode('utf8') == "STOP":
+  ioparkeyval = read_iopar_line()
+  ky = ioparkeyval[0]
+  if ky == "!":
     break;
-  nrptsarr = struct.unpack( 'i', rawnrpts )
-  nrpts = nrptsarr[0]
-  if nrpts < 1:
-    break
-  if nrpts > 1000000:
-    send_msg( "ERR", "nrpts=" + str(nrpts)
-                     + "should be < 1000000 (sanity check)" )
-    break
+  val = ioparkeyval[1]
 
-  totsz = nn_arrsz + nrpts - 1
-  vals = struct.unpack( 'f'*totsz, inpfile.read(4*totsz) )
-  for idx in range( 0, nrpts ):
+  if ky == "Size":
+    total_nr_inpsamps = int( val )
+  elif ky == "Z range":
+    nrs = val.split( "`" )
+    zstart = float( nrs[0] )
+    zstop = float( nrs[1] )
+    zstep = float( nrs[2] )
+  elif ky == "Z length":
+    nroutsamps = int( val )
+  elif ky == "File name":
+    keras_file = val
+  elif ky == "Output":
+    nrs = val.split( "`" )
+    for idx in range( len(nrs) ):
+      outputs.append( int(nrs[idx]) )
 
-#  TODO apply NN here
-#  Expecting 2 numbers on output: prediction and confidence
-
-    valwindow = vals[idx:idx+nn_arrsz]
-    outstr = str(numpy.mean(valwindow)) + " " + str(numpy.std(valwindow))
-    send_msg( "RES", outstr )
-    nrprocessed = nrprocessed + 1
+parfile.close()
 
 
-send_msg( "BYE", str(nrprocessed) )
-std_msg( "deeplearning_apply exiting" )
-exit( 0 )
+# -- sanity checks, initialisation
+
+if nroutsamps < 1:
+  exit_err( "did not see 'Size' key in input IOPar" )
+
+nroutvals = len( outputs )
+if nroutvals < 1:
+  exit_err( "No 'Output's found in par file" )
+
+slicesz = total_nr_inpsamps / nroutsamps
+nrprocessed = 0
+
+
+# -- operation
+
+while True:
+
+  actcode = inpstrm.read( 3 );
+  if len(actcode) < 3:
+    exit_err( "Cannot get actcode" )
+
+  actstr = actcode.decode('utf8')
+  if actstr == "STP":
+    exit( 0 )
+
+  if actstr != "INP":
+    exit_err( "Unknown actcode" )
+
+# TODO: implement
+  inpstrm.read( 100 )
+  nrprocessed = nrprocessed + 1
+
+  os.remove( args.parfilename )
+  exit_err( "TODO: python apply not implemented yet" )
