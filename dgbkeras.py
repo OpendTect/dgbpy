@@ -1,13 +1,17 @@
 import os
+import logging
 import numpy as np
 
+from odpy.common import *
+import dgbpy.hdf5 as dgbhdf5
+
+redirect_stdout()
 import keras
 from keras.callbacks import (EarlyStopping,LearningRateScheduler)
 from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
 from keras.layers.normalization import BatchNormalization
 from keras.models import (Sequential)
-from odpy.common import *
-import dgbpy.hdf5 as dgbhdf5
+restore_stdout()
 
 lastlayernm = 'pre-softmax_layer'
 
@@ -89,10 +93,12 @@ def train(model,training,params,trainfile=None):
 
     x_train = np.expand_dims(x_train,axis=4)
     y_train = keras.utils.to_categorical(y_train, getNrClasses(model))
+    redirect_stdout()
     history = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
                         validation_split=0.2, \
                         batch_size=params['batch_size'], \
                         epochs=params['epochs'])
+    restore_stdout()
     keras.utils.print_summary( model, print_fn=log_msg )
 
   return model
