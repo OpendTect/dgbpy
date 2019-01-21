@@ -18,12 +18,12 @@ import sys
 
 # -- IO tools
 
-inpstrm = sys.stdin.buffer
-outtxtstrm = sys.stdout
-outstrm = outtxtstrm.buffer
+#inpstrm = sys.stdin.buffer
+#outtxtstrm = sys.stdout
+#outstrm = outtxtstrm.buffer
 
 def exit_err( msg ):
-  outstrm.write( b"ERR" )
+  outtxtstrm.write( "ERR" )
   outtxtstrm.write( str(len(msg)) + ' ' + msg + '\n' )
   exit( 1 )
 
@@ -32,6 +32,8 @@ def exit_err( msg ):
 
 parser = argparse.ArgumentParser(
             description='Application of a trained machine learning model')
+
+# standard
 parser.add_argument( '-v', '--version',
             action='version',version='%(prog)s 1.0')
 parser.add_argument( '--log',
@@ -41,15 +43,29 @@ parser.add_argument( '--log',
 parser.add_argument( '--syslog',
             dest='sysout', metavar='stdout', nargs='?',
             type=argparse.FileType('a'), default=sys.stdout,
-            help='Standard output' )
-parser.add_argument( 'parfilename',
-            type=argparse.FileType('r'),
-            help='The input parameter file' )
-args = vars(parser.parse_args())
-initLogging( args )
+            help='System log' )
 
-parfile = args['parfilename']
-parfilename = parfile.name
+# optional
+parser.add_argument( '-i','--input', nargs='?', type=argparse.FileType('r'),
+                     default=sys.stdin )
+parser.add_argument( '-o','--output', nargs='?', type=argparse.FileType('w'),
+                     default=sys.stdout )
+
+# required
+parser.add_argument( 'parfilename', type=argparse.FileType('r'),
+                     help='The input parameter file' )
+
+args = parser.parse_args()
+vargs = vars( args )
+initLogging( vargs )
+# print(getattr(args, 'input'))
+# print(getattr(args, 'output'))
+
+parfile = args.parfilename
+inpstrm = args.input.buffer
+outtxtstrm = args.output
+outstrm = outtxtstrm.buffer
+
 
 
 # -- read parameter file
@@ -94,6 +110,7 @@ while True:
 
 parfile.close()
 
+
 # -- sanity checks, initialisation
 
 if nroutsamps < 1:
@@ -128,7 +145,7 @@ while True:
     exit_err( "Data transfer failure" )
 
   vals = struct.unpack( 'f'*total_nr_inpsamps, inpdata )
-  outvals = numpy.zeros( shape=(outnr*nroutvals) )
+  outvals = numpy.zeros( shape=(nroutsamps*nroutvals) )
 
 # TODO: -- implement keras apply
   slicesz = int(total_nr_inpsamps) // int(nroutsamps) # incorrect but who cares
@@ -145,9 +162,11 @@ while True:
       set_outval( numpy.std(valwindow) )
 # --
 
-  outstrm.write( "OUT" )
-  outstrm.write( struct.pack(outvals) )
+  outtxtstrm.write( "OUT" )
+  outbytes = outvals.tobytes()
+  outstrm.write( outbytes )
   nrprocessed = nrprocessed + 1
 
-os.remove( args.parfilename )
+# for production, uncomment to keep /tmp tidy
+#os.remove( parfile.name )
 exit( 0 )
