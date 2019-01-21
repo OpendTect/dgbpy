@@ -8,7 +8,7 @@
 
 
 import sys
-from odpy.common import *
+
 import odpy.dbman as oddbman
 import dgbpy.hdf5 as dgbhdf5
 
@@ -24,7 +24,6 @@ def getTrainingData( filenm, decim=None ):
     'info': infos,
     'train': data
   }
-
 
 def getSaveLoc( args, outnm ):
   dblist = oddbman.getDBList(args,mltrlgrp)

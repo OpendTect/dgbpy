@@ -1,8 +1,7 @@
 import os
-import logging
 import numpy as np
 
-from odpy.common import *
+from odpy.common import log_msg,redirect_stdout,restore_stdout
 import dgbpy.hdf5 as dgbhdf5
 
 redirect_stdout()
@@ -71,9 +70,9 @@ def getDefaultModel(setup):
   return model
 
 def train(model,training,params,trainfile=None):
-  early_stopping = EarlyStopping(monitor='acc', patience=params['opt_patience'])
+  early_stopping = EarlyStopping(monitor='acc', patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
-  num_bunch = params['num_tot_iterations']
+  num_bunch = params['iters']
   dec_fact = params['decimation']
   decimate = dec_fact != None
   x_train = {}
@@ -90,14 +89,13 @@ def train(model,training,params,trainfile=None):
       x_train = trainbatch['train']['x']
       y_train = trainbatch['train']['y']
     log_msg('Finished creating',len(x_train),'examples!')
-
     x_train = np.expand_dims(x_train,axis=4)
     y_train = keras.utils.to_categorical(y_train, getNrClasses(model))
     redirect_stdout()
     history = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
                         validation_split=0.2, \
-                        batch_size=params['batch_size'], \
-                        epochs=params['epochs'])
+                        batch_size=params['batch'], \
+                        epochs=params['epoch'])
     restore_stdout()
     keras.utils.print_summary( model, print_fn=log_msg )
 

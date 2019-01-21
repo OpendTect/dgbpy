@@ -20,26 +20,40 @@ from bokeh.util import logconfig
 from odpy import common as odcommon
 from dgbpy import mlapply as dgbmlapply
 
-parser = argparse.ArgumentParser(prog='PROG',description='Select parameters for machine learning model training')
-parser.add_argument('-v','--version',action='version',version='%(prog)s 1.0')
-parser.add_argument('h5file',type=argparse.FileType('r'),help='HDF5 file containing the training data')
-datagrp = parser.add_argument_group('Data')
-datagrp.add_argument('--dataroot',dest='dtectdata',metavar='DIR',nargs=1,
-                     help='Survey Data Root')
-datagrp.add_argument('--survey',dest='survey',nargs=1,
-                     help='Survey name')
-odappl = parser.add_argument_group('OpendTect application')
-odappl.add_argument('--dtectexec',metavar='DIR',nargs=1,help='Path to OpendTect executables')
-odappl.add_argument('--qtstylesheet',metavar='qss',nargs=1,type=argparse.FileType('r'),
-                    help='Qt StyleSheet template')
-loggrp = parser.add_argument_group('Logging')
-loggrp.add_argument('--proclog',dest='logfile',metavar='file',nargs='?',
-                    type=argparse.FileType('a'),
-                    default=sys.stdout,help='Progress report output')
-loggrp.add_argument('--syslog',dest='sysout',metavar='stdout',nargs='?',type=argparse.FileType('a'),
-                        default=sys.stdout,help='Standard output')
+parser = argparse.ArgumentParser(
+            description='Select parameters for machine learning model training')
+parser.add_argument( '-v', '--version',
+            action='version', version='%(prog)s 1.0' )
+parser.add_argument( 'h5file',
+            type=argparse.FileType('r'),
+            help='HDF5 file containing the training data' )
+datagrp = parser.add_argument_group( 'Data' )
+datagrp.add_argument( '--dataroot',
+            dest='dtectdata', metavar='DIR', nargs=1,
+            help='Survey Data Root' )
+datagrp.add_argument( '--survey',
+            dest='survey', nargs=1,
+            help='Survey name' )
+odappl = parser.add_argument_group( 'OpendTect application' )
+odappl.add_argument( '--dtectexec',
+            metavar='DIR', nargs=1,
+            help='Path to OpendTect executables' )
+odappl.add_argument( '--qtstylesheet',
+            metavar='qss', nargs=1,
+            type=argparse.FileType('r'),
+            help='Qt StyleSheet template' )
+loggrp = parser.add_argument_group( 'Logging' )
+loggrp.add_argument( '--proclog',
+            dest='logfile', metavar='file', nargs='?',
+            type=argparse.FileType('a'), default=sys.stdout,
+            help='Progress report output' )
+loggrp.add_argument( '--syslog',
+            dest='sysout', metavar='stdout', nargs='?',
+            type=argparse.FileType('a'), default=sys.stdout,
+            help='Standard output' )
 args = vars(parser.parse_args())
-odcommon.initLogging(args)
+odcommon.initLogging( args )
+odcommon.proclog_logger.setLevel( 'DEBUG' )
 
 but_width = 80
 but_height = 20
@@ -160,14 +174,14 @@ def decimateCB( widgetactivelist ):
 def getKerasDict():
   ret = {
     'decimation': None,
-    'num_tot_iterations': 1,
-    'epochs': epochfld.value,
-    'batch_size': batchfld.value,
-    'opt_patience': patiencefld.value 
+    'iters': 1,
+    'epoch': epochfld.value,
+    'batch': batchfld.value,
+    'patience': patiencefld.value 
   }
   if doDecimate(decimatefld):
     ret['decimation'] = True
-    ret['num_tot_iterations'] = iterfld.value
+    ret['iters'] = iterfld.value
   return ret
 
 def getScikitDict():
@@ -185,7 +199,9 @@ def getParams():
 def acceptOK():
   runbut.disabled = True
   stopbut.disabled = False
-  success = dgbmlapply.doTrain( getParams(), outputnmfld.value, args )
+  odcommon.reset_log_file( 1 )
+  success = dgbmlapply.doTrain( platformfld.value, getParams(),
+                                outputnmfld.value, args )
   if success:
     odcommon.log_msg( "Deeplearning Training Module Finished" )
     odcommon.log_msg( "" )

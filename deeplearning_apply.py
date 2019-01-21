@@ -36,25 +36,23 @@ parser.add_argument( '-v', '--version',
             action='version',version='%(prog)s 1.0')
 parser.add_argument( '--log',
             dest='logfile', metavar='file', nargs='?',
-            type=argparse.FileType('a'), default='sys.stdout',
+            type=argparse.FileType('a'), default=sys.stdout,
             help='Progress report output' )
 parser.add_argument( '--syslog',
             dest='sysout', metavar='stdout', nargs='?',
-            type=argparse.FileType('a'), default='sys.stdout',
+            type=argparse.FileType('a'), default=sys.stdout,
             help='Standard output' )
 parser.add_argument( 'parfilename',
+            type=argparse.FileType('r'),
             help='The input parameter file' )
-args = parser.parse_args()
-initLogging( vars(args) )
-print( args.parfilename )
+args = vars(parser.parse_args())
+initLogging( args )
+
+parfile = args['parfilename']
+parfilename = parfile.name
 
 
 # -- read parameter file
-
-try:
-  parfile = open( args.parfilename, "r" );
-except IOError:
-  exit_err( "Cannot open parameter file " + args.parfilename )
 
 def read_iopar_line():
   return iopar.read_line( parfile, False )
@@ -95,7 +93,6 @@ while True:
       outputs.append( int(nrs[idx]) )
 
 parfile.close()
-
 
 # -- sanity checks, initialisation
 
