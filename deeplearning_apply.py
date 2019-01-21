@@ -106,7 +106,6 @@ nroutvals = len( outputs )
 if nroutvals < 1:
   exit_err( "No 'Output's found in par file" )
 
-slicesz = total_nr_inpsamps / nroutsamps
 nrprocessed = 0
 
 
@@ -120,14 +119,38 @@ while True:
 
   actstr = actcode.decode('utf8')
   if actstr == "STP":
-    exit( 0 )
+    break
 
   if actstr != "INP":
     exit_err( "Unknown actcode" )
 
-# TODO: implement
-  inpstrm.read( 100 )
+  # read total_nr_inpsamps floats
+  try:
+    inpdata = inpstrm.read( 4*total_nr_inpsamps )
+  except:
+    exit_err( "Data transfer failure" )
+
+  vals = struct.unpack( 'f'*total_nr_inpsamps, inpdata )
+  outvals = numpy.zeros( shape=(outnr*nroutvals) )
+
+# TODO: -- implement keras apply
+  slicesz = int(total_nr_inpsamps) // int(nroutsamps) # incorrect but who cares
+  for iout in range( 0, nroutsamps ):
+    valwindow = vals[ iout*slicesz : (iout+1)*slicesz ]
+    outnr = 0
+    def set_outval( val ):
+      outvals[outnr*nroutvals + iout] = numpy.std( valwindow )
+      ++outnr
+
+    if 0 in outputs:
+      set_outval( numpy.mean(valwindow) )
+    if 1 in outputs:
+      set_outval( numpy.std(valwindow) )
+# --
+
+  outstrm.write( "OUT" )
+  outstrm.write( struct.pack(outvals) )
   nrprocessed = nrprocessed + 1
 
-  os.remove( args.parfilename )
-  exit_err( "TODO: python apply not implemented yet" )
+os.remove( args.parfilename )
+exit( 0 )
