@@ -162,9 +162,8 @@ while True:
       set_outval( numpy.std(valwindow) )
 # --
 
-  outtxtstrm.write( "OUT" )
-  outbytes = outvals.tobytes()
-  outstrm.write( outbytes )
+  outstrm.write( b"OUT" )
+  outvals.astype('float32').tofile( outstrm )
   nrprocessed = nrprocessed + 1
 
 # for production, uncomment to keep /tmp tidy
