@@ -50,7 +50,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
     nrattribs = 1
   stepout = infos['stepout']
   isclass = infos['classification']
-  if decim != None:
+  if decim:
     if decim < 0 or decim > 100:
       print( "Decimation percentage not within [0,100]" )
       raise ValueError
@@ -58,7 +58,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   group = h5file[groupnm]
   dsetnms = list(group.keys())
   nrpts = len(dsetnms)
-  if decim != None:
+  if decim:
     np.random.shuffle( dsetnms )
     nrpts = int(nrpts*(decim/100))
     if nrpts < 1:
@@ -95,7 +95,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   }
   return ret
 
-def getAllCubeLets( filenm, decim=None ):
+def getAllCubeLets( filenm, decim=False ):
   infos = getInfo( filenm )
   groupnms = getGroupNames( filenm )
   cubelets = list()

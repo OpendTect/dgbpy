@@ -8,7 +8,6 @@
 
 import sys
 import argparse
-import logging
 
 from bokeh.layouts import row, column, layout
 from bokeh.models import Spacer
@@ -19,6 +18,7 @@ from bokeh.util import logconfig
 
 from odpy import common as odcommon
 from dgbpy import mlapply as dgbmlapply
+from dgbpy import dgbkeras, dgbscikit
 
 parser = argparse.ArgumentParser(
             description='Select parameters for machine learning model training')
@@ -69,18 +69,7 @@ mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
 ML_PLFS = [('keras','Keras (tensorflow)'),
            ('scikit','Scikit-learn')]
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
-outputnmfld = TextInput(value='<new model>',title='Output model:')
-
-keras_dict = {
-  'decimation': None,
-  'iters': 15,
-  'epoch': 15,
-  'batch': 16,
-  'patience': 10
-}
-scikit_dict = {
-  'nb': 3
-}
+outputnmfld = TextInput(title='Output model:',value=dgbmlapply.modelnm)
 
 def setActiveTab( tabspanelwidget, tabnm ):
   tabs = tabspanelwidget.tabs
@@ -111,14 +100,15 @@ def setParsTabCB():
   setActiveTab( mainpanel, paramtabnm )
 
 def getKerasParsGrp():
+  dict = dgbkeras.keras_dict
   decimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
-  iterfld = Slider(start=1,end=100,value=keras_dict['iters'],step=1,
+  iterfld = Slider(start=1,end=100,value=dict['iters'],step=1,
               title='Iterations')
-  epochfld = Slider(start=1,end=100,value=keras_dict['epoch'],step=1,
+  epochfld = Slider(start=1,end=100,value=dict['epoch'],step=1,
               title='Epochs')
-  batchfld = Slider(start=1,end=100,value=keras_dict['batch'],step=1,
+  batchfld = Slider(start=1,end=100,value=dict['batch'],step=1,
             title='Number of Batch')
-  patiencefld = Slider(start=1,end=100,value=keras_dict['patience'],step=1,
+  patiencefld = Slider(start=1,end=100,value=dict['patience'],step=1,
                 title='Patience')
   return (decimatefld,iterfld,epochfld,batchfld,patiencefld,{
     'tabname': 'Keras',
@@ -126,8 +116,8 @@ def getKerasParsGrp():
   })
 
 def getScikitParsGrp():
-  nbparfld = Slider(start=1,end=100,value=scikit_dict['nb'],step=1,
-              title='Number')
+  dict = dgbscikit.scikit_dict
+  nbparfld = Slider(start=1,end=100,value=dict['nb'],step=1,title='Number')
   return (nbparfld,{
     'tabname': 'Scikit-learn',
     'grp': column(nbparfld)
@@ -171,37 +161,21 @@ def decimateCB( widgetactivelist ):
   decimate = integerListContains( widgetactivelist, 0 )
   iterfld.disabled = not decimate
 
-def getKerasDict():
-  ret = {
-    'decimation': None,
-    'iters': 1,
-    'epoch': epochfld.value,
-    'batch': batchfld.value,
-    'patience': patiencefld.value 
-  }
-  if doDecimate(decimatefld):
-    ret['decimation'] = True
-    ret['iters'] = iterfld.value
-  return ret
-
-def getScikitDict():
-  return {
-    'testpar': nbparfld.value
-  }
-
 def getParams():
   if doKeras():
-    return getKerasDict()
+    return dgbkeras.getParams( doDecimate(decimatefld), iterfld.value,
+                               epochfld.value, batchfld.value,
+                              patiencefld.value )
   elif doScikit():
-    return getScikitDict()
+    return dgbscikit.getParams( nbparfld.value )
   return {}
 
 def acceptOK():
   runbut.disabled = True
   stopbut.disabled = False
   odcommon.reset_log_file( 1 )
-  success = dgbmlapply.doTrain( platformfld.value, getParams(),
-                                outputnmfld.value, args )
+  success = dgbmlapply.doTrain( args['h5file'].name, platformfld.value,
+                                getParams(), outputnmfld.value, args )
   if success:
     odcommon.log_msg( "Deeplearning Training Module Finished" )
     odcommon.log_msg( "" )

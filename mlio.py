@@ -17,7 +17,7 @@ mltrlgrp = 'Deep Learning Model'
 kerastrl = 'Keras'
 hdf5ext = 'h5'
 
-def getTrainingData( filenm, decim=None ):
+def getTrainingData( filenm, decim=False ):
   infos = dgbhdf5.getInfo( filenm )
   data = dgbhdf5.getAllCubeLets( filenm, decim )
   return {
@@ -25,9 +25,9 @@ def getTrainingData( filenm, decim=None ):
     'train': data
   }
 
-def getSaveLoc( args, outnm ):
-  dblist = oddbman.getDBList(args,mltrlgrp)
+def getSaveLoc( outnm, args ):
+  dblist = oddbman.getDBList(mltrlgrp,args)
   curentry = oddbman.getByName( dblist, outnm )
   if curentry != None:
-    return oddbman.getFileLocation(args,curentry)
-  return oddbman.getNewEntryFileName(args,outnm,nladbdirid,mltrlgrp,kerastrl,hdf5ext)
+    return oddbman.getFileLocation(curentry,args)
+  return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,kerastrl,hdf5ext,args)

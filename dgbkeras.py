@@ -1,18 +1,31 @@
 import os
 import numpy as np
 
-from odpy.common import log_msg,redirect_stdout,restore_stdout
+from odpy.common import log_msg
 import dgbpy.hdf5 as dgbhdf5
 
-redirect_stdout()
-import keras
-from keras.callbacks import (EarlyStopping,LearningRateScheduler)
-from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
-from keras.layers.normalization import BatchNormalization
-from keras.models import (Sequential)
-restore_stdout()
-
 lastlayernm = 'pre-softmax_layer'
+keras_dict = {
+  'decimation': False,
+  'iters': 15,
+  'epoch': 15,
+  'batch': 16,
+  'patience': 10
+}
+
+def getParams( dec=keras_dict['decimation'], iters=keras_dict['iters'],
+              epochs=keras_dict['epoch'], batch=keras_dict['batch'],
+              patience=keras_dict['patience'] ):
+  ret = {
+    'decimation': dec,
+    'iters': iters,
+    'epoch': epochs,
+    'batch': batch,
+    'patience': patience
+  }
+  if not dec:
+    ret['iters'] = 1
+  return ret
 
 # Function that takes the epoch as input and returns the desired learning rate
 # input_int: the epoch that is currently being entered
@@ -30,6 +43,14 @@ def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
 def getDefaultModel(setup):
+  from odpy.common import redirect_stdout,restore_stdout
+  redirect_stdout()
+  import keras
+  restore_stdout()
+  from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
+  from keras.layers.normalization import BatchNormalization
+  from keras.models import (Sequential)
+
   nrclasses = len(setup['examples'])
   stepout = setup['stepout']
   model = Sequential()
@@ -69,12 +90,17 @@ def getDefaultModel(setup):
   model.compile(loss='categorical_crossentropy',optimizer=opt,metrics=['accuracy'])
   return model
 
-def train(model,training,params,trainfile=None):
+def train(model,training,params=keras_dict,trainfile=None):
+  from odpy.common import redirect_stdout,restore_stdout
+  redirect_stdout()
+  import keras
+  restore_stdout()
+  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
   early_stopping = EarlyStopping(monitor='acc', patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
   num_bunch = params['iters']
   dec_fact = params['decimation']
-  decimate = dec_fact != None
+  decimate = dec_fact
   x_train = {}
   y_train = {}
   if not decimate:
