@@ -66,8 +66,10 @@ trainpanel = Panel(title=traintabnm)
 parameterspanel = Panel(title=paramtabnm)
 mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
 
-ML_PLFS = [('keras','Keras (tensorflow)'),
-           ('scikit','Scikit-learn')]
+ML_PLFS = []
+ML_PLFS.append( dgbkeras.platform )
+ML_PLFS.append( dgbscikit.platform )
+
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
 outputnmfld = TextInput(title='Output model:',value=dgbmlapply.modelnm)
 
@@ -88,10 +90,10 @@ def doDecimate( fldwidget, index=0 ):
   return integerListContains( fldwidget.active, index )
 
 def doKeras():
-  return platformfld.value == ML_PLFS[0][0]
+  return platformfld.value == dgbkeras.getMLPlatform()
 
 def doScikit():
-  return platformfld.value == ML_PLFS[1][0]
+  return platformfld.value == dgbscikit.getMLPlatform()
 
 def setTraingTabCB():
   setActiveTab( mainpanel, traintabnm )
@@ -111,7 +113,7 @@ def getKerasParsGrp():
   patiencefld = Slider(start=1,end=100,value=dict['patience'],step=1,
                 title='Patience')
   return (decimatefld,iterfld,epochfld,batchfld,patiencefld,{
-    'tabname': 'Keras',
+    'tabname': dgbkeras.getUIMLPlatform(),
     'grp' : column(decimatefld,iterfld,epochfld,batchfld,patiencefld)
   })
 
@@ -119,7 +121,7 @@ def getScikitParsGrp():
   dict = dgbscikit.scikit_dict
   nbparfld = Slider(start=1,end=100,value=dict['nb'],step=1,title='Number')
   return (nbparfld,{
-    'tabname': 'Scikit-learn',
+    'tabname': dgbscikit.getUIMLPlatform(),
     'grp': column(nbparfld)
   })
 

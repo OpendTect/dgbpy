@@ -4,6 +4,14 @@ import numpy as np
 from odpy.common import log_msg
 import dgbpy.hdf5 as dgbhdf5
 
+platform = ('keras','Keras (tensorflow)')
+
+def getMLPlatform():
+  return platform[0]
+
+def getUIMLPlatform():
+  return platform[1]
+
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
   'decimation': False,
