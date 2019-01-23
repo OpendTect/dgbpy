@@ -17,7 +17,7 @@ keras_dict = {
   'decimation': False,
   'iters': 15,
   'epoch': 15,
-  'batch': 16,
+  'batch': 32,
   'patience': 10
 }
 
@@ -60,7 +60,9 @@ def getDefaultModel(setup):
   from keras.models import (Sequential)
 
   nrinputs = dgbhdf5.get_nr_attribs(setup)
+  isclassification = setup[dgbhdf5.classdictstr]
   nrclasses = len(setup['examples'])
+  multiclass = isclassification and nrclasses == 2
   stepout = setup['stepout']
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', name='conv_layer1', \
@@ -92,11 +94,20 @@ def getDefaultModel(setup):
   model.add(BatchNormalization())
   model.add(Activation('softmax'))
 
-# initiate the Adam optimizer with a given learning rate (Note that this is adapted later)
+# initiate the Adam optimizer with a given learning rate
+#  opt = 'rmsprop'
   opt = keras.optimizers.adam(lr=0.001)
 
-# Compile the model with the desired loss, optimizer, and metric
-  model.compile(loss='categorical_crossentropy',optimizer=opt,metrics=['accuracy'])
+# Compile the model with the desired optimizer, loss, and metric
+  metrics = ['accuracy']
+  if isclassification:
+    if multiclass:
+      loss = 'categorical_crossentropy'
+    else:
+      loss = 'binary_crossentropy'
+    model.compile(optimizer=opt,loss=loss,metrics=metrics)
+  else:
+    model.compile(optimizer=opt,loss='rmsprop')
   return model
 
 def train(model,training,params=keras_dict,trainfile=None):
@@ -126,19 +137,49 @@ def train(model,training,params=keras_dict,trainfile=None):
     log_msg('Finished creating',len(x_train),'examples!')
     if len(x_train.shape) < 4:
       x_train = np.expand_dims(x_train,axis=1)
-    y_train = keras.utils.to_categorical(y_train, getNrClasses(model))
+    y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
     redirect_stdout()
-    history = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
+    hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
                         validation_split=0.2, \
                         batch_size=params['batch'], \
                         epochs=params['epoch'])
+    #log_msg( hist.history )
     restore_stdout()
-    keras.utils.print_summary( model, print_fn=log_msg )
 
+  keras.utils.print_summary( model, print_fn=log_msg )
   return model
+
+def apply( model, samples, isclassification, batch_size=keras_dict['batch'] ):
+  import keras
+  ret = model.predict( samples )
+  if not isclassification:
+    return ret
+  classes = model.predict_classes( samples )
+  return (classes,ret)
 
 def save( model, inpfnm, outfnm ):
   log_msg( 'Saving model.' )
-  model.save( outfnm )
-  dgbhdf5.addInfo( inpfnm, outfnm )
+  model.save( outfnm ) #Keep first!
+  dgbhdf5.addInfo( inpfnm, getMLPlatform(), outfnm )
   log_msg( 'Model saved.' )
+
+def load( modelfnm ):
+  from odpy.common import redirect_stdout,restore_stdout
+  redirect_stdout()
+  from keras.models import load_model
+  ret = load_model( modelfnm )
+  restore_stdout()
+  return ret
+
+def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):
+  try:
+    import pydot
+  except ImportError:
+    log_msg( 'Cannot plot the model without pydot module' )
+    return
+  rankdir = 'TB'
+  if not vertical:
+    rankdir = 'LR'
+  from keras.utils import plot_model
+  plot_model( model, to_file=outfnm, show_shapes=showshapes,
+              show_layer_names=withlaynames, rankdir=rankdir )

@@ -25,7 +25,6 @@ def doTrain( trainfilenm, platform='keras', params=None, outnm=modelnm, args=Non
   if params != None and 'decimation' in params:
     decimate = params['decimation']
   training = dgbmlio.getTrainingData( trainfilenm, decimate )
-  model = None
   if platform == 'keras':
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
@@ -43,3 +42,27 @@ def doTrain( trainfilenm, platform='keras', params=None, outnm=modelnm, args=Non
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
   return (outfnm != None and os.path.isfile( outfnm ))
+
+def doApply( modelfnm, platform=None, type=None, isclassification=None,
+             samples=None ):
+  if platform == None or type == None or isclassification == None:
+    import dgbpy.hdf5 as dgbhdf5
+    infos = dgbhdf5.getInfo( modelfnm )
+    if platform == None:
+      platform = infos[dgbhdf5.plfdictstr]
+    if type == None:
+      type = infos[dgbhdf5.typedictstr]
+    if isclassification == None:
+      isclassification = infos[dgbhdf5.classdictstr]
+  if platform == 'keras':
+    import dgbpy.dgbkeras as dgbkeras
+    model = dgbkeras.load( modelfnm )
+    return dgbkeras.apply( model, samples, isclassification )
+  elif platform == 'scikit':
+    log_msg( 'scikit platform not supported (yet)' )
+    import dgbpy.dgbscikit as dgbscikit
+    raise AttributeError
+  else:
+    log_msg( 'Unsupported machine learning platform' )
+    raise AttributeError
+

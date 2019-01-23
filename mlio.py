@@ -17,8 +17,11 @@ mltrlgrp = 'Deep Learning Model'
 kerastrl = 'Keras'
 hdf5ext = 'h5'
 
+def getInfo( filenm ):
+  return dgbhdf5.getInfo( filenm )
+
 def getTrainingData( filenm, decim=False ):
-  infos = dgbhdf5.getInfo( filenm )
+  infos = getInfo( filenm )
   data = dgbhdf5.getAllCubeLets( filenm, decim )
   return {
     'info': infos,

@@ -13,6 +13,10 @@ import h5py
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
 
+typedictstr = 'type'
+plfdictstr = 'platform'
+classdictstr = 'classification'
+
 def getGroupNames( filenm ):
   h5file = h5py.File( filenm, "r" )
   ret = list()
@@ -77,7 +81,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
     attribsel = groupnm
   nrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos['stepout']
-  isclass = infos['classification']
+  isclass = infos[classdictstr]
   if decim:
     if decim < 0 or decim > 100:
       std_msg( "Decimation percentage not within [0,100]" )
@@ -227,20 +231,24 @@ def getInfo( filenm ):
     input.update({surveyfp[1]: inp})
     idx += 1
 
-  info = {
-    'type': type,
+  retinfo = {
+    typedictstr: type,
     'stepout': stepout,
-    'classification': True,
+    classdictstr: True,
     'interpolated': odhdf5.getBoolValue(info,"Edge extrapolation"),
     'examples': examples,
     'input': input
   }
+  if odhdf5.hasAttr(info,'Model.Type' ):
+    retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
+  if  odhdf5.hasAttr(info,'Version'):
+    retinfo.update({'version': odhdf5.getText(info,'Version')})
   h5file.close()
 
   if type == 'Log-Log Prediction':
-    return getWellInfo( info, filenm )
+    return getWellInfo( retinfo, filenm )
   elif type == 'Seismic Classification':
-    return info
+    return retinfo
 
   std_msg( "Unrecognized dataset type: ", type )
   raise KeyError
@@ -248,7 +256,7 @@ def getInfo( filenm ):
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, "r" )
   infods = odhdf5.getInfoDataSet( h5file )
-  info['classification'] = odhdf5.getText(infods,'Target Value Type') == "ID"
+  info[classdictstr] = odhdf5.getText(infods,'Target Value Type') == "ID"
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
@@ -259,8 +267,7 @@ def getWellInfo( info, filenm ):
   })
   return info
 
-
-def addInfo( inpfile, filenm ):
+def addInfo( inpfile, plfnm, filenm ):
   h5filein = h5py.File( inpfile, 'r' )
   h5fileout = h5py.File( filenm, 'a' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
@@ -270,5 +277,5 @@ def addInfo( inpfile, filenm ):
     dsinfoout.attrs[attribkey] = attribman[attribkey]
   h5filein.close()
   odhdf5.setAttr( dsinfoout, 'Version', str(1) )
-  odhdf5.setAttr( dsinfoout, 'Model.Type', 'Keras' )
+  odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
   h5fileout.close()
