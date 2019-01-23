@@ -64,8 +64,8 @@ def getDefaultModel(setup):
   stepout = setup['stepout']
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', name='conv_layer1', \
-             input_shape=(2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1,nrinputs), \
-             data_format="channels_last"))
+             input_shape=(nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1), \
+             data_format="channels_first"))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
   model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2'))
@@ -124,7 +124,8 @@ def train(model,training,params=keras_dict,trainfile=None):
       x_train = trainbatch['train']['x']
       y_train = trainbatch['train']['y']
     log_msg('Finished creating',len(x_train),'examples!')
-    x_train = np.expand_dims(x_train,axis=4)
+    if len(x_train.shape) < 4:
+      x_train = np.expand_dims(x_train,axis=1)
     y_train = keras.utils.to_categorical(y_train, getNrClasses(model))
     redirect_stdout()
     history = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
