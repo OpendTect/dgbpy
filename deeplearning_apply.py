@@ -6,6 +6,11 @@
 # Script for deep learning apply
 # is called by the DeepLearning plugin
 #
+# Required: par file as created by OD's deeplearning module
+# Normal operation is receiving data from stdin and putting results on stdout
+# The protocol is a simple 3-char code before sending binary float32 data,
+# both ways.
+#
 
 from odpy.common import *
 import odpy.iopar as iopar
@@ -15,18 +20,15 @@ import numpy
 import struct
 import sys
 
-
-# -- IO tools
-
-#inpstrm = sys.stdin.buffer
-#outtxtstrm = sys.stdout
-#outstrm = outtxtstrm.buffer
+def get_actioncode_bytes( ival ):
+  return ival.to_bytes( 4, byteorder=sys.byteorder, signed=True )
 
 def exit_err( msg ):
-  outtxtstrm.write( "ERR" )
+  errcode = -1
+  outstrm.write( get_actioncode_bytes(errcode.to_bytes) )
   outtxtstrm.write( str(len(msg)) + ' ' + msg + '\n' )
+  outtxtstrm.flush()
   exit( 1 )
-
 
 # -- command line parser
 
@@ -50,6 +52,10 @@ parser.add_argument( '-i','--input', nargs='?', type=argparse.FileType('r'),
                      default=sys.stdin )
 parser.add_argument( '-o','--output', nargs='?', type=argparse.FileType('w'),
                      default=sys.stdout )
+parser.add_argument( '--debug', help="prepare for pdb-clone debugging",
+                      action="store_true")
+parser.add_argument( '--wait', help="wait execution for pdb-clone debugger to attach",
+                      action="store_true")
 
 # required
 parser.add_argument( 'parfilename', type=argparse.FileType('r'),
@@ -58,15 +64,18 @@ parser.add_argument( 'parfilename', type=argparse.FileType('r'),
 args = parser.parse_args()
 vargs = vars( args )
 initLogging( vargs )
-# print(getattr(args, 'input'))
-# print(getattr(args, 'output'))
 
 parfile = args.parfilename
 inpstrm = args.input.buffer
 outtxtstrm = args.output
 outstrm = outtxtstrm.buffer
-
-
+debug_mode = getattr(args,'debug') or getattr(args,'wait')
+if debug_mode:
+  from pdb_clone import pdbhandler
+  pdbhandler.register()
+  if getattr(args,'wait'):
+    from pdb_clone import pdb
+    pdb.set_trace_remote()
 
 # -- read parameter file
 
@@ -78,8 +87,9 @@ zstop = -1
 zstep = 1
 keras_file = ""
 outputs = []
-total_nr_inpsamps = 0
 nroutsamps = 0
+tensor_size = 0
+incomingnrvals = 0
 
 for i in range(4): # dispose of file header
   read_iopar_line()
@@ -92,17 +102,19 @@ while True:
     break;
   val = ioparkeyval[1]
 
-  if ky == "Size":
-    total_nr_inpsamps = int( val )
+  if ky == "File name":
+    keras_file = val
+  elif ky == "Input.Size":
+    incomingnrvals = int( val )
+  elif ky == "Input.Size.Z":
+    nroutsamps = int( val )
+  elif ky == "Tensor.Size":
+    tensor_size = int( val )
   elif ky == "Z range":
     nrs = val.split( "`" )
     zstart = float( nrs[0] )
     zstop = float( nrs[1] )
     zstep = float( nrs[2] )
-  elif ky == "Z length":
-    nroutsamps = int( val )
-  elif ky == "File name":
-    keras_file = val
   elif ky == "Output":
     nrs = val.split( "`" )
     for idx in range( len(nrs) ):
@@ -114,10 +126,10 @@ parfile.close()
 # -- sanity checks, initialisation
 
 if nroutsamps < 1:
-  exit_err( "did not see 'Size' key in input IOPar" )
+  exit_err( "did not see 'Input.Size.Z' key in input IOPar" )
 
-nroutvals = len( outputs )
-if nroutvals < 1:
+nroutputs = len( outputs )
+if nroutputs < 1:
   exit_err( "No 'Output's found in par file" )
 
 nrprocessed = 0
@@ -125,35 +137,36 @@ nrprocessed = 0
 
 # -- operation
 
+nrbytes = 0
+rdnrvals = 0
+outgoingnrvals = nroutputs * nroutsamps
+
 while True:
 
-  actcode = inpstrm.read( 3 );
-  if len(actcode) < 3:
-    exit_err( "Cannot get actcode" )
-
-  actstr = actcode.decode('utf8')
-  if actstr == "STP":
+  rdnrvals = int.from_bytes( inpstrm.read(4), byteorder=sys.byteorder );
+  if rdnrvals == -1:
     break
+  if rdnrvals != incomingnrvals:
+    exit_err( "Bad nr input samples: " + str(rdnrvals)
+               + " should be " + str(incomingnrvals) )
 
-  if actstr != "INP":
-    exit_err( "Unknown actcode" )
-
-  # read total_nr_inpsamps floats
+  # read input for one trace
   try:
-    inpdata = inpstrm.read( 4*total_nr_inpsamps )
+    inpdata = inpstrm.read( 4*incomingnrvals )
   except:
     exit_err( "Data transfer failure" )
 
-  vals = struct.unpack( 'f'*total_nr_inpsamps, inpdata )
-  outvals = numpy.zeros( shape=(nroutsamps*nroutvals) )
+  vals = struct.unpack( 'f'*incomingnrvals, inpdata )
+  outvals = numpy.zeros( shape=(outgoingnrvals), dtype=numpy.float32 )
 
 # TODO: -- implement keras apply
-  slicesz = int(total_nr_inpsamps) // int(nroutsamps) # incorrect but who cares
+  # the following is just to return something
+  slicesz = incomingnrvals // nroutsamps
   for iout in range( 0, nroutsamps ):
     valwindow = vals[ iout*slicesz : (iout+1)*slicesz ]
     outnr = 0
     def set_outval( val ):
-      outvals[outnr*nroutvals + iout] = numpy.std( valwindow )
+      outvals[outnr*nroutsamps + iout] = numpy.std( valwindow )
       ++outnr
 
     if 0 in outputs:
@@ -162,8 +175,8 @@ while True:
       set_outval( numpy.std(valwindow) )
 # --
 
-  outstrm.write( b"OUT" )
-  outvals.astype('float32').tofile( outstrm )
+  outstrm.write( get_actioncode_bytes(outgoingnrvals) )
+  nrbytes = outstrm.write( outvals.astype('float32') )
   nrprocessed = nrprocessed + 1
 
 # for production, uncomment to keep /tmp tidy
