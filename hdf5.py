@@ -11,6 +11,7 @@ import json
 import numpy as np
 import h5py
 import odpy.hdf5 as odhdf5
+from odpy.common import std_msg
 
 def getGroupNames( filenm ):
   h5file = h5py.File( filenm, "r" )
@@ -31,10 +32,37 @@ def getGroupSize( filenm, groupnm ):
   h5file.close()
   return size
 
-def get_np_shape( step, nrpts=None ):
+def get_nr_attribs( info, subkey=None ):
+  try:
+    inputinfo = info['input']
+  except KeyError:
+    raise
+  ret = 0
+  for groupnm in inputinfo:
+    if subkey != None and groupnm != subkey:
+      continue
+    groupinfo = inputinfo[groupnm]
+    try:
+      nrattrib = len(groupinfo['Attributes'])
+    except KeyError:
+      try:
+        nrattrib = len(groupinfo['Logs'])
+      except KeyError:
+        return 0
+    if nrattrib == 0:
+      continue
+    if ret == 0:
+      ret = nrattrib
+    elif nrattrib != ret:
+      raise ValueError
+  return ret
+
+def get_np_shape( step, nrpts=None, nrattribs=None ):
   ret = ()
   if nrpts != None:
     ret += (nrpts,)
+  if nrattribs != None:
+    ret += (nrattribs,)
   if isinstance( step, int ):
     ret += ( step*2+1, )
     return ret
@@ -43,16 +71,16 @@ def get_np_shape( step, nrpts=None ):
   return ret
 
 def getCubeLets( filenm, infos, groupnm, decim ):
-  nrattribs = 0
-  try:
-    nrattribs = len( infos['input'][groupnm]['Logs'] )
-  except KeyError:
-    nrattribs = 1
+  fromwells = groupnm in infos['input']
+  attribsel = None
+  if fromwells:
+    attribsel = groupnm
+  nrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos['stepout']
   isclass = infos['classification']
   if decim:
     if decim < 0 or decim > 100:
-      print( "Decimation percentage not within [0,100]" )
+      std_msg( "Decimation percentage not within [0,100]" )
       raise ValueError
   h5file = h5py.File( filenm, "r" )
   group = h5file[groupnm]
@@ -65,13 +93,13 @@ def getCubeLets( filenm, infos, groupnm, decim ):
       return {}
     del dsetnms[nrpts:]
   shape = None
-  if nrattribs==1:
-    shape = get_np_shape(stepout,nrpts)
-  else:
+  if fromwells :
     if stepout > 0:
       shape = ( nrpts, nrattribs, stepout*2+1 )
     else:
       shape = ( nrpts, nrattribs )
+  else:
+    shape = get_np_shape(stepout,nrpts,nrattribs)
 
   cubelets = np.empty( shape, np.float32 )
   outdtype = np.float32
@@ -117,7 +145,7 @@ def validInfo( info ):
   try:
     type = odhdf5.getText(info,"Type")
   except KeyError:
-    print("No type found. Probably wrong type of hdf5 file")
+    std_msg("No type found. Probably wrong type of hdf5 file")
     return False
   return True
 
@@ -187,12 +215,14 @@ def getInfo( filenm ):
     if odhdf5.hasAttr( info, inpsizestr ):
       idy = 0
       inpp_sz = odhdf5.getIntValue(info,inpsizestr)
+      attriblist = list()
       while idy < inpp_sz:
         dsname = odhdf5.getText(info,"Input."+str(idx)+".Name."+str(idy))
         dbkey = odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy))
-        inpstruct = { 'name': dsname, 'id': idy, 'dbkey': dbkey } 
-        inp.update({'Attributes': inpstruct })
+        attriblist.append({ 'name': dsname, 'id': idy, 'dbkey': dbkey })
         idy += 1
+      if len(attriblist) > 0:
+        inp.update({'Attributes': attriblist} )
 
     input.update({surveyfp[1]: inp})
     idx += 1
@@ -212,7 +242,7 @@ def getInfo( filenm ):
   elif type == 'Seismic Classification':
     return info
 
-  print( "Unrecognized dataset type: ", type )
+  std_msg( "Unrecognized dataset type: ", type )
   raise KeyError
 
 def getWellInfo( info, filenm ):

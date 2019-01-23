@@ -59,11 +59,12 @@ def getDefaultModel(setup):
   from keras.layers.normalization import BatchNormalization
   from keras.models import (Sequential)
 
+  nrinputs = dgbhdf5.get_nr_attribs(setup)
   nrclasses = len(setup['examples'])
   stepout = setup['stepout']
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', name='conv_layer1', \
-             input_shape=(2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1,1), \
+             input_shape=(2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1,nrinputs), \
              data_format="channels_last"))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
