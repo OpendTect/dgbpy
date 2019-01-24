@@ -8,8 +8,10 @@
 #
 # Required: par file as created by OD's deeplearning module
 # Normal operation is receiving data from stdin and putting results on stdout
-# The protocol is a simple 3-char code before sending binary float32 data,
+# The protocol is to simply transmit the number of (float32) values and then the data,
 # both ways.
+# From input we get a full Z range of data, i.e. the entire input for one trace or log.
+# Back, we deliver the output trace/log, optionally also one or more aux traces/logs.
 #
 
 from odpy.common import *
@@ -25,7 +27,7 @@ def get_actioncode_bytes( ival ):
 
 def exit_err( msg ):
   errcode = -1
-  outstrm.write( get_actioncode_bytes(errcode.to_bytes) )
+  outstrm.write( get_actioncode_bytes(errcode) )
   outtxtstrm.write( str(len(msg)) + ' ' + msg + '\n' )
   outtxtstrm.flush()
   exit( 1 )
@@ -140,17 +142,27 @@ nrprocessed = 0
 nrbytes = 0
 rdnrvals = 0
 outgoingnrvals = nroutputs * nroutsamps
+outgoingnrbytes = outgoingnrvals * 4
 
 while True:
 
-  rdnrvals = int.from_bytes( inpstrm.read(4), byteorder=sys.byteorder );
-  if rdnrvals == -1:
+  # read action code
+  try:
+    data_read = inpstrm.read( 4 )
+  except:
+    break
+
+  # anything positive should be the number of values
+  rdnrvals = int.from_bytes( data_read, byteorder=sys.byteorder );
+  if rdnrvals < 0:
     break
   if rdnrvals != incomingnrvals:
-    exit_err( "Bad nr input samples: " + str(rdnrvals)
-               + " should be " + str(incomingnrvals) )
+    if nrprocessed == 0:
+      exit_err( "Bad nr input samples: " + str(rdnrvals)
+                 + " should be " + str(incomingnrvals) )
+    break # happens at EOF, too, does not except but gives wild value
 
-  # read input for one trace
+  # slurp input for one trace
   try:
     inpdata = inpstrm.read( 4*incomingnrvals )
   except:
@@ -175,8 +187,12 @@ while True:
       set_outval( numpy.std(valwindow) )
 # --
 
+  # success ... write nr values and the trace/log data
   outstrm.write( get_actioncode_bytes(outgoingnrvals) )
-  nrbytes = outstrm.write( outvals.astype('float32') )
+  nrbyteswritten = outstrm.write( outvals.astype('float32') )
+  if nrbyteswritten != outgoingnrbytes:
+    exit_err( "Could only write " + str(nrbyteswritten)
+              + " of " + str(outgoingnrbytes) )
   nrprocessed = nrprocessed + 1
 
 # for production, uncomment to keep /tmp tidy
