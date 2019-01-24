@@ -113,7 +113,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   idx = 0
   for dsetnm in dsetnms:
     dset = group[dsetnm]
-    cubelets[idx] = np.array( dset ).squeeze()
+    cubelets[idx] = np.array( dset )
     if isclass :
       output[idx] = odhdf5.getIntValue( dset, 'Value' )
     else:
@@ -272,7 +272,7 @@ def getWellInfo( info, filenm ):
 
 def addInfo( inpfile, plfnm, filenm ):
   h5filein = h5py.File( inpfile, 'r' )
-  h5fileout = h5py.File( filenm, 'a' )
+  h5fileout = h5py.File( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
   dsinfoout = odhdf5.ensureHasDataset( h5fileout )
   attribman = dsinfoin.attrs
@@ -281,4 +281,30 @@ def addInfo( inpfile, plfnm, filenm ):
   h5filein.close()
   odhdf5.setAttr( dsinfoout, 'Version', str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
+  outps = getOutputs( inpfile )
+  nrout = len(outps)
+  modeloutstr = 'Model.Output.'
+  odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(nrout) )
+  for idx in range(nrout):
+    odhdf5.setAttr( dsinfoout, modeloutstr+str(idx)+'.Name', outps[idx] )
+
   h5fileout.close()
+
+def getOutputs( inpfile ):
+  info = getInfo( inpfile )
+  ret = list()
+  type = info[typedictstr]
+  isclassification = info[classdictstr]
+  if isclassification:
+    ret.append( 'Classification' )
+    if type == 'Seismic Classification':
+      ret.extend( getGroupNames(inpfile) )
+    ret.append( 'Confidence' )
+  else:
+    if type == 'Log-Log Prediction':
+      for groupnm in info['examples']:
+        ret.append( info['examples'][groupnm]['target'] )
+        break
+
+  return ret
+
