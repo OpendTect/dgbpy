@@ -251,10 +251,17 @@ def getInfo( filenm ):
   if type == loglogtypestr:
     return getWellInfo( retinfo, filenm )
   elif type == seisclasstypestr:
-    return retinfo
+    return getAttribInfo( retinfo, filenm )
 
   std_msg( "Unrecognized dataset type: ", type )
   raise KeyError
+
+def getAttribInfo( info, filenm ):
+  if not info[classdictstr]:
+    return info
+
+  info.update( {classesdictstr: getClassIndices(info)} )
+  return info
 
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, "r" )
@@ -290,8 +297,7 @@ def addInfo( inpfile, plfnm, filenm ):
 
   h5fileout.close()
 
-def getClassIndices( inpfile, filternms=None ):
-  info = getInfo( inpfile )
+def getClassIndices( info, filternms=None ):
   ret = []
   for groupnm in info[exampledictstr]:
     if filternms==None or groupnm in filternms:

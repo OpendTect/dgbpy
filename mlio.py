@@ -21,11 +21,26 @@ def getInfo( filenm ):
   return dgbhdf5.getInfo( filenm )
 
 def getTrainingData( filenm, decim=False ):
-  ret = { dgbkeys.infodictstr: getInfo( filenm ) }
   examples = dgbhdf5.getAllCubeLets( filenm, decim )
+  info = getClasses( getInfo(filenm), examples )
+  ret = { dgbkeys.infodictstr: info }
   for ex in examples:
     ret.update({ex: examples[ex]})
   return ret
+
+def getClasses( info, examples ):
+  if not info[dgbkeys.classdictstr] or dgbkeys.classesdictstr in info:
+    return info
+  import numpy as np
+  y_vec = examples[dgbkeys.ytraindictstr]
+  classes = []
+  (minval,maxval) = ( np.min(y_vec), np.max(y_vec) )
+  for idx in np.arange(minval,maxval+1,1,dtype=np.uint8):
+    if np.any(y_vec == idx ):
+      classes.append( idx )
+  if len(classes) > 0:
+    info.update( {dgbkeys.classesdictstr: np.array(classes,dtype=np.uint8)} )
+  return info
 
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)

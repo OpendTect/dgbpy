@@ -72,8 +72,10 @@ def getDefaultModel(setup):
 
   nrinputs = dgbhdf5.get_nr_attribs(setup)
   isclassification = setup[dgbhdf5.classdictstr]
-  nrclasses = len(setup[dgbkeys.exampledictstr])
-  multiclass = isclassification and nrclasses == 2
+  if isclassification:
+    nroutputs = len(setup[dgbkeys.classesdictstr])
+  else:
+    nroutputs = 1
   stepout = setup[dgbkeys.stepoutdictstr]
   try: 
     steps = (nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1)
@@ -104,7 +106,7 @@ def getDefaultModel(setup):
   model.add(Dense(10,name = 'attribute_layer'))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Dense(nrclasses, name=lastlayernm))
+  model.add(Dense(nroutputs, name=lastlayernm))
   model.add(BatchNormalization())
   model.add(Activation('softmax'))
 
@@ -115,7 +117,7 @@ def getDefaultModel(setup):
 # Compile the model with the desired optimizer, loss, and metric
   metrics = ['accuracy']
   if isclassification:
-    if multiclass:
+    if nroutputs > 2:
       loss = 'categorical_crossentropy'
     else:
       loss = 'binary_crossentropy'

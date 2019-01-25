@@ -46,9 +46,9 @@ def doTrain( trainfilenm, platform=dgbkeys.kerasplfnm, params=None, \
 
 def doApply( modelfnm, samples, outputs=None, platform=None, type=None,
              isclassification=None ):
+  import dgbpy.hdf5 as dgbhdf5
+  infos = dgbhdf5.getInfo( modelfnm )
   if platform == None or type == None or isclassification == None:
-    import dgbpy.hdf5 as dgbhdf5
-    infos = dgbhdf5.getInfo( modelfnm )
     if platform == None:
       platform = infos[dgbhdf5.plfdictstr]
     if type == None:
@@ -60,7 +60,7 @@ def doApply( modelfnm, samples, outputs=None, platform=None, type=None,
   withconfidence = isclassification and \
                    (outputs==None or dgbhdf5.confvalstr in outputs)
   if isclassification:
-    withprobs = dgbhdf5.getClassIndices( modelfnm, outputs )
+    withprobs = dgbhdf5.getClassIndices( infos, outputs )
 
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras

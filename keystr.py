@@ -13,6 +13,7 @@
 
 attribdictstr = 'attribute'
 classdictstr = 'classification'
+classesdictstr = 'classes'
 confdictstr = 'confidence'
 dbkeydictstr = 'dbkey'
 decimkeystr = 'decimation'
