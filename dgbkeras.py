@@ -1,10 +1,21 @@
+#__________________________________________________________________________
+#
+# (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
+# Author:        A. Huck
+# Date:          Nov 2018
+#
+# _________________________________________________________________________
+# various tools machine learning using Keras platform
+#
+
 import os
 import numpy as np
 
 from odpy.common import log_msg
+import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 
-platform = ('keras','Keras (tensorflow)')
+platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 
 def getMLPlatform():
   return platform[0]
@@ -14,18 +25,18 @@ def getUIMLPlatform():
 
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
-  'decimation': False,
+  dgbkeys.decimkeystr: False,
   'iters': 15,
   'epoch': 15,
   'batch': 32,
   'patience': 10
 }
 
-def getParams( dec=keras_dict['decimation'], iters=keras_dict['iters'],
+def getParams( dec=keras_dict[dgbkeys.decimkeystr], iters=keras_dict['iters'],
               epochs=keras_dict['epoch'], batch=keras_dict['batch'],
               patience=keras_dict['patience'] ):
   ret = {
-    'decimation': dec,
+    dgbkeys.decimkeystr: dec,
     'iters': iters,
     'epoch': epochs,
     'batch': batch,
@@ -61,13 +72,16 @@ def getDefaultModel(setup):
 
   nrinputs = dgbhdf5.get_nr_attribs(setup)
   isclassification = setup[dgbhdf5.classdictstr]
-  nrclasses = len(setup['examples'])
+  nrclasses = len(setup[dgbkeys.exampledictstr])
   multiclass = isclassification and nrclasses == 2
-  stepout = setup['stepout']
+  stepout = setup[dgbkeys.stepoutdictstr]
+  try: 
+    steps = (nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1)
+  except TypeError:
+    steps = (nrinputs,1,1,2*stepout+1)
   model = Sequential()
-  model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', name='conv_layer1', \
-             input_shape=(nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1), \
-             data_format="channels_first"))
+  model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
+            name='conv_layer1',input_shape=steps,data_format="channels_first"))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
   model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2'))
@@ -119,21 +133,21 @@ def train(model,training,params=keras_dict,trainfile=None):
   early_stopping = EarlyStopping(monitor='acc', patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
   num_bunch = params['iters']
-  dec_fact = params['decimation']
+  dec_fact = params[dgbkeys.decimkeystr]
   decimate = dec_fact
   x_train = {}
   y_train = {}
   if not decimate:
-    x_train = training['train']['x']
-    y_train = training['train']['y']
+    x_train = training[dgbkeys.xtraindictstr]
+    y_train = training[dgbkeys.ytraindictstr]
   for repeat in range(num_bunch):
     log_msg('Starting iteration',str(repeat+1)+'/'+str(num_bunch))
     log_msg('Starting training data creation:')
     if decimate and trainfile != None:
       import dgbpy.mlio as dgbmlio
       trainbatch = dgbmlio.getTrainingData( trainfile,dec_fact)
-      x_train = trainbatch['train']['x']
-      y_train = trainbatch['train']['y']
+      x_train = trainbatch[dgbkeys.xtraindictstr]
+      y_train = trainbatch[dgbkeys.ytraindictstr]
     log_msg('Finished creating',len(x_train),'examples!')
     if len(x_train.shape) < 4:
       x_train = np.expand_dims(x_train,axis=1)
@@ -149,14 +163,6 @@ def train(model,training,params=keras_dict,trainfile=None):
   keras.utils.print_summary( model, print_fn=log_msg )
   return model
 
-def apply( model, samples, isclassification, batch_size=keras_dict['batch'] ):
-  import keras
-  ret = model.predict( samples )
-  if not isclassification:
-    return ret
-  classes = model.predict_classes( samples )
-  return (classes,ret)
-
 def save( model, inpfnm, outfnm ):
   log_msg( 'Saving model.' )
   model.save( outfnm ) #Keep first!
@@ -169,6 +175,36 @@ def load( modelfnm ):
   from keras.models import load_model
   ret = load_model( modelfnm )
   restore_stdout()
+  return ret
+
+def apply( model, samples, isclassification, withclass=None, withprobs=[],
+           withconfidence=False, batch_size=keras_dict['batch'] ):
+  if isclassification:
+    if withclass == None:
+      withclass = True
+  doprobabilities = len(withprobs) > 0
+
+  import keras
+  ret = {}
+  if isclassification:
+    ret.update({dgbkeys.preddictstr: \
+                model.predict_classes( samples, batch_size=batch_size )})
+  else:
+    ret.update({dgbkeys.preddictstr: \
+                model.predict( samples, batch_size=batch_size )})
+
+  if isclassification and (doprobabilities or withconfidence):
+    allprobs = model.predict( samples, batch_size=batch_size )
+    if doprobabilities:
+      ret.update({dgbkeys.probadictstr: \
+                  np.copy(allprobs[:,withprobs],allprobs.dtype)})
+    if withconfidence:
+      N = 2
+      indices = np.argpartition(allprobs,-N,axis=1)[:,-N:]
+      x = len(allprobs)
+      sortedprobs = allprobs[np.repeat(np.arange(x),N),indices.ravel()].reshape(x,N)
+      ret.update({dgbkeys.confdictstr: np.diff(sortedprobs,axis=1)})
+
   return ret
 
 def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):

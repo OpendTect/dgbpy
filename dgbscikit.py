@@ -1,5 +1,17 @@
+#__________________________________________________________________________
+#
+# (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
+# Author:        A. Huck
+# Date:          Jan 2019
+#
+# _________________________________________________________________________
+# various tools machine learning using Sci-kit platform
+#
 
-platform = ('scikit','Scikit-learn')
+import dgbpy.keystr as dgbkeys
+
+
+platform = (dgbkeys.scikitplfnm,'Scikit-learn')
 
 def getMLPlatform():
   return platform[0]

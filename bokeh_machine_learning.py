@@ -17,6 +17,7 @@ from bokeh.plotting import curdoc
 from bokeh.util import logconfig
 
 from odpy import common as odcommon
+import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
 
@@ -71,7 +72,7 @@ ML_PLFS.append( dgbkeras.platform )
 ML_PLFS.append( dgbscikit.platform )
 
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
-outputnmfld = TextInput(title='Output model:',value=dgbmlapply.modelnm)
+outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
 
 def setActiveTab( tabspanelwidget, tabnm ):
   tabs = tabspanelwidget.tabs
