@@ -22,15 +22,20 @@ import numpy
 import struct
 import sys
 
-def get_actioncode_bytes( ival ):
+def mk_actioncode_bytes( ival ):
   return ival.to_bytes( 4, byteorder=sys.byteorder, signed=True )
 
 def exit_err( msg ):
   errcode = -1
-  outstrm.write( get_actioncode_bytes(errcode) )
+  outstrm.write( mk_actioncode_bytes(errcode) )
   outtxtstrm.write( str(len(msg)) + ' ' + msg + '\n' )
   outtxtstrm.flush()
   exit( 1 )
+
+dbg_strm = open( "/tmp/da_dbg.txt", "w" )
+def dbg_pr( what, val ):
+  dbg_strm.write( what + ": " + val + "\n" )
+  dbg_strm.flush()
 
 # -- command line parser
 
@@ -79,6 +84,21 @@ if debug_mode:
     from pdb_clone import pdb
     pdb.set_trace_remote()
 
+# -- I/O tools
+
+def put_to_output( what ):
+  return outstrm.write( what )
+
+def get_from_input( nrbytes ):
+  return inpstrm.read( nrbytes )
+
+def mk_int_bytes( ival ):
+  return ival.to_bytes( 4, byteorder=sys.byteorder, signed=True )
+
+def get_int_from_bytes( data_read ):
+  return int.from_bytes( data_read, byteorder=sys.byteorder, signed=True )
+
+
 # -- read parameter file
 
 def read_iopar_line():
@@ -101,7 +121,7 @@ while True:
   ioparkeyval = read_iopar_line()
   ky = ioparkeyval[0]
   if ky == "!":
-    break;
+    break
   val = ioparkeyval[1]
 
   if ky == "File name":
@@ -134,11 +154,12 @@ nroutputs = len( outputs )
 if nroutputs < 1:
   exit_err( "No 'Output's found in par file" )
 
-nrprocessed = 0
+dbg_pr( "At", "1" )
 
 
 # -- operation
 
+nrprocessed = 0
 nrbytes = 0
 rdnrvals = 0
 outgoingnrvals = nroutputs * nroutsamps
@@ -148,14 +169,21 @@ while True:
 
   # read action code
   try:
-    data_read = inpstrm.read( 4 )
+    data_read = get_from_input( 4 )
   except:
     break
 
   # anything positive should be the number of values
-  rdnrvals = int.from_bytes( data_read, byteorder=sys.byteorder );
+  rdnrvals = get_int_from_bytes( data_read )
+  dbg_pr( "At", "2" )
+
   if rdnrvals < 0:
     break
+  if rdnrvals == 0:
+    time.sleep( 0.01 ) # avoids crazy CPU usage
+    continue
+  dbg_pr( "At", "3" )
+
   if rdnrvals != incomingnrvals:
     if nrprocessed == 0:
       exit_err( "Bad nr input samples: " + str(rdnrvals)
@@ -164,12 +192,12 @@ while True:
 
   # slurp input for one trace
   try:
-    inpdata = inpstrm.read( 4*incomingnrvals )
+    inpdata = get_from_input( 4*incomingnrvals )
   except:
     exit_err( "Data transfer failure" )
 
   vals = struct.unpack( 'f'*incomingnrvals, inpdata )
-  outvals = numpy.zeros( shape=(outgoingnrvals), dtype=numpy.float32 )
+  outvals = numpy.zeros( outgoingnrvals, dtype=numpy.float32 )
 
 # TODO: -- implement keras apply
   # the following is just to return something
@@ -178,7 +206,7 @@ while True:
     valwindow = vals[ iout*slicesz : (iout+1)*slicesz ]
     outnr = 0
     def set_outval( val ):
-      outvals[outnr*nroutsamps + iout] = numpy.std( valwindow )
+      outvals[outnr*nroutsamps + iout] = val
       ++outnr
 
     if 0 in outputs:
@@ -188,8 +216,8 @@ while True:
 # --
 
   # success ... write nr values and the trace/log data
-  outstrm.write( get_actioncode_bytes(outgoingnrvals) )
-  nrbyteswritten = outstrm.write( outvals.astype('float32') )
+  put_to_output( mk_actioncode_bytes(outgoingnrvals) )
+  nrbyteswritten = put_to_output( outvals.tobytes() )
   if nrbyteswritten != outgoingnrbytes:
     exit_err( "Could only write " + str(nrbyteswritten)
               + " of " + str(outgoingnrbytes) )
