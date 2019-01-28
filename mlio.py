@@ -26,6 +26,9 @@ def getTrainingData( filenm, decim=False ):
   ret = { dgbkeys.infodictstr: info }
   for ex in examples:
     ret.update({ex: examples[ex]})
+  if dgbkeys.classesdictstr in info:
+    normalize_class_vector( examples[dgbkeys.ytraindictstr], \
+                            info[dgbkeys.classesdictstr] )
   return ret
 
 def getClasses( info, examples ):
@@ -41,6 +44,18 @@ def getClasses( info, examples ):
   if len(classes) > 0:
     info.update( {dgbkeys.classesdictstr: np.array(classes,dtype=np.uint8)} )
   return info
+
+def normalize_class_vector( arr, classes ):
+  import numpy as np
+  classes = np.sort( classes )
+  for i in range( len(classes) ):
+    arr[arr == classes[i]] = i
+
+def unnormalize_class_vector( arr, classes ):
+  import numpy as np
+  classes = np.sort( classes )
+  for i in reversed(range( len(classes) ) ):
+    arr[arr == i] = classes[i]
 
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)
