@@ -110,20 +110,24 @@ def getDefaultModel(setup):
   model.add(BatchNormalization())
   model.add(Activation('softmax'))
 
-# initiate the Adam optimizer with a given learning rate
-#  opt = 'rmsprop'
-  opt = keras.optimizers.adam(lr=0.001)
-
-# Compile the model with the desired optimizer, loss, and metric
+# initiate the model compiler options
+  learnrate = 0.001
   metrics = ['accuracy']
   if isclassification:
+    opt = keras.optimizers.adam(lr=learnrate)
     if nroutputs > 2:
       loss = 'categorical_crossentropy'
     else:
       loss = 'binary_crossentropy'
-    model.compile(optimizer=opt,loss=loss,metrics=metrics)
   else:
-    model.compile(optimizer=opt,loss='rmsprop')
+    opt = keras.optimizers.RMSprop(lr=learnrate)
+    from keras import backend as K
+    def root_mean_squared_error(y_true, y_pred):
+      return K.sqrt(K.mean(K.square(y_pred - y_true)))
+    loss = root_mean_squared_error
+
+# Compile the model with the desired optimizer, loss, and metric
+  model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
 def train(model,training,params=keras_dict,trainfile=None):
@@ -132,7 +136,12 @@ def train(model,training,params=keras_dict,trainfile=None):
   import keras
   restore_stdout()
   from keras.callbacks import (EarlyStopping,LearningRateScheduler)
-  early_stopping = EarlyStopping(monitor='acc', patience=params['patience'])
+  classification = training[dgbkeys.infodictstr][dgbkeys.classdictstr]
+  if classification:
+    monitor = 'acc'
+  else:
+    monitor = 'loss'
+  early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
   num_bunch = params['iters']
   dec_fact = params[dgbkeys.decimkeystr]
@@ -142,7 +151,6 @@ def train(model,training,params=keras_dict,trainfile=None):
   if not decimate:
     x_train = training[dgbkeys.xtraindictstr]
     y_train = training[dgbkeys.ytraindictstr]
-    classification = training[dgbkeys.infodictstr][dgbkeys.classdictstr]
   for repeat in range(num_bunch):
     log_msg('Starting iteration',str(repeat+1)+'/'+str(num_bunch))
     log_msg('Starting training data creation:')
@@ -151,7 +159,6 @@ def train(model,training,params=keras_dict,trainfile=None):
       trainbatch = dgbmlio.getTrainingData( trainfile,dec_fact)
       x_train = trainbatch[dgbkeys.xtraindictstr]
       y_train = trainbatch[dgbkeys.ytraindictstr]
-      classification = trainbatch[dgbkeys.infodictstr][dgbkeys.classdictstr]
     log_msg('Finished creating',len(x_train),'examples!')
     while len(x_train.shape) < 5:
       x_train = np.expand_dims(x_train,axis=len(x_train.shape))
