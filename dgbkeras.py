@@ -142,6 +142,7 @@ def train(model,training,params=keras_dict,trainfile=None):
   if not decimate:
     x_train = training[dgbkeys.xtraindictstr]
     y_train = training[dgbkeys.ytraindictstr]
+    classification = training[dgbkeys.infodictstr][dgbkeys.classdictstr]
   for repeat in range(num_bunch):
     log_msg('Starting iteration',str(repeat+1)+'/'+str(num_bunch))
     log_msg('Starting training data creation:')
@@ -150,10 +151,12 @@ def train(model,training,params=keras_dict,trainfile=None):
       trainbatch = dgbmlio.getTrainingData( trainfile,dec_fact)
       x_train = trainbatch[dgbkeys.xtraindictstr]
       y_train = trainbatch[dgbkeys.ytraindictstr]
+      classification = trainbatch[dgbkeys.infodictstr][dgbkeys.classdictstr]
     log_msg('Finished creating',len(x_train),'examples!')
-    if len(x_train.shape) < 4:
-      x_train = np.expand_dims(x_train,axis=1)
-    y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
+    while len(x_train.shape) < 5:
+      x_train = np.expand_dims(x_train,axis=len(x_train.shape))
+    if classification:
+      y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
     redirect_stdout()
     hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
                         validation_split=0.2, \
