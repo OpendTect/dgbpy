@@ -18,7 +18,7 @@ from odpy.common import *
 import odpy.iopar as iopar
 
 import argparse
-import numpy
+import numpy as np
 import struct
 import sys
 
@@ -59,6 +59,9 @@ parser.add_argument( '-i','--input', nargs='?', type=argparse.FileType('r'),
                      default=sys.stdin )
 parser.add_argument( '-o','--output', nargs='?', type=argparse.FileType('w'),
                      default=sys.stdout )
+parser.add_argument( '--ascii', dest='binaryout', action='store_false',
+                     default=True,
+                     help="write ascii text to output buffer" )
 parser.add_argument( '--debug', help="prepare for pdb-clone debugging",
                       action="store_true")
 parser.add_argument( '--wait', help="wait execution for pdb-clone debugger to attach",
@@ -76,6 +79,7 @@ parfile = args.parfilename
 inpstrm = args.input.buffer
 outtxtstrm = args.output
 outstrm = outtxtstrm.buffer
+binaryout = args.binaryout
 debug_mode = getattr(args,'debug') or getattr(args,'wait')
 if debug_mode:
   from pdb_clone import pdbhandler
@@ -86,8 +90,25 @@ if debug_mode:
 
 # -- I/O tools
 
-def put_to_output( what ):
-  return outstrm.write( what )
+def put_to_output( what, isact=False ):
+  if binaryout:
+    if isact:
+      ret = mk_actioncode_bytes( what )
+    else:
+      ret = what.tobytes()
+  else:
+    ret = what
+
+  if binaryout:
+    return outstrm.write( ret )
+  else:
+    if isact:
+      return outtxtstrm.write( str(ret)+' ' )
+    else:
+      pos = outtxtstrm.tell()
+      ret.tofile( outtxtstrm, sep=' ' )
+      outtxtstrm.write( '\n' )
+      return outtxtstrm.tell() - pos
 
 def get_from_input( nrbytes ):
   return inpstrm.read( nrbytes )
@@ -197,7 +218,7 @@ while True:
     exit_err( "Data transfer failure" )
 
   vals = struct.unpack( 'f'*incomingnrvals, inpdata )
-  outvals = numpy.zeros( outgoingnrvals, dtype=numpy.float32 )
+  outvals = np.zeros( outgoingnrvals, dtype=np.float32 )
 
 # TODO: -- implement keras apply
   # the following is just to return something
@@ -210,15 +231,15 @@ while True:
       ++outnr
 
     if 0 in outputs:
-      set_outval( numpy.mean(valwindow) )
+      set_outval( np.mean(valwindow) )
     if 1 in outputs:
-      set_outval( numpy.std(valwindow) )
+      set_outval( np.std(valwindow) )
 # --
 
   # success ... write nr values and the trace/log data
-  put_to_output( mk_actioncode_bytes(outgoingnrvals) )
-  nrbyteswritten = put_to_output( outvals.tobytes() )
-  if nrbyteswritten != outgoingnrbytes:
+  put_to_output( outgoingnrvals, isact=True )
+  nrbyteswritten = put_to_output( outvals )
+  if binaryout and nrbyteswritten != outgoingnrbytes:
     exit_err( "Could only write " + str(nrbyteswritten)
               + " of " + str(outgoingnrbytes) )
   nrprocessed = nrprocessed + 1
