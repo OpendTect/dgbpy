@@ -48,9 +48,7 @@ def doApply( modelfnm, samples, outputs=None, platform=None, type=None,
              isclassification=None ):
   import dgbpy.hdf5 as dgbhdf5
   infos = dgbhdf5.getInfo( modelfnm )
-  if platform == None or type == None or isclassification == None:
-    if platform == None:
-      platform = infos[dgbhdf5.plfdictstr]
+  if type == None or isclassification == None:
     if type == None:
       type = infos[dgbhdf5.typedictstr]
     if isclassification == None:
@@ -61,10 +59,10 @@ def doApply( modelfnm, samples, outputs=None, platform=None, type=None,
                    (outputs==None or dgbhdf5.confvalstr in outputs)
   if isclassification:
     withprobs = dgbhdf5.getClassIndices( infos, outputs )
+  (model,platform) = dgbmlio.getModel( modelfnm, platform )
 
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    model = dgbkeras.load( modelfnm )
     return dgbkeras.apply( model, samples, isclassification,
                            withclass=withclass, withprobs=withprobs,
                            withconfidence=withconfidence )

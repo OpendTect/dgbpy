@@ -57,6 +57,23 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
+def getModel( modelfnm, platform=None ):
+  if platform == None:
+    import dgbpy.hdf5 as dgbhdf5
+    infos = dgbhdf5.getInfo( modelfnm )
+    platform = infos[dgbhdf5.plfdictstr]
+  if platform == dgbkeys.kerasplfnm:
+    import dgbpy.dgbkeras as dgbkeras
+    model = dgbkeras.load( modelfnm )
+  elif platform == dgbkeys.scikitplfnm:
+    log_msg( 'scikit platform not supported (yet)' )
+    import dgbpy.dgbscikit as dgbscikit
+    raise AttributeError
+  else:
+    log_msg( 'Unsupported machine learning platform' )
+    raise AttributeError
+  return (model,platform)
+
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)
   curentry = oddbman.getByName( dblist, outnm )

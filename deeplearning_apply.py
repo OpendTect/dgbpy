@@ -21,6 +21,11 @@ import argparse
 import numpy as np
 import struct
 import sys
+import time
+
+import dgbpy.keystr as dgbkeys
+import dgbpy.hdf5 as dgbhdf5
+import dgbpy.mlio as dgbmlio
 
 def mk_actioncode_bytes( ival ):
   return ival.to_bytes( 4, byteorder=sys.byteorder, signed=True )
@@ -132,7 +137,7 @@ keras_file = ""
 outputs = []
 nroutsamps = 0
 tensor_size = 0
-incomingnrvals = 0
+fixedincomingnrvals = 0
 
 for i in range(4): # dispose of file header
   read_iopar_line()
@@ -148,7 +153,7 @@ while True:
   if ky == "File name":
     keras_file = val
   elif ky == "Input.Size":
-    incomingnrvals = int( val )
+    fixedincomingnrvals = int( val )
   elif ky == "Input.Size.Z":
     nroutsamps = int( val )
   elif ky == "Tensor.Size":
@@ -164,6 +169,17 @@ while True:
       outputs.append( int(nrs[idx]) )
 
 parfile.close()
+
+modelinfo = dgbmlio.getInfo( keras_file )
+nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
+stepout = modelinfo[dgbkeys.stepoutdictstr]
+inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
+examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
+                                       nrpts=nroutsamps )
+nrz = examples_shape[-1]
+examples = np.empty( examples_shape, dtype=np.float32 )
+
+#model = dgbmlio.getModel( keras_file )
 
 
 # -- sanity checks, initialisation
@@ -205,35 +221,28 @@ while True:
     continue
   dbg_pr( "At", "3" )
 
-  if rdnrvals != incomingnrvals:
+  if rdnrvals != fixedincomingnrvals:
     if nrprocessed == 0:
       exit_err( "Bad nr input samples: " + str(rdnrvals)
-                 + " should be " + str(incomingnrvals) )
+                 + " should be " + str(fixedincomingnrvals) )
     break # happens at EOF, too, does not except but gives wild value
 
   # slurp input for one trace
   try:
-    inpdata = get_from_input( 4*incomingnrvals )
+    inpdata = get_from_input( 4*rdnrvals )
   except:
     exit_err( "Data transfer failure" )
 
-  vals = struct.unpack( 'f'*incomingnrvals, inpdata )
-  outvals = np.zeros( outgoingnrvals, dtype=np.float32 )
+  valsret = np.reshape( np.frombuffer(inpdata,dtype=np.float32), inp_shape )
+  for zidz in range(nroutsamps):
+    examples[zidz] = valsret[:,:,:,zidz:zidz+nrz]
 
 # TODO: -- implement keras apply
   # the following is just to return something
-  slicesz = incomingnrvals // nroutsamps
-  for iout in range( 0, nroutsamps ):
-    valwindow = vals[ iout*slicesz : (iout+1)*slicesz ]
-    outnr = 0
-    def set_outval( val ):
-      outvals[outnr*nroutsamps + iout] = val
-      ++outnr
-
-    if 0 in outputs:
-      set_outval( np.mean(valwindow) )
-    if 1 in outputs:
-      set_outval( np.std(valwindow) )
+  if 0 in outputs:
+    outvals = np.mean(examples,axis=(1,2,3,4))
+  if 1 in outputs:
+    outvals = np.std(examples,axis=(1,2,3,4))
 # --
 
   # success ... write nr values and the trace/log data
