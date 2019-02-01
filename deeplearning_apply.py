@@ -26,6 +26,7 @@ import time
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
+import dgbpy.mlapply as dgbmlapply
 
 def mk_actioncode_bytes( ival ):
   return ival.to_bytes( 4, byteorder=sys.byteorder, signed=True )
@@ -67,6 +68,9 @@ parser.add_argument( '-o','--output', nargs='?', type=argparse.FileType('w'),
 parser.add_argument( '--ascii', dest='binaryout', action='store_false',
                      default=True,
                      help="write ascii text to output buffer" )
+parser.add_argument( '--fakeapply', dest='fakeapply', action='store_true',
+                     default=False,
+                     help="applies a numpy average instead of the model" )
 parser.add_argument( '--debug', help="prepare for pdb-clone debugging",
                       action="store_true")
 parser.add_argument( '--wait', help="wait execution for pdb-clone debugger to attach",
@@ -85,6 +89,7 @@ inpstrm = args.input.buffer
 outtxtstrm = args.output
 outstrm = outtxtstrm.buffer
 binaryout = args.binaryout
+fakeapply = args.fakeapply
 debug_mode = getattr(args,'debug') or getattr(args,'wait')
 if debug_mode:
   from pdb_clone import pdbhandler
@@ -176,8 +181,12 @@ if 0 in outputs:
 if 1 in outputs:
   outputnms.append( dgbkeys.confvalstr )
 
-modelinfo = dgbmlio.getInfo( keras_file )
-#(model,modelinfo) = dgbmlio.getModel( keras_file )
+if fakeapply:
+  modelinfo = dgbmlio.getInfo( keras_file )
+  modelinfo[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
+  model = None
+else:
+  (model,modelinfo) = dgbmlio.getModel( keras_file )
 applyinfo = dgbmlio.getApplyInfo( modelinfo, outputnms )
 nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
 stepout = modelinfo[dgbkeys.stepoutdictstr]
@@ -243,14 +252,8 @@ while True:
   for zidz in range(nroutsamps):
     examples[zidz] = valsret[:,:,:,zidz:zidz+nrz]
 
-#  ret = dgbmlapply.doApply( model, modelinfo, examples, applyinfo )
-
-# TODO: -- implement keras apply
-  # the following is just to return something
-  if 0 in outputs:
-    outvals = np.mean(examples,axis=(1,2,3,4))
-  if 1 in outputs:
-    outvals = np.std(examples,axis=(1,2,3,4))
+  ret = dgbmlapply.doApply( model, modelinfo, examples, applyinfo )
+  outvals = ret[dgbkeys.preddictstr]
 # --
 
   # success ... write nr values and the trace/log data

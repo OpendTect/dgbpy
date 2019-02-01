@@ -61,7 +61,15 @@ def doApply( model, info, samples, applyinfo=None ):
     log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
     raise AttributeError
+  elif platform == dgbkeys.numpyvalstr:
+    return numpyApply( samples )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
+
+def numpyApply( samples ):
+  import numpy as np
+  return {
+    dgbkeys.preddictstr: np.mean( samples, axis=(1,2,3,4) )
+  }
 
