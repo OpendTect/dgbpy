@@ -105,6 +105,8 @@ def put_to_output( what, isact=False ):
     if isact:
       ret = mk_actioncode_bytes( what )
     else:
+      if what.dtype != np.float32:
+        what = np.array( what, np.float32 )
       ret = what.tobytes()
   else:
     ret = what
@@ -217,6 +219,7 @@ rdnrvals = 0
 outgoingnrvals = nroutputs * nroutsamps
 outgoingnrbytes = outgoingnrvals * 4
 
+start = time.clock()
 while True:
 
   # read action code
@@ -263,6 +266,10 @@ while True:
     exit_err( "Could only write " + str(nrbyteswritten)
               + " of " + str(outgoingnrbytes) )
   nrprocessed = nrprocessed + 1
+
+duration = time.clock()-start
+std_msg( "Total time:",  "{:.3f}".format(duration), "s.;", \
+         "{:.3f}".format(nrprocessed/duration), "tr/s." )
 
 # for production, uncomment to keep /tmp tidy
 #os.remove( parfile.name )
