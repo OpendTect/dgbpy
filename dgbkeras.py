@@ -189,11 +189,18 @@ def load( modelfnm ):
   restore_stdout()
   return ret
 
-def apply( model, samples, isclassification, withclass=None, withprobs=[],
-           withconfidence=False, batch_size=keras_dict['batch'] ):
-  if isclassification:
-    if withclass == None:
-      withclass = True
+def apply( model, samples, applyinfo=None, batch_size=keras_dict['batch'] ):
+  if applyinfo == None:
+    isclassification = True
+    withclass = isclassification
+    withprobs = []
+    withconfidence=False
+  else:
+    isclassification = applyinfo[dgbkeys.classdictstr]
+    withclass = applyinfo[dgbkeys.withclass]
+    withconfidence= applyinfo[dgbkeys.withconfidence]
+    withprobs = applyinfo[dgbkeys.withprobs]
+
   doprobabilities = len(withprobs) > 0
 
   import keras

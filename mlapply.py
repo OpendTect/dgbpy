@@ -44,28 +44,19 @@ def doTrain( trainfilenm, platform=dgbkeys.kerasplfnm, params=None, \
     raise AttributeError
   return (outfnm != None and os.path.isfile( outfnm ))
 
-def doApply( modelfnm, samples, outputs=None, platform=None, type=None,
-             isclassification=None ):
-  import dgbpy.hdf5 as dgbhdf5
-  infos = dgbhdf5.getInfo( modelfnm )
-  if type == None or isclassification == None:
-    if type == None:
-      type = infos[dgbhdf5.typedictstr]
-    if isclassification == None:
-      isclassification = infos[dgbhdf5.classdictstr]
-  withclass = isclassification and \
-              (outputs==None or dgbhdf5.classvalstr in outputs)
-  withconfidence = isclassification and \
-                   (outputs==None or dgbhdf5.confvalstr in outputs)
-  if isclassification:
-    withprobs = dgbhdf5.getClassIndices( infos, outputs )
-  (model,platform) = dgbmlio.getModel( modelfnm, platform )
+def doApplyFromFile( modelfnm, samples, outsubsel=None ):
+  (model,info) = dgbmlio.getModel( modelfnm )
+  applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
+  return doApply( model, info, samples, applyinfo )
+
+def doApply( model, info, samples, applyinfo=None ):
+  platform = info[dgbkeys.plfdictstr]
+  if applyinfo==None:
+    applyinfo = dgbmlio.getApplyInfo( info )
 
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    return dgbkeras.apply( model, samples, isclassification,
-                           withclass=withclass, withprobs=withprobs,
-                           withconfidence=withconfidence )
+    return dgbkeras.apply( model, samples, applyinfo=applyinfo )
   elif platform == dgbkeys.scikitplfnm:
     log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit

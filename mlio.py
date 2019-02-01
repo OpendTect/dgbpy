@@ -57,11 +57,9 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
-def getModel( modelfnm, platform=None ):
-  if platform == None:
-    import dgbpy.hdf5 as dgbhdf5
-    infos = dgbhdf5.getInfo( modelfnm )
-    platform = infos[dgbhdf5.plfdictstr]
+def getModel( modelfnm ):
+  infos = dgbhdf5.getInfo( modelfnm )
+  platform = infos[dgbhdf5.plfdictstr]
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     model = dgbkeras.load( modelfnm )
@@ -72,7 +70,27 @@ def getModel( modelfnm, platform=None ):
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
-  return (model,platform)
+  return (model,infos)
+
+def getApplyInfoFromFile( modelfnm, outsubsel=None ):
+  return getApplyInfo( dgbhdf5.getInfo(modelfnm), outsubsel )
+
+def getApplyInfo( infos, outsubsel=None ):
+  isclassification = infos[dgbhdf5.classdictstr]
+  withclass = isclassification and \
+              (outsubsel==None or dgbhdf5.classvalstr in outsubsel)
+  withconfidence = isclassification and \
+              (outsubsel==None or dgbhdf5.confvalstr in outsubsel)
+  if isclassification:
+    withprobs = dgbhdf5.getClassIndices( infos, outsubsel )
+  else:
+    withprobs = []
+  return {
+    dgbkeys.classdictstr: isclassification,
+    dgbkeys.withclass: withclass,
+    dgbkeys.withconfidence: withconfidence,
+    dgbkeys.withprobs: withprobs
+  }
 
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)

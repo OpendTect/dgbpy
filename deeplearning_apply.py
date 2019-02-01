@@ -170,7 +170,15 @@ while True:
 
 parfile.close()
 
+outputnms = list()
+if 0 in outputs:
+  outputnms.append( dgbkeys.classvalstr )
+if 1 in outputs:
+  outputnms.append( dgbkeys.confvalstr )
+
 modelinfo = dgbmlio.getInfo( keras_file )
+#(model,modelinfo) = dgbmlio.getModel( keras_file )
+applyinfo = dgbmlio.getApplyInfo( modelinfo, outputnms )
 nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
 stepout = modelinfo[dgbkeys.stepoutdictstr]
 inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
@@ -178,8 +186,6 @@ examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
                                        nrpts=nroutsamps )
 nrz = examples_shape[-1]
 examples = np.empty( examples_shape, dtype=np.float32 )
-
-#model = dgbmlio.getModel( keras_file )
 
 
 # -- sanity checks, initialisation
@@ -236,6 +242,8 @@ while True:
   valsret = np.reshape( np.frombuffer(inpdata,dtype=np.float32), inp_shape )
   for zidz in range(nroutsamps):
     examples[zidz] = valsret[:,:,:,zidz:zidz+nrz]
+
+#  ret = dgbmlapply.doApply( model, modelinfo, examples, applyinfo )
 
 # TODO: -- implement keras apply
   # the following is just to return something
