@@ -26,23 +26,26 @@ def getUIMLPlatform():
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
   dgbkeys.decimkeystr: False,
+  'dec': 0.1,
   'iters': 15,
   'epoch': 15,
   'batch': 32,
   'patience': 10
 }
 
-def getParams( dec=keras_dict[dgbkeys.decimkeystr], iters=keras_dict['iters'],
-              epochs=keras_dict['epoch'], batch=keras_dict['batch'],
-              patience=keras_dict['patience'] ):
+def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
+               iters=keras_dict['iters'], epochs=keras_dict['epoch'],
+               batch=keras_dict['batch'], patience=keras_dict['patience'] ):
   ret = {
-    dgbkeys.decimkeystr: dec,
+    dgbkeys.decimkeystr: dodec,
+    'dec': dec,
     'iters': iters,
     'epoch': epochs,
     'batch': batch,
     'patience': patience
   }
-  if not dec:
+  if not dodec:
+    ret['dec'] = 0
     ret['iters'] = 1
   return ret
 
@@ -144,8 +147,8 @@ def train(model,training,params=keras_dict,trainfile=None):
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
   num_bunch = params['iters']
-  dec_fact = params[dgbkeys.decimkeystr]
-  decimate = dec_fact
+  decimate = params[dgbkeys.decimkeystr]
+  dec_fact = params['dec']
   x_train = {}
   y_train = {}
   if not decimate:

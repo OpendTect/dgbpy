@@ -82,8 +82,8 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   stepout = infos[stepoutdictstr]
   isclass = infos[classdictstr]
   if decim:
-    if decim < 0 or decim > 100:
-      std_msg( "Decimation percentage not within [0,100]" )
+    if decim < 0 or decim > 1:
+      std_msg( "Decimation percentage not within [0,1]" )
       raise ValueError
   h5file = h5py.File( filenm, "r" )
   group = h5file[groupnm]
@@ -91,7 +91,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   nrpts = len(dsetnms)
   if decim:
     np.random.shuffle( dsetnms )
-    nrpts = int(nrpts*(decim/100))
+    nrpts = int(nrpts*decim)
     if nrpts < 1:
       return {}
     del dsetnms[nrpts:]

@@ -104,7 +104,9 @@ def setParsTabCB():
 
 def getKerasParsGrp():
   dict = dgbkeras.keras_dict
-  decimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
+  dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
+  decimatefld = Slider(start=0.1,end=99.9,value=dict['dec']*100, step=0.1,
+                title='Decimation (%)')
   iterfld = Slider(start=1,end=100,value=dict['iters'],step=1,
               title='Iterations')
   epochfld = Slider(start=1,end=100,value=dict['epoch'],step=1,
@@ -113,9 +115,9 @@ def getKerasParsGrp():
             title='Number of Batch')
   patiencefld = Slider(start=1,end=100,value=dict['patience'],step=1,
                 title='Patience')
-  return (decimatefld,iterfld,epochfld,batchfld,patiencefld,{
+  return (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,{
     'tabname': dgbkeras.getUIMLPlatform(),
-    'grp' : column(decimatefld,iterfld,epochfld,batchfld,patiencefld)
+    'grp' : column(dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld)
   })
 
 def getScikitParsGrp():
@@ -135,7 +137,7 @@ def getButtonsGrp():
 
 platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
 
-(decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
+(dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
 parsgroups = (kerasparsgrp,scikitparsgrp)
@@ -162,13 +164,14 @@ def selParsGrp( platformnm ):
 
 def decimateCB( widgetactivelist ):
   decimate = integerListContains( widgetactivelist, 0 )
+  decimatefld.disabled = not decimate
   iterfld.disabled = not decimate
 
 def getParams():
   if doKeras():
-    return dgbkeras.getParams( doDecimate(decimatefld), iterfld.value,
-                               epochfld.value, batchfld.value,
-                              patiencefld.value )
+    return dgbkeras.getParams( doDecimate(dodecimatefld), decimatefld.value/100,
+                               iterfld.value, epochfld.value, batchfld.value,
+                               patiencefld.value )
   elif doScikit():
     return dgbscikit.getParams( nbparfld.value )
   return {}
@@ -194,13 +197,13 @@ platformfld.on_change('value', mlchgCB)
 platformparsbut.on_click(setParsTabCB)
 runbut.on_click(acceptOK)
 stopbut.on_click(rejectOK)
-decimatefld.on_click(decimateCB)
+dodecimatefld.on_click(decimateCB)
 parsbackbut.on_click(setTraingTabCB)
 
 def initWin():
   platformfld.value = ML_PLFS[0][0]
   mlchgCB( 'value', 0, platformfld.value )
-  decimateCB( decimatefld.active )
+  decimateCB( dodecimatefld.active )
 
 initWin()
 curdoc().add_root(mainpanel)
