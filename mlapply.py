@@ -15,7 +15,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
 
-def doTrain( trainfilenm, platform=dgbkeys.kerasplfnm, params=None, \
+def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
              outnm=dgbkeys.modelnm, args=None ):
   outfnm = None
   try:
@@ -25,14 +25,14 @@ def doTrain( trainfilenm, platform=dgbkeys.kerasplfnm, params=None, \
   decimate = False
   if params != None and dgbkeys.decimkeystr in params:
     decimate = params[dgbkeys.decimkeystr]
-  training = dgbmlio.getTrainingData( trainfilenm, decimate )
+  training = dgbmlio.getTrainingData( examplefilenm, decimate )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getParams()
     model = dgbkeras.getDefaultModel(training[dgbkeys.infodictstr])
-    model = dgbkeras.train( model, training, params, trainfile=trainfilenm )
-    dgbkeras.save( model, trainfilenm, outfnm )
+    model = dgbkeras.train( model, training, params, trainfile=examplefilenm )
+    dgbkeras.save( model, examplefilenm, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
