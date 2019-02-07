@@ -164,7 +164,7 @@ def train(model,training,params=keras_dict,trainfile=None):
       y_train = trainbatch[dgbkeys.ytraindictstr]
     log_msg('Finished creating',len(x_train),'examples!')
     while len(x_train.shape) < 5:
-      x_train = np.expand_dims(x_train,axis=len(x_train.shape))
+      x_train = np.expand_dims(x_train,axis=len(x_train.shape)-1)
     if classification:
       y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
     redirect_stdout()
