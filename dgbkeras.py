@@ -188,7 +188,7 @@ def load( modelfnm ):
   from odpy.common import redirect_stdout,restore_stdout
   redirect_stdout()
   from keras.models import load_model
-  ret = load_model( modelfnm )
+  ret = load_model( modelfnm, compile=False )
   restore_stdout()
   return ret
 
