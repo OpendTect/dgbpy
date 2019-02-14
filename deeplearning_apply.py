@@ -114,12 +114,15 @@ def put_to_output( what, isact=False ):
   if binaryout:
     return outstrm.write( ret )
   else:
+    pos = outtxtstrm.tell()
     if isact:
-      return outtxtstrm.write( str(ret)+' ' )
+      written = 0
+      if pos > 0:
+        written = outtxtstrm.write( '\n' )
+      return outtxtstrm.write( str(ret) ) + written
     else:
-      pos = outtxtstrm.tell()
+      outtxtstrm.write( ' ' )
       ret.tofile( outtxtstrm, sep=' ' )
-      outtxtstrm.write( '\n' )
       return outtxtstrm.tell() - pos
 
 def get_from_input( nrbytes ):
@@ -195,6 +198,7 @@ applyinfo = dgbmlio.getApplyInfo( modelinfo, outputnms )
 nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
 stepout = modelinfo[dgbkeys.stepoutdictstr]
 
+nroutputs = len( outputs )
 if fixedsize:
   inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
   examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
@@ -209,7 +213,6 @@ else:
 
 # -- sanity checks, initialisation
 
-nroutputs = len( outputs )
 if nroutputs < 1:
   exit_err( "No 'Output's found in par file" )
 
@@ -270,12 +273,16 @@ while True:
     examples[zidz] = valsret[:,:,:,zidz:zidz+nrz]
 
   ret = dgbmlapply.doApply( model, modelinfo, examples, applyinfo )
-  outvals = ret[dgbkeys.preddictstr]
-# --
-
   # success ... write nr values and the trace/log data
   put_to_output( outgoingnrvals, isact=True )
-  nrbyteswritten = put_to_output( outvals )
+  nrbyteswritten = 0
+  if dgbkeys.preddictstr in ret:
+    nrbyteswritten = put_to_output( ret[dgbkeys.preddictstr] )
+  if dgbkeys.confdictstr in ret:
+    nrbyteswritten = put_to_output( ret[dgbkeys.confdictstr] ) + nrbyteswritten
+  if dgbkeys.probadictstr in ret:
+    nrbyteswritten = put_to_output( ret[dgbkeys.probadictstr] ) + nrbyteswritten
+
   if binaryout and nrbyteswritten != outgoingnrbytes:
     exit_err( "Could only write " + str(nrbyteswritten)
               + " of " + str(outgoingnrbytes) )
