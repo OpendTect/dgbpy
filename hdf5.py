@@ -17,7 +17,7 @@ from dgbpy.keystr import *
 hdf5ext = 'h5'
 
 def getGroupNames( filenm ):
-  h5file = h5py.File( filenm, "r" )
+  h5file = h5py.File( filenm, 'r' )
   ret = list()
   for groupnm in h5file.keys():
     if isinstance( h5file[groupnm], h5py.Group ):
@@ -29,7 +29,7 @@ def getNrGroups( filenm ):
   return len(getGroupNames(filenm))
 
 def getGroupSize( filenm, groupnm ):
-  h5file = h5py.File( filenm, "r" )
+  h5file = h5py.File( filenm, 'r' )
   group = h5file[groupnm]
   size = len(group)
   h5file.close()
@@ -74,10 +74,11 @@ def get_np_shape( step, nrpts=None, nrattribs=None ):
   return ret
 
 def getCubeLets( filenm, infos, groupnm, decim ):
-  fromwells = groupnm in infos[inputdictstr]
+  survnm = groupnm.replace( ' ', '_' )
+  fromwells = survnm in infos[inputdictstr]
   attribsel = None
   if fromwells:
-    attribsel = groupnm
+    attribsel = survnm
   nrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos[stepoutdictstr]
   isclass = infos[classdictstr]
@@ -85,7 +86,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
     if decim < 0 or decim > 1:
       std_msg( "Decimation percentage not within [0,1]" )
       raise ValueError
-  h5file = h5py.File( filenm, "r" )
+  h5file = h5py.File( filenm, 'r' )
   group = h5file[groupnm]
   dsetnms = list(group.keys())
   nrpts = len(dsetnms)
@@ -95,14 +96,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
     if nrpts < 1:
       return {}
     del dsetnms[nrpts:]
-  shape = None
-  if fromwells :
-    if stepout > 0:
-      shape = ( nrpts, nrattribs, stepout*2+1 )
-    else:
-      shape = ( nrpts, nrattribs )
-  else:
-    shape = get_np_shape(stepout,nrpts,nrattribs)
+  shape = get_np_shape(stepout,nrpts,nrattribs)
 
   cubelets = np.empty( shape, np.float32 )
   outdtype = np.float32
@@ -153,7 +147,7 @@ def validInfo( info ):
   return True
 
 def getInfo( filenm ):
-  h5file = h5py.File( filenm, "r" )
+  h5file = h5py.File( filenm, 'r' )
   info = odhdf5.getInfoDataSet( h5file )
   if not validInfo( info ):
     h5file.close()
@@ -264,7 +258,7 @@ def getAttribInfo( info, filenm ):
   return info
 
 def getWellInfo( info, filenm ):
-  h5file = h5py.File( filenm, "r" )
+  h5file = h5py.File( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
   info[classdictstr] = odhdf5.getText(infods,'Target Value Type') == "ID"
   zstep = odhdf5.getDValue(infods,"Z step") 
