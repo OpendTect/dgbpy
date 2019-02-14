@@ -142,7 +142,7 @@ zstop = -1
 zstep = 1
 keras_file = ""
 outputs = []
-nroutsamps = 0
+nroutsamps = -1
 tensor_size = 0
 fixedincomingnrvals = 0
 
@@ -177,6 +177,8 @@ while True:
 
 parfile.close()
 
+fixedsize = nroutsamps >= 0
+
 outputnms = list()
 if 0 in outputs:
   outputnms.append( dgbkeys.classvalstr )
@@ -192,17 +194,20 @@ else:
 applyinfo = dgbmlio.getApplyInfo( modelinfo, outputnms )
 nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
 stepout = modelinfo[dgbkeys.stepoutdictstr]
-inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
-examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
-                                       nrpts=nroutsamps )
-nrz = examples_shape[-1]
-examples = np.empty( examples_shape, dtype=np.float32 )
+
+if fixedsize:
+  inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
+  examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
+                                         nrpts=nroutsamps )
+  nrz = examples_shape[-1]
+  examples = np.empty( examples_shape, dtype=np.float32 )
+  outgoingnrvals = nroutputs * nroutsamps
+  outgoingnrbytes = outgoingnrvals * 4
+else:
+  stepout = [0,0,stepout]
 
 
 # -- sanity checks, initialisation
-
-if nroutsamps < 1:
-  exit_err( "did not see 'Input.Size.Z' key in input IOPar" )
 
 nroutputs = len( outputs )
 if nroutputs < 1:
@@ -216,8 +221,6 @@ dbg_pr( "At", "1" )
 nrprocessed = 0
 nrbytes = 0
 rdnrvals = 0
-outgoingnrvals = nroutputs * nroutsamps
-outgoingnrbytes = outgoingnrvals * 4
 
 start = time.clock()
 while True:
@@ -239,7 +242,7 @@ while True:
     continue
   dbg_pr( "At", "3" )
 
-  if rdnrvals != fixedincomingnrvals:
+  if fixedsize and rdnrvals != fixedincomingnrvals:
     if nrprocessed == 0:
       exit_err( "Bad nr input samples: " + str(rdnrvals)
                  + " should be " + str(fixedincomingnrvals) )
@@ -250,6 +253,17 @@ while True:
     inpdata = get_from_input( 4*rdnrvals )
   except:
     exit_err( "Data transfer failure" )
+
+  if not fixedsize:
+    nroutsamps = int(rdnrvals/nrattribs) - 2*stepout[2]
+    inp_shape = (nrattribs,2*stepout[0]+1,2*stepout[1]+1,nroutsamps+2*stepout[2])
+    examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
+                                           nrpts=nroutsamps )
+    nrz = examples_shape[-1]
+    examples = np.empty( examples_shape, dtype=np.float32 )
+    outgoingnrvals = nroutputs * nroutsamps
+    outgoingnrbytes = outgoingnrvals * 4
+
 
   valsret = np.reshape( np.frombuffer(inpdata,dtype=np.float32), inp_shape )
   for zidz in range(nroutsamps):
