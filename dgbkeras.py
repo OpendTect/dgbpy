@@ -208,7 +208,7 @@ def apply( model, samples, applyinfo=None, batch_size=keras_dict['batch'] ):
 
   import keras
   ret = {}
-  if isclassification:
+  if isclassification and withclass:
     ret.update({dgbkeys.preddictstr: \
                 model.predict_classes( samples, batch_size=batch_size )})
   else:
