@@ -182,18 +182,17 @@ parfile.close()
 
 fixedsize = nroutsamps >= 0
 
-outputnms = list()
-if 0 in outputs:
-  outputnms.append( dgbkeys.classvalstr )
-if 1 in outputs:
-  outputnms.append( dgbkeys.confvalstr )
-
 if fakeapply:
   modelinfo = dgbmlio.getInfo( keras_file )
   modelinfo[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
   model = None
 else:
   (model,modelinfo) = dgbmlio.getModel( keras_file )
+
+if fakeapply:
+  outputnms = [dgbkeys.classvalstr]
+else:
+  outputnms = dgbhdf5.getOutputNames( keras_file, outputs )
 applyinfo = dgbmlio.getApplyInfo( modelinfo, outputnms )
 nrattribs = dgbhdf5.get_nr_attribs( modelinfo )
 stepout = modelinfo[dgbkeys.stepoutdictstr]
@@ -278,10 +277,10 @@ while True:
   nrbyteswritten = 0
   if dgbkeys.preddictstr in ret:
     nrbyteswritten = put_to_output( ret[dgbkeys.preddictstr] )
-  if dgbkeys.confdictstr in ret:
-    nrbyteswritten = put_to_output( ret[dgbkeys.confdictstr] ) + nrbyteswritten
   if dgbkeys.probadictstr in ret:
     nrbyteswritten = put_to_output( ret[dgbkeys.probadictstr] ) + nrbyteswritten
+  if dgbkeys.confdictstr in ret:
+    nrbyteswritten = put_to_output( ret[dgbkeys.confdictstr] ) + nrbyteswritten
 
   if binaryout and nrbyteswritten != outgoingnrbytes:
     exit_err( "Could only write " + str(nrbyteswritten)

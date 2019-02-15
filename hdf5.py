@@ -271,6 +271,10 @@ def getWellInfo( info, filenm ):
   })
   return info
 
+modeloutstr = 'Model.Output.'
+def modelIdxStr( idx ):
+  return modeloutstr + str(idx) + '.Name'
+
 def addInfo( inpfile, plfnm, filenm ):
   h5filein = h5py.File( inpfile, 'r' )
   h5fileout = h5py.File( filenm, 'r+' )
@@ -284,10 +288,9 @@ def addInfo( inpfile, plfnm, filenm ):
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
   outps = getOutputs( inpfile )
   nrout = len(outps)
-  modeloutstr = 'Model.Output.'
   odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(nrout) )
   for idx in range(nrout):
-    odhdf5.setAttr( dsinfoout, modeloutstr+str(idx)+'.Name', outps[idx] )
+    odhdf5.setAttr( dsinfoout, modelIdxStr(idx), outps[idx] )
 
   h5fileout.close()
 
@@ -316,3 +319,11 @@ def getOutputs( inpfile ):
 
   return ret
 
+def getOutputNames( filenm, indices ):
+  h5file = h5py.File( filenm, 'r' )
+  info = odhdf5.getInfoDataSet( h5file )
+  ret = list()
+  for idx in indices:
+    ret.append( odhdf5.getText(info,modelIdxStr(idx)) )
+  h5file.close()
+  return ret
