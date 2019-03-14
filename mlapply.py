@@ -17,11 +17,7 @@ import dgbpy.mlio as dgbmlio
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
              outnm=dgbkeys.modelnm, args=None ):
-  outfnm = None
-  try:
-    outfnm = dgbmlio.getSaveLoc( outnm, args )
-  except FileNotFoundError:
-    raise
+  outfnm = dgbmlio.getSaveLoc( outnm, args )
   decimate = False
   if params != None and dgbkeys.decimkeystr in params:
     decimate = params[dgbkeys.decimkeystr]
