@@ -7,7 +7,9 @@
 # _________________________________________________________________________a
 
 import sys
+import os
 import argparse
+import subprocess
 
 from bokeh.layouts import row, column, layout
 from bokeh.models import Spacer
@@ -55,6 +57,8 @@ loggrp.add_argument( '--syslog',
 args = vars(parser.parse_args())
 odcommon.initLogging( args )
 odcommon.proclog_logger.setLevel( 'DEBUG' )
+
+trainscriptfp = os.path.join(os.path.dirname(__file__),'mlapplyrun.py')
 
 but_width = 80
 but_height = 20
@@ -176,22 +180,82 @@ def getParams():
     return dgbscikit.getParams( nbparfld.value )
   return {}
 
+def getProcArgs( platfmnm, pars, outnm ):
+  ret = {
+    'posargs': [args['h5file'].name],
+    'odargs': odcommon.getODArgs( args ),
+    'dict': {
+      'platform': platfmnm,
+      'output': outnm,
+      'parameters': pars
+    }
+  }
+  return ret
+
+trainprocpid = None
+
+def doCmd( cmd ):
+  procpid = os.getpid()
+  print( '\nA new child ',  os.getpid() )
+  try:
+    ret = subprocess.run( cmd, stdout=odcommon.get_log_stream(), \
+                          stderr=odcommon.get_std_stream(), check=True )
+  except subprocess.CalledProcessError as err:
+    odcommon.std_msg( err )
+
+def launchCmd2( cmd ):
+  procpid = None
+  while True:
+    newpid = os.fork()
+    if newpid == 0:
+      doCmd( cmd )
+    else:
+      pids = (os.getpid(), newpid)
+      print("parent: %d, child: %d\n" % pids)
+      procpid = newpid
+    break
+  return procpid
+
+def launchCmd( cmd ):
+  try:
+    pid = os.fork()
+    if pid > 0:
+      return pid
+  except OSError as e:
+    odcommon.std_msg( 'fork #1', e.errno, 'failed:', e.strerror )
+    sys.exit(1)
+  os.setsid()
+
+  try:
+    pid = os.fork()
+    if pid > 0:
+      sys.exit(0)
+  except OSError as e:
+    odcommon.std_msg( 'fork #2', e.errno, 'failed:', e.strerror )
+    sys.exit(1)
+
+  doCmd( cmd )
+  os._exit(0)
+
 def acceptOK():
   runbut.disabled = True
   stopbut.disabled = False
   odcommon.reset_log_file( 1 )
-  success = dgbmlapply.doTrain( args['h5file'].name, platformfld.value,
-                                getParams(), outputnmfld.value, args )
-  if success:
-    odcommon.log_msg( "Deeplearning Training Module Finished" )
-    odcommon.log_msg( "" )
-    odcommon.log_msg( "Finished batch processing." )
-    odcommon.log_msg( "" )
-  rejectOK()
+  scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
+  cmdtorun = odcommon.getPythonCommand( trainscriptfp, scriptargs['posargs'], \
+                                        scriptargs['dict'], scriptargs['odargs'] )
+  trainprocpid = launchCmd( cmdtorun )
+  odcommon.log_msg( trainprocpid )
+  odcommon.log_msg( "Deeplearning Training Module Finished" )
+  odcommon.log_msg( "Finished batch processing." )
+  odcommon.log_msg( "" )
+#  runbut.disabled = False
+#  stopbut.disabled = True
 
 def rejectOK():
-  runbut.disabled = False
-  stopbut.disabled = True
+  print( "Stopping", trainprocpid )
+#  runbut.disabled = False
+#  stopbut.disabled = True
 
 platformfld.on_change('value', mlchgCB)
 platformparsbut.on_click(setParsTabCB)
