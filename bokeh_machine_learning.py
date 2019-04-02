@@ -18,7 +18,8 @@ from bokeh.models.widgets import (Button, CheckboxGroup, Panel, Select, Slider,
 from bokeh.plotting import curdoc
 from bokeh.util import logconfig
 
-from odpy import common as odcommon
+import odpy.common as odcommon
+from odpy.oscommand import getPythonCommand
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
@@ -242,8 +243,8 @@ def acceptOK():
   stopbut.disabled = False
   odcommon.reset_log_file( 1 )
   scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
-  cmdtorun = odcommon.getPythonCommand( trainscriptfp, scriptargs['posargs'], \
-                                        scriptargs['dict'], scriptargs['odargs'] )
+  cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
+                               scriptargs['dict'], scriptargs['odargs'] )
   trainprocpid = launchCmd( cmdtorun )
   odcommon.log_msg( trainprocpid )
   odcommon.log_msg( "Deeplearning Training Module Finished" )
