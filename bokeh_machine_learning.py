@@ -16,10 +16,11 @@ from bokeh.models import Spacer
 from bokeh.models.widgets import (Button, CheckboxGroup, Panel, Select, Slider,
                                   Tabs, TextInput)
 from bokeh.plotting import curdoc
+from bokeh.server import callbacks
 from bokeh.util import logconfig
 
 import odpy.common as odcommon
-from odpy.oscommand import getPythonCommand
+from odpy.oscommand import getPythonCommand, execCommand, killproc, isRunning
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
@@ -193,70 +194,38 @@ def getProcArgs( platfmnm, pars, outnm ):
   }
   return ret
 
-trainprocpid = None
+trainstate = {
+  'proc': None,
+  'cb': None
+}
 
-def doCmd( cmd ):
-  procpid = os.getpid()
-  print( '\nA new child ',  os.getpid() )
-  try:
-    ret = subprocess.run( cmd, stdout=odcommon.get_log_stream(), \
-                          stderr=odcommon.get_std_stream(), check=True )
-  except subprocess.CalledProcessError as err:
-    odcommon.std_msg( err )
-
-def launchCmd2( cmd ):
-  procpid = None
-  while True:
-    newpid = os.fork()
-    if newpid == 0:
-      doCmd( cmd )
-    else:
-      pids = (os.getpid(), newpid)
-      print("parent: %d, child: %d\n" % pids)
-      procpid = newpid
-    break
-  return procpid
-
-def launchCmd( cmd ):
-  try:
-    pid = os.fork()
-    if pid > 0:
-      return pid
-  except OSError as e:
-    odcommon.std_msg( 'fork #1', e.errno, 'failed:', e.strerror )
-    sys.exit(1)
-  os.setsid()
-
-  try:
-    pid = os.fork()
-    if pid > 0:
-      sys.exit(0)
-  except OSError as e:
-    odcommon.std_msg( 'fork #2', e.errno, 'failed:', e.strerror )
-    sys.exit(1)
-
-  doCmd( cmd )
-  os._exit(0)
+def trainMonitorCB():
+  proc = trainstate['proc']
+  if proc == None:
+    return
+  elif not isRunning(proc):
+    trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
+    trainstate['proc'] = None
+    runbut.disabled = False
+    stopbut.disabled = True
 
 def acceptOK():
   runbut.disabled = True
   stopbut.disabled = False
-  odcommon.reset_log_file( 1 )
   scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
-  trainprocpid = launchCmd( cmdtorun )
-  odcommon.log_msg( trainprocpid )
-  odcommon.log_msg( "Deeplearning Training Module Finished" )
-  odcommon.log_msg( "Finished batch processing." )
-  odcommon.log_msg( "" )
-#  runbut.disabled = False
-#  stopbut.disabled = True
+  trainstate['proc'] = execCommand( cmdtorun, background=True )
+  trainstate['cb'] = curdoc().add_periodic_callback(trainMonitorCB,2000)
 
 def rejectOK():
-  print( "Stopping", trainprocpid )
-#  runbut.disabled = False
-#  stopbut.disabled = True
+  proc = trainstate['proc']
+  if isRunning(proc):
+    trainstate['proc'] = killproc( trainstate['proc'] )
+    trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
+  trainstate['proc'] = None
+  runbut.disabled = False
+  stopbut.disabled = True
 
 platformfld.on_change('value', mlchgCB)
 platformparsbut.on_click(setParsTabCB)

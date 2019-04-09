@@ -10,10 +10,12 @@
 
 import sys
 import os
+import platform
 import argparse
 import json
 
 from odpy import common as odcommon
+from odpy.oscommand import getPythonExecNm
 import dgbpy.mlapply as dgbmlapply
 
 parser = argparse.ArgumentParser(
@@ -40,7 +42,7 @@ odappl.add_argument( '--dtectexec',
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
-            type=argparse.FileType('a'), default=sys.stdout,
+            type=argparse.FileType('w'), default=sys.stdout,
             help='Progress report output' )
 loggrp.add_argument( '--syslog',
             dest='sysout', metavar='stdout', nargs='?',
@@ -48,8 +50,19 @@ loggrp.add_argument( '--syslog',
             help='Standard output' )
 args = vars(parser.parse_args())
 odcommon.initLogging( args )
+odcommon.proclog_logger.setLevel( 'DEBUG' )
 
 if __name__ == '__main__':
+  odcommon.log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
+  odcommon.log_msg( 'Processing on:', platform.node() )
+  odcommon.log_msg( 'Process ID:', os.getpid() )
+  odcommon.std_msg( 'test std output from batch program' ) #TODO: remove
   dict = json.loads( args['dict'][0] )
-  sucess = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
-                               dict['parameters'], dict['output'], args )
+  success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
+                                dict['parameters'], dict['output'], args )
+  if not success:
+    sys.exit(1)
+
+  odcommon.log_msg( "\nDeeplearning Training Module Finished" )
+  odcommon.log_msg( "Finished batch processing.\n" )
+  sys.exit(0)
