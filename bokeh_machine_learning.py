@@ -63,7 +63,7 @@ odcommon.proclog_logger.setLevel( 'DEBUG' )
 trainscriptfp = os.path.join(os.path.dirname(__file__),'mlapplyrun.py')
 
 but_width = 80
-but_height = 20
+but_height = 32
 but_spacer = 5
 
 traintabnm = 'Training'
@@ -102,7 +102,7 @@ def doKeras():
 def doScikit():
   return platformfld.value == dgbscikit.getMLPlatform()
 
-def setTraingTabCB():
+def setTrainigTabCB():
   setActiveTab( mainpanel, traintabnm )
 
 def setParsTabCB():
@@ -123,7 +123,7 @@ def getKerasParsGrp():
                 title='Patience')
   return (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,{
     'tabname': dgbkeras.getUIMLPlatform(),
-    'grp' : column(dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld)
+    'grp' : column(epochfld,batchfld,patiencefld,dodecimatefld,decimatefld,iterfld)
   })
 
 def getScikitParsGrp():
@@ -147,17 +147,11 @@ platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
 parsgroups = (kerasparsgrp,scikitparsgrp)
-tabparslist = list()
-for parsgrp in parsgroups:
-  tabparslist.append( Panel(title=parsgrp['tabname'],child=parsgrp['grp']) )
-tabpars = Tabs(tabs=tabparslist)
 parsbackbut = Button(label="Back",width=but_width,height=but_height)
 
 (runbut,stopbut,buttonsgrp) = getButtonsGrp()
 trainpanel.child = column( platformfld, platformparsbut, outputnmfld,
                            buttonsgrp )
-
-parameterspanel.child = column( tabpars, parsbackbut )
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
@@ -165,13 +159,15 @@ def mlchgCB( attrnm, old, new):
 def selParsGrp( platformnm ):
   for platform,parsgroup in zip(ML_PLFS,parsgroups):
     if platform[0] == platformnm:
-      setActiveTab( tabpars, parsgroup['tabname'] )
+      curdoc().clear()
+      parameterspanel.child = column( parsgroup['grp'], parsbackbut )
+      curdoc().add_root(mainpanel)
       return
 
 def decimateCB( widgetactivelist ):
   decimate = integerListContains( widgetactivelist, 0 )
-  decimatefld.disabled = not decimate
-  iterfld.disabled = not decimate
+  decimatefld.visible = decimate
+  iterfld.visible = decimate
 
 def getParams():
   if doKeras():
@@ -227,12 +223,12 @@ def rejectOK():
   runbut.disabled = False
   stopbut.disabled = True
 
-platformfld.on_change('value', mlchgCB)
+platformfld.on_change('value',mlchgCB)
 platformparsbut.on_click(setParsTabCB)
 runbut.on_click(acceptOK)
 stopbut.on_click(rejectOK)
 dodecimatefld.on_click(decimateCB)
-parsbackbut.on_click(setTraingTabCB)
+parsbackbut.on_click(setTrainigTabCB)
 
 def initWin():
   platformfld.value = ML_PLFS[0][0]
@@ -240,4 +236,3 @@ def initWin():
   decimateCB( dodecimatefld.active )
 
 initWin()
-curdoc().add_root(mainpanel)
