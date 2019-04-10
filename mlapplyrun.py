@@ -56,7 +56,6 @@ if __name__ == '__main__':
   odcommon.log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
   odcommon.log_msg( 'Processing on:', platform.node() )
   odcommon.log_msg( 'Process ID:', os.getpid() )
-  odcommon.std_msg( 'test std output from batch program' ) #TODO: remove
   dict = json.loads( args['dict'][0] )
   success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
                                 dict['parameters'], dict['output'], args )

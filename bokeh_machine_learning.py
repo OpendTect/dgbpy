@@ -20,7 +20,7 @@ from bokeh.server import callbacks
 from bokeh.util import logconfig
 
 import odpy.common as odcommon
-from odpy.oscommand import getPythonCommand, execCommand, killproc, isRunning
+from odpy.oscommand import getPythonCommand, execCommand, kill, isRunning
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
@@ -221,7 +221,7 @@ def acceptOK():
 def rejectOK():
   proc = trainstate['proc']
   if isRunning(proc):
-    trainstate['proc'] = killproc( trainstate['proc'] )
+    trainstate['proc'] = kill( trainstate['proc'] )
     trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
   trainstate['proc'] = None
   runbut.disabled = False
