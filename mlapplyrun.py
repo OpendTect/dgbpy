@@ -15,7 +15,7 @@ import argparse
 import json
 
 from odpy import common as odcommon
-from odpy.oscommand import getPythonExecNm
+from odpy.oscommand import getPythonExecNm, printProcessTime
 import dgbpy.mlapply as dgbmlapply
 
 parser = argparse.ArgumentParser(
@@ -55,13 +55,16 @@ odcommon.proclog_logger.setLevel( 'DEBUG' )
 if __name__ == '__main__':
   odcommon.log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
   odcommon.log_msg( 'Processing on:', platform.node() )
-  odcommon.log_msg( 'Process ID:', os.getpid() )
+  odcommon.log_msg( 'Process ID:', os.getpid(), '\n' )
+  printProcessTime( 'Machine Learning Training', True, odcommon.log_msg )
+  odcommon.log_msg( '\n' )
   dict = json.loads( args['dict'][0] )
   success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
                                 dict['parameters'], dict['output'], args )
   if not success:
     sys.exit(1)
 
-  odcommon.log_msg( "\nDeeplearning Training Module Finished" )
+  odcommon.log_msg( '\n' )
+  printProcessTime( 'Machine Learning Training', False, odcommon.log_msg )
   odcommon.log_msg( "Finished batch processing.\n" )
   sys.exit(0)
