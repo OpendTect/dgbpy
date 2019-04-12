@@ -102,7 +102,7 @@ def doKeras():
 def doScikit():
   return platformfld.value == dgbscikit.getMLPlatform()
 
-def setTrainigTabCB():
+def setTrainingTabCB():
   setActiveTab( mainpanel, traintabnm )
 
 def setParsTabCB():
@@ -134,26 +134,49 @@ def getScikitParsGrp():
     'grp': column(nbparfld)
   })
 
-def getButtonsGrp():
-  runbut = Button(label='Run',button_type='success',
-                  width=but_width,height=but_height)
-  pausebut = Button(label='Pause',button_type='primary',width=but_width,height=but_height)
-  resumebut = Button(label='Resume',button_type='primary',width=but_width,height=but_height)
-  stopbut = Button(label="Abort",button_type='danger',width=but_width,height=but_height)
-  return ( runbut, pausebut, resumebut, stopbut, 
-           row(Spacer(width=220),runbut),
-           row(Spacer(width=125),pausebut,Spacer(width=but_spacer),stopbut),
-           row(Spacer(width=125),resumebut,Spacer(width=but_spacer),stopbut) )
-
 platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
+
+callback_id = None
+proc = None
+
+def startStopProcCB():
+  global callback_id
+  if runstopbut.label == '▶ Run':
+    runstopbut.label = '◼ Abort'
+    runstopbut.button_type = 'danger'
+    pauseresumebut.visible = True
+    acceptOK()
+    callback_id = curdoc().add_periodic_callback(trainMonitorCB,2000)
+  else:
+    runstopbut.label = '▶ Run'
+    runstopbut.button_type = 'success'
+    pauseresumebut.visible = False
+    rejectOK()
+
+def pauseResumeProcCB():
+  global proc
+  if pauseresumebut.label == '❚❚ Pause':
+    pauseresumebut.label = '► Resume'
+    pauseProcess( proc )
+  else:
+    pauseresumebut.label = '❚❚ Pause'
+    resumeProcess( proc )
+
+runstopbut = Button(label='▶ Run',button_type='success',
+                    width=but_width,height=but_height)
+runstopbut.on_click(startStopProcCB)
+pauseresumebut = Button(label='❚❚ Pause',button_type='primary',visible=False,
+                        width=but_width,height=but_height)
+pauseresumebut.on_click(pauseResumeProcCB)
+buttongsgrp = row(pauseresumebut,Spacer(width=but_spacer),runstopbut,width_policy='min')
+buttongsfld = row(Spacer(width=but_spacer),buttongsgrp, sizing_mode='stretch_width')
+trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttongsfld )
 
 (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
 parsgroups = (kerasparsgrp,scikitparsgrp)
 parsbackbut = Button(label="Back",width=but_width,height=but_height)
-
-(runbut,pausebut,resumebut,stopbut,runbutgrp,pausebutgrp,resumebutgrp) = getButtonsGrp()
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
@@ -192,68 +215,38 @@ def getProcArgs( platfmnm, pars, outnm ):
   }
   return ret
 
-trainstate = {
-  'proc': None,
-  'cb': None
-}
-
-def showButtonsGrp( grp ):
-  curdoc().clear()
-  trainpanel.child = column( platformfld, platformparsbut, outputnmfld, grp )
-  curdoc().add_root(mainpanel)
-
 def trainMonitorCB():
-  proc = trainstate['proc']
+  global callback_id
+  global proc
   if proc == None:
     return
   elif not isRunning(proc):
-    trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
-    trainstate['proc'] = None
-    showButtonsGrp( runbutgrp )
+    curdoc().remove_periodic_callback( callback_id )
+    proc = None
+    startStopProcCB()
 
 def acceptOK():
-  showButtonsGrp( pausebutgrp )
+  global proc
   scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
-  trainstate['proc'] = execCommand( cmdtorun, background=True )
-  trainstate['cb'] = curdoc().add_periodic_callback(trainMonitorCB,2000)
-
-def pauseCB():
-  showButtonsGrp( resumebutgrp )
-  pauseProcess( trainstate['proc'] )
-
-def resumeCB():
-  showButtonsGrp( pausebutgrp )
-  resumeProcess( trainstate['proc'] )
+  proc = execCommand( cmdtorun, background=True )
 
 def rejectOK():
-  proc = trainstate['proc']
+  global proc
   if isRunning(proc):
-    trainstate['proc'] = kill( trainstate['proc'] )
-    trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
-  trainstate['proc'] = None
-  showButtonsGrp( runbutgrp )
+    proc = kill( proc )
+  proc = None
 
 platformfld.on_change('value',mlchgCB)
 platformparsbut.on_click(setParsTabCB)
-runbut.on_click(acceptOK)
-pausebut.on_click(pauseCB)
-resumebut.on_click(resumeCB)
-stopbut.on_click(rejectOK)
 dodecimatefld.on_click(decimateCB)
-parsbackbut.on_click(setTrainigTabCB)
-
-def initializeButtonsBar():
-  # Add each button row once to the document to avoid PE messages
-  showButtonsGrp( pausebutgrp )
-  showButtonsGrp( resumebutgrp )
-  showButtonsGrp( runbutgrp )
+parsbackbut.on_click(setTrainingTabCB)
 
 def initWin():
   platformfld.value = ML_PLFS[0][0]
   mlchgCB( 'value', 0, platformfld.value )
-  initializeButtonsBar()
   decimateCB( dodecimatefld.active )
+  curdoc().title = 'Machine Learning'
 
 initWin()
