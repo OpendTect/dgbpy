@@ -9,7 +9,6 @@
 import sys
 import os
 import argparse
-import subprocess
 
 from bokeh.layouts import row, column, layout
 from bokeh.models import Spacer
@@ -61,7 +60,7 @@ args = vars(parser.parse_args())
 odcommon.initLogging( args )
 odcommon.proclog_logger.setLevel( 'DEBUG' )
 
-trainscriptfp = os.path.join(os.path.dirname(__file__),'mlapplyrun.py')
+trainscriptfp = os.path.join(os.path.dirname(os.path.dirname(__file__)),'mlapplyrun.py')
 
 but_width = 80
 but_height = 32
@@ -138,9 +137,9 @@ def getScikitParsGrp():
 def getButtonsGrp():
   runbut = Button(label='Run',button_type='success',
                   width=but_width,height=but_height)
-  pausebut = Button(label='Pause',width=but_width,height=but_height)
-  resumebut = Button(label='Resume',width=but_width,height=but_height)
-  stopbut = Button(label="Abort",width=but_width,height=but_height)
+  pausebut = Button(label='Pause',button_type='primary',width=but_width,height=but_height)
+  resumebut = Button(label='Resume',button_type='primary',width=but_width,height=but_height)
+  stopbut = Button(label="Abort",button_type='danger',width=but_width,height=but_height)
   return ( runbut, pausebut, resumebut, stopbut, 
            row(Spacer(width=220),runbut),
            row(Spacer(width=125),pausebut,Spacer(width=but_spacer),stopbut),
