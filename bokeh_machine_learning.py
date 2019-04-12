@@ -20,7 +20,8 @@ from bokeh.server import callbacks
 from bokeh.util import logconfig
 
 import odpy.common as odcommon
-from odpy.oscommand import getPythonCommand, execCommand, kill, isRunning
+from odpy.oscommand import (getPythonCommand, execCommand, kill,
+                            isRunning, pauseProcess, resumeProcess)
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
@@ -135,11 +136,15 @@ def getScikitParsGrp():
   })
 
 def getButtonsGrp():
-  runbut = Button(label="Run",button_type="success",
+  runbut = Button(label='Run',button_type='success',
                   width=but_width,height=but_height)
-  stopbut = Button(label="Stop",disabled=True,width=but_width,height=but_height)
-  return ( runbut, stopbut,
-           row(Spacer(width=110),runbut,Spacer(width=but_spacer),stopbut) )
+  pausebut = Button(label='Pause',width=but_width,height=but_height)
+  resumebut = Button(label='Resume',width=but_width,height=but_height)
+  stopbut = Button(label="Abort",width=but_width,height=but_height)
+  return ( runbut, pausebut, resumebut, stopbut, 
+           row(Spacer(width=220),runbut),
+           row(Spacer(width=125),pausebut,Spacer(width=but_spacer),stopbut),
+           row(Spacer(width=125),resumebut,Spacer(width=but_spacer),stopbut) )
 
 platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
 
@@ -149,9 +154,7 @@ platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
 parsgroups = (kerasparsgrp,scikitparsgrp)
 parsbackbut = Button(label="Back",width=but_width,height=but_height)
 
-(runbut,stopbut,buttonsgrp) = getButtonsGrp()
-trainpanel.child = column( platformfld, platformparsbut, outputnmfld,
-                           buttonsgrp )
+(runbut,pausebut,resumebut,stopbut,runbutgrp,pausebutgrp,resumebutgrp) = getButtonsGrp()
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
@@ -195,6 +198,11 @@ trainstate = {
   'cb': None
 }
 
+def showButtonsGrp( grp ):
+  curdoc().clear()
+  trainpanel.child = column( platformfld, platformparsbut, outputnmfld, grp )
+  curdoc().add_root(mainpanel)
+
 def trainMonitorCB():
   proc = trainstate['proc']
   if proc == None:
@@ -202,17 +210,23 @@ def trainMonitorCB():
   elif not isRunning(proc):
     trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
     trainstate['proc'] = None
-    runbut.disabled = False
-    stopbut.disabled = True
+    showButtonsGrp( runbutgrp )
 
 def acceptOK():
-  runbut.disabled = True
-  stopbut.disabled = False
+  showButtonsGrp( pausebutgrp )
   scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
   trainstate['proc'] = execCommand( cmdtorun, background=True )
   trainstate['cb'] = curdoc().add_periodic_callback(trainMonitorCB,2000)
+
+def pauseCB():
+  showButtonsGrp( resumebutgrp )
+  pauseProcess( trainstate['proc'] )
+
+def resumeCB():
+  showButtonsGrp( pausebutgrp )
+  resumeProcess( trainstate['proc'] )
 
 def rejectOK():
   proc = trainstate['proc']
@@ -220,19 +234,27 @@ def rejectOK():
     trainstate['proc'] = kill( trainstate['proc'] )
     trainstate['cb'] = curdoc().remove_periodic_callback( trainstate['cb'] )
   trainstate['proc'] = None
-  runbut.disabled = False
-  stopbut.disabled = True
+  showButtonsGrp( runbutgrp )
 
 platformfld.on_change('value',mlchgCB)
 platformparsbut.on_click(setParsTabCB)
 runbut.on_click(acceptOK)
+pausebut.on_click(pauseCB)
+resumebut.on_click(resumeCB)
 stopbut.on_click(rejectOK)
 dodecimatefld.on_click(decimateCB)
 parsbackbut.on_click(setTrainigTabCB)
 
+def initializeButtonsBar():
+  # Add each button row once to the document to avoid PE messages
+  showButtonsGrp( pausebutgrp )
+  showButtonsGrp( resumebutgrp )
+  showButtonsGrp( runbutgrp )
+
 def initWin():
   platformfld.value = ML_PLFS[0][0]
   mlchgCB( 'value', 0, platformfld.value )
+  initializeButtonsBar()
   decimateCB( dodecimatefld.active )
 
 initWin()
