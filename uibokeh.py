@@ -104,6 +104,9 @@ def setResumed( runbutbar ):
   runbutbar['state'] = RunState.Running
   runbutbar['pause'].label = pause_lbl
 
+def setTabFromButton( cb, panelnm, tabnm ):
+  setActiveTab( panelnm, tabnm )
+
 def setActiveTab( tabspanelwidget, tabnm ):
   tabs = tabspanelwidget.tabs
   for i in range( len(tabs) ):

@@ -9,6 +9,7 @@
 import sys
 import os
 import argparse
+from functools import partial
 
 from bokeh.layouts import row, column, layout
 from bokeh.models import Spacer
@@ -86,12 +87,6 @@ def doKeras():
 def doScikit():
   return platformfld.value == dgbscikit.getMLPlatform()
 
-def setTrainingTabCB( cb ):
-  uibokeh.setActiveTab( mainpanel, traintabnm )
-
-def setParsTabCB( cb ):
-  uibokeh.setActiveTab( mainpanel, paramtabnm )
-
 def getKerasParsGrp():
   dict = dgbkeras.keras_dict
   dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
@@ -118,13 +113,15 @@ def getScikitParsGrp():
     'grp': column(nbparfld)
   })
 
-platformparsbut = uibokeh.getButton(paramtabnm,callback_fn=setParsTabCB)
+platformparsbut = uibokeh.getButton(paramtabnm,\
+    callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
 
 (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
 parsgroups = (kerasparsgrp,scikitparsgrp)
-parsbackbut = uibokeh.getButton('Back',callback_fn=setTrainingTabCB)
+parsbackbut = uibokeh.getButton('Back',\
+    callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
