@@ -4,7 +4,7 @@
 # Author:        A. Huck
 # Date:          Jan 2019
 #
-# _________________________________________________________________________a
+# _________________________________________________________________________
 
 import sys
 import os
@@ -12,7 +12,7 @@ import argparse
 
 from bokeh.layouts import row, column, layout
 from bokeh.models import Spacer
-from bokeh.models.widgets import (Button, CheckboxGroup, Panel, Select, Slider,
+from bokeh.models.widgets import (CheckboxGroup, Panel, Select, Slider,
                                   Tabs, TextInput)
 from bokeh.plotting import curdoc
 from bokeh.server import callbacks
@@ -24,6 +24,7 @@ from odpy.oscommand import (getPythonCommand, execCommand, kill,
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import dgbkeras, dgbscikit
+from dgbpy import uibokeh
 
 parser = argparse.ArgumentParser(
             description='Select parameters for machine learning model training')
@@ -62,10 +63,6 @@ odcommon.proclog_logger.setLevel( 'DEBUG' )
 
 trainscriptfp = os.path.join(os.path.dirname(os.path.dirname(__file__)),'mlapplyrun.py')
 
-but_width = 80
-but_height = 32
-but_spacer = 5
-
 traintabnm = 'Training'
 paramtabnm = 'Parameters'
 
@@ -80,21 +77,8 @@ ML_PLFS.append( dgbscikit.platform )
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
 outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
 
-def setActiveTab( tabspanelwidget, tabnm ):
-  tabs = tabspanelwidget.tabs
-  for i in range( len(tabs) ):
-    if tabs[i].title == tabnm:
-      tabspanelwidget.active = i
-      return
-
-def integerListContains( listobj, index ):
-  for itm in listobj:
-    if itm == index:
-      return True
-  return False
-
 def doDecimate( fldwidget, index=0 ):
-  return integerListContains( fldwidget.active, index )
+  return uibokeh.integerListContains( fldwidget.active, index )
 
 def doKeras():
   return platformfld.value == dgbkeras.getMLPlatform()
@@ -102,11 +86,11 @@ def doKeras():
 def doScikit():
   return platformfld.value == dgbscikit.getMLPlatform()
 
-def setTrainingTabCB():
-  setActiveTab( mainpanel, traintabnm )
+def setTrainingTabCB( cb ):
+  uibokeh.setActiveTab( mainpanel, traintabnm )
 
-def setParsTabCB():
-  setActiveTab( mainpanel, paramtabnm )
+def setParsTabCB( cb ):
+  uibokeh.setActiveTab( mainpanel, paramtabnm )
 
 def getKerasParsGrp():
   dict = dgbkeras.keras_dict
@@ -134,49 +118,13 @@ def getScikitParsGrp():
     'grp': column(nbparfld)
   })
 
-platformparsbut = Button(label=paramtabnm,width=but_width,height=but_height)
-
-callback_id = None
-proc = None
-
-def startStopProcCB():
-  global callback_id
-  if runstopbut.label == '▶ Run':
-    runstopbut.label = '◼ Abort'
-    runstopbut.button_type = 'danger'
-    pauseresumebut.visible = True
-    acceptOK()
-    callback_id = curdoc().add_periodic_callback(trainMonitorCB,2000)
-  else:
-    runstopbut.label = '▶ Run'
-    runstopbut.button_type = 'success'
-    pauseresumebut.visible = False
-    rejectOK()
-
-def pauseResumeProcCB():
-  global proc
-  if pauseresumebut.label == '❚❚ Pause':
-    pauseresumebut.label = '► Resume'
-    pauseProcess( proc )
-  else:
-    pauseresumebut.label = '❚❚ Pause'
-    resumeProcess( proc )
-
-runstopbut = Button(label='▶ Run',button_type='success',
-                    width=but_width,height=but_height)
-runstopbut.on_click(startStopProcCB)
-pauseresumebut = Button(label='❚❚ Pause',button_type='primary',visible=False,
-                        width=but_width,height=but_height)
-pauseresumebut.on_click(pauseResumeProcCB)
-buttongsgrp = row(pauseresumebut,Spacer(width=but_spacer),runstopbut,width_policy='min')
-buttongsfld = row(Spacer(width=but_spacer),buttongsgrp, sizing_mode='stretch_width')
-trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttongsfld )
+platformparsbut = uibokeh.getButton(paramtabnm,callback_fn=setParsTabCB)
 
 (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
 parsgroups = (kerasparsgrp,scikitparsgrp)
-parsbackbut = Button(label="Back",width=but_width,height=but_height)
+parsbackbut = uibokeh.getButton('Back',callback_fn=setTrainingTabCB)
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
@@ -190,7 +138,7 @@ def selParsGrp( platformnm ):
       return
 
 def decimateCB( widgetactivelist ):
-  decimate = integerListContains( widgetactivelist, 0 )
+  decimate = uibokeh.integerListContains( widgetactivelist, 0 )
   decimatefld.visible = decimate
   iterfld.visible = decimate
 
@@ -215,33 +163,37 @@ def getProcArgs( platfmnm, pars, outnm ):
   }
   return ret
 
-def trainMonitorCB():
-  global callback_id
-  global proc
-  if proc == None:
-    return
-  elif not isRunning(proc):
-    curdoc().remove_periodic_callback( callback_id )
-    proc = None
-    startStopProcCB()
-
-def acceptOK():
-  global proc
+def doRun( cb = None ):
   scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
-  proc = execCommand( cmdtorun, background=True )
+  return execCommand( cmdtorun, background=True )
 
-def rejectOK():
-  global proc
+def doAbort( proc ):
   if isRunning(proc):
     proc = kill( proc )
-  proc = None
+  return None
+
+def doPause( proc ):
+  pauseProcess( proc )
+  return proc
+
+def doResume( proc ):
+  resumeProcess( proc )
+  return proc
+
+def trainMonitorCB( proc ):
+  if proc == None or isRunning(proc):
+    return True
+  odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
+  odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
+  return False
 
 platformfld.on_change('value',mlchgCB)
-platformparsbut.on_click(setParsTabCB)
+buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
+trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
+
 dodecimatefld.on_click(decimateCB)
-parsbackbut.on_click(setTrainingTabCB)
 
 def initWin():
   platformfld.value = ML_PLFS[0][0]
