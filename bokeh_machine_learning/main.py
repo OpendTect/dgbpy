@@ -12,7 +12,7 @@ import argparse
 import psutil
 from functools import partial
 
-from bokeh.layouts import row, column
+from bokeh.layouts import column
 from bokeh.models.widgets import Panel, Select, Tabs, TextInput
 from bokeh.plotting import curdoc
 
@@ -144,9 +144,9 @@ def trainMonitorCB( proc ):
   try:
     stat = proc.status()
   except psutil.NoSuchProcess:
-    #TODO: fix false positive
-    odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
-    odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
+    if not odcommon.batchIsFinished( odcommon.get_log_file() ):
+      odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
+      odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
     return False
   return True
 
