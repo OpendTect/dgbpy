@@ -12,6 +12,7 @@ import dgbpy.keystr as dgbkeys
 
 
 platform = (dgbkeys.scikitplfnm,'Scikit-learn')
+mltypes = ['Linear','Regressor','MLP']
 
 def getMLPlatform():
   return platform[0]

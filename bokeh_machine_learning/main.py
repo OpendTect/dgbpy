@@ -13,7 +13,7 @@ import psutil
 from functools import partial
 
 from bokeh.layouts import row, column
-from bokeh.models.widgets import Panel, Select, Slider, Tabs, TextInput
+from bokeh.models.widgets import Panel, Select, Tabs, TextInput
 from bokeh.plotting import curdoc
 
 import odpy.common as odcommon
@@ -21,8 +21,7 @@ from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbscikit
-from dgbpy import uibokeh, uikeras
+from dgbpy import uibokeh, uikeras, uisklearn
 
 parser = argparse.ArgumentParser(
             description='Select parameters for machine learning model training')
@@ -70,24 +69,16 @@ mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
 
 ML_PLFS = []
 ML_PLFS.append( uikeras.getPlatformNm(True) )
-ML_PLFS.append( dgbscikit.platform )
+ML_PLFS.append( uisklearn.getPlatformNm(True) )
 
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
 platformparsbut = uibokeh.getButton(paramtabnm,\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
 outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
 
-def getScikitParsGrp():
-  dict = dgbscikit.scikit_dict
-  nbparfld = Slider(start=1,end=100,value=dict['nb'],step=1,title='Number')
-  return (nbparfld,{
-    'grp': column(nbparfld)
-  })
-
 keraspars = uikeras.getUiPars()
-(nbparfld,scikitparsgrp) = getScikitParsGrp()
-
-parsgroups = (keraspars,scikitparsgrp)
+sklearnpars = uisklearn.getUiPars()
+parsgroups = (keraspars,sklearnpars)
 parsbackbut = uibokeh.getButton('Back',\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
@@ -112,8 +103,8 @@ def getParams():
   parsgrp = getParsGrp( platformfld.value )
   if platformfld.value == uikeras.getPlatformNm():
     return uikeras.getParams( keraspars )
-  elif platformfld.value == dgbscikit.getMLPlatform():
-    return dgbscikit.getParams( nbparfld.value )
+  elif platformfld.value == uisklearn.getPlatformNm():
+    return uisklearn.getParams( sklearnpars )
   return {}
 
 def getProcArgs( platfmnm, pars, outnm ):

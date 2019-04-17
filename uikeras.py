@@ -10,9 +10,7 @@ from functools import partial
 
 from bokeh.layouts import column
 from bokeh.models.widgets import CheckboxGroup, Slider
-from bokeh.plotting import curdoc
 
-import dgbpy.keystr as dgbkeys
 from dgbpy import dgbkeras
 from dgbpy import uibokeh
 
