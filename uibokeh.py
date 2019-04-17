@@ -10,7 +10,7 @@ from enum import Enum
 from functools import partial
 
 from bokeh.core import enums
-from bokeh.layouts import row
+from bokeh.layouts import row, column
 from bokeh.models import Spacer
 from bokeh.models.widgets import Button
 from bokeh.plotting import curdoc
@@ -121,3 +121,24 @@ def integerListContains( listobj, index ):
     if itm == index:
       return True
   return False
+
+def getGroup( grpnm, options, groups, keywd ):
+  for opt,group in zip(options,groups):
+    if opt == grpnm:
+      if keywd in group:
+        return group[keywd]
+      return group
+  return None
+
+def getAllUiFlds( objects ):
+  ret = list()
+  if 'uiobjects' in objects:
+    for uiobj in objects['uiobjects']:
+      ret.append( objects['uiobjects'][uiobj] )
+  else:
+    try:
+      for obj in objects:
+        ret.extend( getAllUiFlds(obj) )
+    except TypeError:
+      pass
+  return ret

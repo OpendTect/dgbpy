@@ -56,3 +56,12 @@ seisclasstypestr = 'Seismic Classification'
 typestr = 'Type'
 valuestr = 'Value'
 versionstr = 'Version'
+
+def getNames( lst, uinames=True ):
+  idx = -1
+  if not uinames:
+    idx = 0
+  ret = list()
+  for itm in lst:
+    ret.append( itm[idx] )
+  return ret
