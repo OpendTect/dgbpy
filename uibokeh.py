@@ -54,11 +54,13 @@ def getRunButtonsBar(runact,abortact,pauseact,resumeact,timercb):
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
   return buttonsfld
 
-def startStopCB( cb, run_fn, abort_fn, timer_fn ):
+def startStopCB( cb, run_fn, abort_fn, timer_fn, repeat=2000 ):
   if isReady( cb ):
     setRunning( cb )
     cb['timerobj'] = run_fn( cb['timerobj'] )
-    cb.update({'cb': curdoc().add_periodic_callback(partial(timerCB,cb=cb,timer_fn=timer_fn),2000)})
+    cb.update({
+      'cb': curdoc().add_periodic_callback(partial(timerCB,cb=cb,timer_fn=timer_fn),repeat)
+    })
   else:
     setReady( cb )
     cb['timerobj'] = abort_fn( cb['timerobj'] )

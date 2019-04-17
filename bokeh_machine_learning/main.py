@@ -7,25 +7,22 @@
 # _________________________________________________________________________
 
 import sys
-import os
+from os import path
 import argparse
+import psutil
 from functools import partial
 
-from bokeh.layouts import row, column, layout
-from bokeh.models import Spacer
-from bokeh.models.widgets import (CheckboxGroup, Panel, Select, Slider,
-                                  Tabs, TextInput)
+from bokeh.layouts import row, column
+from bokeh.models.widgets import Panel, Select, Slider, Tabs, TextInput
 from bokeh.plotting import curdoc
-from bokeh.server import callbacks
-from bokeh.util import logconfig
 
 import odpy.common as odcommon
 from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbkeras, dgbscikit
-from dgbpy import uibokeh
+from dgbpy import dgbscikit
+from dgbpy import uibokeh, uikeras
 
 parser = argparse.ArgumentParser(
             description='Select parameters for machine learning model training')
@@ -62,7 +59,7 @@ args = vars(parser.parse_args())
 odcommon.initLogging( args )
 odcommon.proclog_logger.setLevel( 'DEBUG' )
 
-trainscriptfp = os.path.join(os.path.dirname(os.path.dirname(__file__)),'mlapplyrun.py')
+trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
 
 traintabnm = 'Training'
 paramtabnm = 'Parameters'
@@ -72,79 +69,50 @@ parameterspanel = Panel(title=paramtabnm)
 mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
 
 ML_PLFS = []
-ML_PLFS.append( dgbkeras.platform )
+ML_PLFS.append( uikeras.getPlatformNm(True) )
 ML_PLFS.append( dgbscikit.platform )
 
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
+platformparsbut = uibokeh.getButton(paramtabnm,\
+    callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
 outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
-
-def doDecimate( fldwidget, index=0 ):
-  return uibokeh.integerListContains( fldwidget.active, index )
-
-def doKeras():
-  return platformfld.value == dgbkeras.getMLPlatform()
-
-def doScikit():
-  return platformfld.value == dgbscikit.getMLPlatform()
-
-def getKerasParsGrp():
-  dict = dgbkeras.keras_dict
-  dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
-  decimatefld = Slider(start=0.1,end=99.9,value=dict['dec']*100, step=0.1,
-                title='Decimation (%)')
-  iterfld = Slider(start=1,end=100,value=dict['iters'],step=1,
-              title='Iterations')
-  epochfld = Slider(start=1,end=100,value=dict['epoch'],step=1,
-              title='Epochs')
-  batchfld = Slider(start=1,end=100,value=dict['batch'],step=1,
-            title='Number of Batch')
-  patiencefld = Slider(start=1,end=100,value=dict['patience'],step=1,
-                title='Patience')
-  return (dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,{
-    'tabname': dgbkeras.getUIMLPlatform(),
-    'grp' : column(epochfld,batchfld,patiencefld,dodecimatefld,decimatefld,iterfld)
-  })
 
 def getScikitParsGrp():
   dict = dgbscikit.scikit_dict
   nbparfld = Slider(start=1,end=100,value=dict['nb'],step=1,title='Number')
   return (nbparfld,{
-    'tabname': dgbscikit.getUIMLPlatform(),
     'grp': column(nbparfld)
   })
 
-platformparsbut = uibokeh.getButton(paramtabnm,\
-    callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
-
-(dodecimatefld,decimatefld,iterfld,epochfld,batchfld,patiencefld,kerasparsgrp) = getKerasParsGrp()
+keraspars = uikeras.getUiPars()
 (nbparfld,scikitparsgrp) = getScikitParsGrp()
 
-parsgroups = (kerasparsgrp,scikitparsgrp)
+parsgroups = (keraspars,scikitparsgrp)
 parsbackbut = uibokeh.getButton('Back',\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
 
-def selParsGrp( platformnm ):
+def getParsGrp( platformnm ):
   for platform,parsgroup in zip(ML_PLFS,parsgroups):
     if platform[0] == platformnm:
-      curdoc().clear()
-      parameterspanel.child = column( parsgroup['grp'], parsbackbut )
-      curdoc().add_root(mainpanel)
-      return
+      return parsgroup['grp']
+  return None
 
-def decimateCB( widgetactivelist ):
-  decimate = uibokeh.integerListContains( widgetactivelist, 0 )
-  decimatefld.visible = decimate
-  iterfld.visible = decimate
+def selParsGrp( platformnm ):
+  parsgrp = getParsGrp( platformnm )
+  if parsgrp == None:
+    return
+  curdoc().clear()
+  parameterspanel.child = column( parsgrp, parsbackbut )
+  curdoc().add_root(mainpanel)
 
 def getParams():
-  if doKeras():
-    return dgbkeras.getParams( doDecimate(dodecimatefld), decimatefld.value/100,
-                               iterfld.value, epochfld.value, batchfld.value,
-                               patiencefld.value )
-  elif doScikit():
+  parsgrp = getParsGrp( platformfld.value )
+  if platformfld.value == uikeras.getPlatformNm():
+    return uikeras.getParams( keraspars )
+  elif platformfld.value == dgbscikit.getMLPlatform():
     return dgbscikit.getParams( nbparfld.value )
   return {}
 
@@ -182,20 +150,22 @@ def doResume( proc ):
 def trainMonitorCB( proc ):
   if proc == None or isRunning(proc):
     return True
-  odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
-  odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
-  return False
+  try:
+    stat = proc.status()
+  except psutil.NoSuchProcess:
+    #TODO: fix false positive
+    odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
+    odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
+    return False
+  return True
 
 platformfld.on_change('value',mlchgCB)
 buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
 trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
 
-dodecimatefld.on_click(decimateCB)
-
 def initWin():
   platformfld.value = ML_PLFS[0][0]
   mlchgCB( 'value', 0, platformfld.value )
-  decimateCB( dodecimatefld.active )
   curdoc().title = 'Machine Learning'
 
 initWin()
