@@ -22,6 +22,7 @@ import numpy as np
 import struct
 import sys
 import time
+import psutil
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -83,6 +84,7 @@ parser.add_argument( 'parfilename', type=argparse.FileType('r'),
 args = parser.parse_args()
 vargs = vars( args )
 initLogging( vargs )
+parentproc = psutil.Process().parent()
 
 parfile = args.parfilename
 inpstrm = args.input.buffer
@@ -227,6 +229,10 @@ rdnrvals = 0
 start = time.clock()
 while True:
 
+  if not parentproc.is_running():
+    dbg_pr( "Exiting", 0 )
+    break
+
   dbg_pr( "Trying to read", "action code" )
   # read action code
   try:
@@ -297,5 +303,5 @@ std_msg( "Total time:",  "{:.3f}".format(duration), "s.;", \
          "{:.3f}".format(nrprocessed/duration), "tr/s." )
 
 # for production, uncomment to keep /tmp tidy
-#os.remove( parfile.name )
+os.remove( parfile.name )
 exit( 0 )
