@@ -99,4 +99,4 @@ def getSaveLoc( outnm, args ):
   except ValueError:
     return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,kerastrl,\
                                        dgbhdf5.hdf5ext,args)
-  return oddbman.getFileLocation( dblist['IDs'][curentryidx], args )
+  return oddbman.getFileLocation( dbkey, args )
