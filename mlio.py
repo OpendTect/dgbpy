@@ -94,8 +94,9 @@ def getApplyInfo( infos, outsubsel=None ):
 
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)
-  curentry = oddbman.getByName( dblist, outnm )
-  if curentry != None:
-    return oddbman.getFileLocation(curentry,args)
-  return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,kerastrl,\
-                                     dgbhdf5.hdf5ext,args)
+  try:
+    dbkey = oddbman.getDBKeyForName( dblist, outnm )
+  except ValueError:
+    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,kerastrl,\
+                                       dgbhdf5.hdf5ext,args)
+  return oddbman.getFileLocation( dblist['IDs'][curentryidx], args )
