@@ -9,6 +9,7 @@
 #
 
 import os
+import re
 import numpy as np
 
 from odpy.common import log_msg
@@ -241,3 +242,27 @@ def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):
   from keras.utils import plot_model
   plot_model( model, to_file=outfnm, show_shapes=showshapes,
               show_layer_names=withlaynames, rankdir=rankdir )
+
+def compute_capability_from_device_desc(device_desc):
+  match = re.search(r"compute capability: (\d+)\.(\d+)", \
+                      device_desc.physical_device_desc)
+  if not match:
+    return 0, 0
+  return int(match.group(1)), int(match.group(2))
+
+def getDevicesInfo( gpusonly=True ):
+  from tensorflow.python.client import device_lib
+  local_device_protos = device_lib.list_local_devices()
+  if gpusonly:
+    ret = [x for x in local_device_protos if x.device_type == 'GPU']
+  else:
+    ret = [x for x in local_device_protos]
+  return ret
+
+def is_gpu_ready():
+  import tensorflow as tf
+  devs = getDevicesInfo()
+  if len(devs) < 1:
+    return False
+  cc = compute_capability_from_device_desc( devs[0] )
+  return tf.test.is_gpu_available(True,cc)
