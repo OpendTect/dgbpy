@@ -125,18 +125,20 @@ def getAllCubeLets( filenm, decim=False ):
   groupnms = getGroupNames( filenm )
   cubelets = list()
   for groupnm in groupnms:
-    cubelets.append( getCubeLets(filenm,infos,groupnm,decim) )
-  totsz = 0
+    cubes = getCubeLets(filenm,infos,groupnm,decim)
+    if len(cubes) > 0:
+      cubelets.append( cubes )
   allx = list()
   ally = list()
   for cubelet in cubelets:
-    totsz += len(cubelet[xtraindictstr])
     allx.append( cubelet[xtraindictstr] )
     ally.append( cubelet[ytraindictstr] )
-  return {
-    xtraindictstr: np.concatenate( allx ),
-    ytraindictstr: np.concatenate( ally )
-  }
+  if len(allx) > 0:
+    return {
+      xtraindictstr: np.concatenate( allx ),
+      ytraindictstr: np.concatenate( ally )
+    }
+  return {}
 
 def validInfo( info ):
   try:

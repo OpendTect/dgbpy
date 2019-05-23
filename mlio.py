@@ -26,7 +26,7 @@ def getTrainingData( filenm, decim=False ):
   ret = { dgbkeys.infodictstr: info }
   for ex in examples:
     ret.update({ex: examples[ex]})
-  if dgbkeys.classesdictstr in info:
+  if dgbkeys.classesdictstr in info and dgbkeys.ytraindictstr in examples:
     normalize_class_vector( examples[dgbkeys.ytraindictstr], \
                             info[dgbkeys.classesdictstr] )
   return ret

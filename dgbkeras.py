@@ -153,6 +153,9 @@ def train(model,training,params=keras_dict,trainfile=None):
   x_train = {}
   y_train = {}
   if not decimate:
+    if not dgbkeys.xtraindictstr in training:
+      log_msg('No data to train the model')
+      return model
     x_train = training[dgbkeys.xtraindictstr]
     y_train = training[dgbkeys.ytraindictstr]
   for repeat in range(num_bunch):
@@ -161,6 +164,8 @@ def train(model,training,params=keras_dict,trainfile=None):
     if decimate and trainfile != None:
       import dgbpy.mlio as dgbmlio
       trainbatch = dgbmlio.getTrainingData( trainfile,dec_fact)
+      if not dgbkeys.xtraindictstr in trainbatch:
+        continue
       x_train = trainbatch[dgbkeys.xtraindictstr]
       y_train = trainbatch[dgbkeys.ytraindictstr]
     log_msg('Finished creating',len(x_train),'examples!')
