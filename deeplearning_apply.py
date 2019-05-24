@@ -80,6 +80,8 @@ args = parser.parse_args()
 vargs = vars( args )
 initLogging( vargs )
 parentproc = psutil.Process().parent()
+if not 'od_' in parentproc.name():
+  parentproc = parentproc.parent()
 
 parfile = args.parfilename
 inpstrm = args.input.buffer
