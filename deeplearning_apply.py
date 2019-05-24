@@ -39,11 +39,6 @@ def exit_err( msg ):
   outtxtstrm.flush()
   exit( 1 )
 
-dbg_strm = open( "/tmp/da_dbg.txt", "w" )
-def dbg_pr( what, val ):
-  dbg_strm.write( what + ": " + val + "\n" )
-  dbg_strm.flush()
-
 # -- command line parser
 
 parser = argparse.ArgumentParser(
@@ -217,8 +212,6 @@ else:
 if nroutputs < 1:
   exit_err( "No 'Output's found in par file" )
 
-dbg_pr( "At", "1" )
-
 
 # -- operation
 
@@ -230,10 +223,8 @@ start = time.clock()
 while True:
 
   if not parentproc.is_running():
-    dbg_pr( "Exiting", 0 )
     break
 
-  dbg_pr( "Trying to read", "action code" )
   # read action code
   try:
     data_read = get_from_input( 4 )
@@ -242,7 +233,6 @@ while True:
 
   # anything positive should be the number of values
   rdnrvals = get_int_from_bytes( data_read )
-  dbg_pr( "Read", str(rdnrvals) )
 
   if rdnrvals < 0:
     break
@@ -257,7 +247,6 @@ while True:
     break # happens at EOF, too, does not except but gives wild value
 
   # slurp input for one trace
-  dbg_pr( "Trying to read", "input data" )
   try:
     inpdata = get_from_input( 4*rdnrvals )
   except:
@@ -272,16 +261,13 @@ while True:
     examples = np.empty( examples_shape, dtype=np.float32 )
     outgoingnrvals = nroutputs * nroutsamps
     outgoingnrbytes = outgoingnrvals * 4
-    dbg_pr( "Not fixedsize", str(outgoingnrvals) + " values" )
 
   valsret = np.reshape( np.frombuffer(inpdata,dtype=np.float32), inp_shape )
   for zidz in range(nroutsamps):
     examples[zidz] = valsret[:,:,:,zidz:zidz+nrz]
 
-  dbg_pr( "Applying", "model" )
   ret = dgbmlapply.doApply( model, modelinfo, examples, applyinfo )
   # success ... write nr values and the trace/log data
-  dbg_pr( "Trying to write action", str(outgoingnrvals) )
   put_to_output( outgoingnrvals, isact=True )
   nrbyteswritten = 0
   if dgbkeys.preddictstr in ret:
@@ -290,10 +276,8 @@ while True:
     nrbyteswritten = put_to_output( ret[dgbkeys.probadictstr] ) + nrbyteswritten
   if dgbkeys.confdictstr in ret:
     nrbyteswritten = put_to_output( ret[dgbkeys.confdictstr] ) + nrbyteswritten
-  dbg_pr( "written", str(nrbyteswritten) )
 
   if binaryout and nrbyteswritten != outgoingnrbytes:
-    dbg_pr( "Exiting", "could not write enough bytes" )
     exit_err( "Could only write " + str(nrbyteswritten)
               + " of " + str(outgoingnrbytes) )
   nrprocessed = nrprocessed + 1
