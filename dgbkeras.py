@@ -16,6 +16,7 @@ from odpy.common import log_msg
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 
 def getMLPlatform():
