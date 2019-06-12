@@ -175,6 +175,11 @@ def train(model,training,params=keras_dict,trainfile=None):
     if classification:
       y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
     redirect_stdout()
+ 
+    mask = np.random.permutation(len(x_train))
+    x_train = x_train[mask]
+    y_train = y_train[mask]
+   
     hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
                         validation_split=0.2, \
                         batch_size=params['batch'], \
