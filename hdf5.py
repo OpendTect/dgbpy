@@ -244,7 +244,7 @@ def getInfo( filenm ):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   h5file.close()
 
-  if type == loglogtypestr:
+  if type == loglogtypestr or type == seisproptypestr:
     return getWellInfo( retinfo, filenm )
   elif type == seisclasstypestr:
     return getAttribInfo( retinfo, filenm )
@@ -262,7 +262,7 @@ def getAttribInfo( info, filenm ):
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
-  info[classdictstr] = odhdf5.getText(infods,'Target Value Type') == "ID"
+  info[classdictstr] = odhdf5.hasAttr(infods,'Target Value Type') and odhdf5.getText(infods,'Target Value Type') == "ID"
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
