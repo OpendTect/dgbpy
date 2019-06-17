@@ -102,15 +102,15 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   outdtype = np.float32
   if isclass:
     outdtype = np.uint8
-  output = np.empty( nrpts, outdtype )
+  output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
   idx = 0
   for dsetnm in dsetnms:
     dset = group[dsetnm]
     cubelets[idx] = np.array( dset )
     if isclass :
-      output[idx] = odhdf5.getIntValue( dset, valuestr )
+      output[idx] = odhdf5.getIArray( dset, valuestr )
     else:
-      output[idx] = odhdf5.getDValue( dset, valuestr )
+      output[idx] = odhdf5.getDArray( dset, valuestr )
     idx += 1
 
   h5file.close()
@@ -163,6 +163,7 @@ def getInfo( filenm ):
   classification = True
   ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
   idx = 0
+  nroutputs = 1
   examples = {}
   while idx < ex_sz:
     namestr = "Examples."+str(idx)+".Name"
@@ -176,6 +177,8 @@ def getInfo( filenm ):
     else:
       raise KeyError
     grouplbl = odhdf5.getText( info, exname )
+    if idx == 0 and exname == logstr:
+      nroutputs = len(grouplbl)
     example = {}
     example_sz = odhdf5.getIntValue(info,"Examples."+str(idx)+".Size")
     idy = 0
@@ -234,6 +237,7 @@ def getInfo( filenm ):
     typedictstr: type,
     stepoutdictstr: stepout,
     classdictstr: True,
+    nroutdictstr: nroutputs,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
     inputdictstr: input
