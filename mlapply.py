@@ -34,6 +34,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getParams()
+    #(model,scaler) = dgbscikit.train( training, params, trainfile=examplefilenm )
+    #dgbscikit.save( model, examplefilenm, outfnm, scaler=scaler )
     raise AttributeError
   else:
     log_msg( 'Unsupported machine learning platform' )
@@ -45,7 +47,7 @@ def doApplyFromFile( modelfnm, samples, outsubsel=None ):
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
   return doApply( model, info, samples, applyinfo )
 
-def doApply( model, info, samples, applyinfo=None ):
+def doApply( model, info, samples, scaler=None, applyinfo=None ):
   platform = info[dgbkeys.plfdictstr]
   if applyinfo==None:
     applyinfo = dgbmlio.getApplyInfo( info )
@@ -54,9 +56,8 @@ def doApply( model, info, samples, applyinfo=None ):
     import dgbpy.dgbkeras as dgbkeras
     return dgbkeras.apply( model, samples, applyinfo=applyinfo )
   elif platform == dgbkeys.scikitplfnm:
-    log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
-    raise AttributeError
+    return dgbscikit.apply( model, samples, scaler=scaler, applyinfo=applyinfo )
   elif platform == dgbkeys.numpyvalstr:
     return numpyApply( samples )
   else:

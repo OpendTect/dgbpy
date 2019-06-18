@@ -289,5 +289,5 @@ std_msg( "Total time:",  "{:.3f}".format(duration), "s.;", \
          "{:.3f}".format(nrprocessed/duration), "tr/s." )
 
 # for production, uncomment to keep /tmp tidy
-os.remove( parfile.name )
+#os.remove( parfile.name )
 exit( 0 )

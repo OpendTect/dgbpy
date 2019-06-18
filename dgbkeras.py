@@ -204,7 +204,7 @@ def load( modelfnm ):
   restore_stdout()
   return ret
 
-def apply( model, samples, applyinfo=None, batch_size=keras_dict['batch'] ):
+def apply( model, samples, scaler=None, applyinfo=None, batch_size=keras_dict['batch'] ):
   if applyinfo == None:
     isclassification = True
     withclass = isclassification

@@ -8,6 +8,7 @@
 # various tools machine learning data handling
 #
 
+import numpy as np
 
 import odpy.dbman as oddbman
 import dgbpy.keystr as dgbkeys
@@ -20,9 +21,12 @@ kerastrl = 'Keras'
 def getInfo( filenm ):
   return dgbhdf5.getInfo( filenm )
 
-def getTrainingData( filenm, decim=False ):
+def getTrainingData( filenm, decim=False, flatten=False ):
   examples = dgbhdf5.getAllCubeLets( filenm, decim )
-  info = getClasses( getInfo(filenm), examples )
+  if flatten:
+    x_train = examples[dgbkeys.xtraindictstr]
+    examples[dgbkeys.xtraindictstr] = np.reshape( x_train, (len(x_train),-1) )
+  info = getClasses( getInfo(filenm), examples[dgbkeys.ytraindictstr] )
   ret = { dgbkeys.infodictstr: info }
   for ex in examples:
     ret.update({ex: examples[ex]})
@@ -31,11 +35,10 @@ def getTrainingData( filenm, decim=False ):
                             info[dgbkeys.classesdictstr] )
   return ret
 
-def getClasses( info, examples ):
+def getClasses( info, y_vec ):
   if not info[dgbkeys.classdictstr] or dgbkeys.classesdictstr in info:
     return info
   import numpy as np
-  y_vec = examples[dgbkeys.ytraindictstr]
   classes = []
   (minval,maxval) = ( np.min(y_vec), np.max(y_vec) )
   for idx in np.arange(minval,maxval+1,1,dtype=np.uint8):
@@ -59,18 +62,18 @@ def unnormalize_class_vector( arr, classes ):
 
 def getModel( modelfnm ):
   infos = dgbhdf5.getInfo( modelfnm )
-  platform = infos[dgbhdf5.plfdictstr]
+  platform = infos[dgbkeys.plfdictstr]
+  scaler = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     model = dgbkeras.load( modelfnm )
   elif platform == dgbkeys.scikitplfnm:
-    log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
-    raise AttributeError
+    model,scaler = dgbscikit.load( modelfnm )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
-  return (model,infos)
+  return (model,infos,scaler)
 
 def getApplyInfoFromFile( modelfnm, outsubsel=None ):
   return getApplyInfo( dgbhdf5.getInfo(modelfnm), outsubsel )

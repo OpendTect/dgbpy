@@ -281,6 +281,30 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
+def getScaler( filenm ):
+  from sklearn.preprocessing import StandardScaler
+  h5file = h5py.File( filenm, 'r' )
+  scalergrp = h5file['scaler']
+  scalerpars = json.loads( odhdf5.getAttr(scalergrp,'params') )
+  scaler = StandardScaler().set_params( **scalerpars )
+  scaler.n_samples_seen_ = odhdf5.getIntValue( scalergrp, 'size' )
+  scaler.scale_ = np.array( scalergrp['scale'] )
+  scaler.mean_ = np.array( scalergrp['mean'] )
+  scaler.var_ = np.array( scalergrp['var'] )
+  h5file.close()
+  return scaler
+
+def addScaler( filenm, scaler ):
+  from sklearn.preprocessing import StandardScaler
+  h5file = h5py.File( filenm, 'r+' )
+  scalergrp = h5file.create_group( 'scaler' )
+  odhdf5.setAttr( scalergrp, 'params', json.dumps(scaler.get_params()) )
+  odhdf5.setAttr( scalergrp, 'size', str(scaler.n_samples_seen_) )
+  scalergrp.create_dataset('scale',data=scaler.scale_)
+  scalergrp.create_dataset('mean',data=scaler.mean_)
+  scalergrp.create_dataset('var',data=scaler.var_)
+  h5file.close()
+
 def addInfo( inpfile, plfnm, filenm ):
   h5filein = h5py.File( inpfile, 'r' )
   h5fileout = h5py.File( filenm, 'r+' )
@@ -317,11 +341,9 @@ def getOutputs( inpfile ):
     if type == seisclasstypestr:
       ret.extend( getGroupNames(inpfile) )
     ret.append( confvalstr )
-  else:
-    if type == loglogtypestr:
-      for groupnm in info[exampledictstr]:
-        ret.append( info[exampledictstr][groupnm][targetdictstr] )
-        break
+  elif type == loglogtypestr or type == seisproptypestr:
+    firsttarget = next(iter(info[exampledictstr]))
+    ret.extend( info[exampledictstr][firsttarget][targetdictstr] )
 
   return ret
 
