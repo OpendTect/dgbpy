@@ -7,6 +7,7 @@
 #
 
 from os import path
+import random
 import json
 import numpy as np
 import h5py
@@ -82,6 +83,9 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   nrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos[stepoutdictstr]
   isclass = infos[classdictstr]
+  outdtype = np.float32
+  if isclass:
+    outdtype = np.uint8
   if decim:
     if decim < 0 or decim > 1:
       std_msg( "Decimation percentage not within [0,1]" )
@@ -89,29 +93,45 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   h5file = h5py.File( filenm, 'r' )
   group = h5file[groupnm]
   dsetnms = list(group.keys())
-  nrpts = len(dsetnms)
-  if decim:
-    np.random.shuffle( dsetnms )
-    nrpts = int(nrpts*decim)
-    if nrpts < 1:
-      return {}
-    del dsetnms[nrpts:]
-  shape = get_np_shape(stepout,nrpts,nrattribs)
-
-  cubelets = np.empty( shape, np.float32 )
-  outdtype = np.float32
-  if isclass:
-    outdtype = np.uint8
-  output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-  idx = 0
-  for dsetnm in dsetnms:
-    dset = group[dsetnm]
-    cubelets[idx] = np.array( dset )
-    if isclass :
-      output[idx] = odhdf5.getIArray( dset, valuestr )
+  if xtraindictstr in dsetnms and ytraindictstr in dsetnms:
+    x_train = group[xtraindictstr]
+    y_train = group[ytraindictstr]
+    if decim:
+      nrpts = len(x_train)
+      idxs = random.choices(np.arange(np.int64(nrpts)),k=np.int64(nrpts*decim))
+      nrpts = len(idxs)
+      shape = get_np_shape(stepout,nrpts,nrattribs)
+      cubelets = np.empty( shape, np.float32 )
+      output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+      idy = 0
+      for idx in idxs:
+        cubelets[idy] = x_train[idx]
+        output[idy] = y_train[idx]
+        idy += 1
     else:
-      output[idx] = odhdf5.getDArray( dset, valuestr )
-    idx += 1
+      cubelets = np.array( x_train )
+      output = np.array( y_train )
+  else:
+    nrpts = len(dsetnms)
+    if decim:
+      np.random.shuffle( dsetnms )
+      nrpts = int(nrpts*decim)
+      if nrpts < 1:
+        return {}
+      del dsetnms[nrpts:]
+    shape = get_np_shape(stepout,nrpts,nrattribs)
+
+    cubelets = np.empty( shape, np.float32 )
+    output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+    idx = 0
+    for dsetnm in dsetnms:
+      dset = group[dsetnm]
+      cubelets[idx] = np.array( dset )
+      if isclass :
+        output[idx] = odhdf5.getIArray( dset, valuestr )
+      else:
+        output[idx] = odhdf5.getDArray( dset, valuestr )
+      idx += 1
 
   h5file.close()
   ret = {
