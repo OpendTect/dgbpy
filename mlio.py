@@ -71,6 +71,7 @@ def getModel( modelfnm ):
     import dgbpy.dgbscikit as dgbscikit
     model,scaler = dgbscikit.load( modelfnm )
   else:
+    from odpy.common import log_msg
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
   return (model,infos,scaler)
