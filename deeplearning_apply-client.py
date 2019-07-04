@@ -111,7 +111,15 @@ def create_request(action, value=None):
     return dict(
       type="text/json",
       encoding="utf-8",
-      content=dict(action=action,value=value),
+      content=dict(
+        action=action,
+        value= {
+          'names': value,
+          dgbkeys.dtypepred: 'uint8',
+          dgbkeys.dtypeprob: 'float32',
+          dgbkeys.dtypeconf: 'float32'
+        },
+      ),
     )
   elif action == 'data':
     arr = getApplyTrace(value)
@@ -185,7 +193,7 @@ for i in range(nrrepeats):
     applydict['idy'] = idy
     req_connection(host, port, create_request('data',applydict))
 
-req_connection(host, port, create_request('killreq'))
+req_connection(host, port, create_request('kill'))
 
 try:
   while True:

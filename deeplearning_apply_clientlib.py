@@ -125,11 +125,12 @@ class Message:
     def _process_response_json_content(self):
         content = self.response
         result = content.get('result')
-        log_msg(f"got result: {result}")
 
     def _process_response_array_content(self):
         content = self.response
         result = content.get('result')
+#        for arr in content['data']:
+#          log_msg( arr.shape, arr.dtype.name )
 
     def _process_response_binary_content(self):
         content = self.response

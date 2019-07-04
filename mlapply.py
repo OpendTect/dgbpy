@@ -42,6 +42,15 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
     raise AttributeError
   return (outfnm != None and os.path.isfile( outfnm ))
 
+def reformat( res, applyinfo ):
+  if dgbkeys.preddictstr in res:
+    res[dgbkeys.preddictstr] = res[dgbkeys.preddictstr].astype( applyinfo[dgbkeys.dtypepred] )
+  if dgbkeys.probadictstr in res:
+    res[dgbkeys.probadictstr] = res[dgbkeys.probadictstr].astype( applyinfo[dgbkeys.dtypeprob] )
+  if dgbkeys.confdictstr in res:
+    res[dgbkeys.confdictstr] = res[dgbkeys.confdictstr].astype( applyinfo[dgbkeys.dtypeconf] )
+  return res
+
 def doApplyFromFile( modelfnm, samples, outsubsel=None ):
   (model,info) = dgbmlio.getModel( modelfnm )
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
@@ -49,20 +58,34 @@ def doApplyFromFile( modelfnm, samples, outsubsel=None ):
 
 def doApply( model, info, samples, scaler=None, applyinfo=None ):
   platform = info[dgbkeys.plfdictstr]
-  if applyinfo==None:
+  if applyinfo == None:
     applyinfo = dgbmlio.getApplyInfo( info )
 
+  isclassification = info[dgbkeys.classdictstr]
+  withpred = dgbkeys.dtypepred in applyinfo
+  withprobs = False
+  doprobabilities = False
+  withconfidence = False
+  if isclassification:
+    if dgbkeys.probadictstr in applyinfo:
+      withprobs = applyinfo[dgbkeys.probadictstr]
+      doprobabilities = len(withprobs) > 0
+    withconfidence = dgbkeys.dtypeconf in applyinfo
+
+  res = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    return dgbkeras.apply( model, samples, applyinfo=applyinfo )
+    res = dgbkeras.apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
-    return dgbscikit.apply( model, samples, scaler=scaler, applyinfo=applyinfo )
+    res = dgbscikit.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   elif platform == dgbkeys.numpyvalstr:
-    return numpyApply( samples )
+    res = numpyApply( samples )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
+
+  return reformat( res, applyinfo )
 
 def numpyApply( samples ):
   import numpy as np

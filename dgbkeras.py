@@ -204,40 +204,29 @@ def load( modelfnm ):
   restore_stdout()
   return ret
 
-def apply( model, samples, scaler=None, applyinfo=None, batch_size=keras_dict['batch'] ):
-  if applyinfo == None:
-    isclassification = True
-    withclass = isclassification
-    withprobs = []
-    withconfidence=False
-  else:
-    isclassification = applyinfo[dgbkeys.classdictstr]
-    withclass = applyinfo[dgbkeys.withclass]
-    withconfidence= applyinfo[dgbkeys.withconfidence]
-    withprobs = applyinfo[dgbkeys.withprobs]
-
-  doprobabilities = len(withprobs) > 0
-
+def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, scaler=None, batch_size=keras_dict['batch'] ):
   import keras
   ret = {}
-  if isclassification and withclass:
-    ret.update({dgbkeys.preddictstr: \
-                model.predict_classes( samples, batch_size=batch_size )})
-  else:
-    ret.update({dgbkeys.preddictstr: \
-                model.predict( samples, batch_size=batch_size )})
-
+  res = None
+  if withpred:
+    if isclassification:
+      res = model.predict_classes( samples, batch_size=batch_size )
+    else:
+      res = model.predict( samples, batch_size=batch_size )
+    ret.update({dgbkeys.preddictstr: res})
+ 
   if isclassification and (doprobabilities or withconfidence):
     allprobs = model.predict( samples, batch_size=batch_size )
     if doprobabilities:
-      ret.update({dgbkeys.probadictstr: \
-                  np.copy(allprobs[:,withprobs],allprobs.dtype)})
+      res = np.copy(allprobs[:,withprobs],allprobs.dtype)
+      ret.update({dgbkeys.probadictstr: res})
     if withconfidence:
       N = 2
       indices = np.argpartition(allprobs,-N,axis=1)[:,-N:]
       x = len(allprobs)
       sortedprobs = allprobs[np.repeat(np.arange(x),N),indices.ravel()].reshape(x,N)
-      ret.update({dgbkeys.confdictstr: np.diff(sortedprobs,axis=1)})
+      res = np.diff(sortedprobs,axis=1)
+      ret.update({dgbkeys.confdictstr: res})
 
   return ret
 

@@ -101,32 +101,21 @@ def load( modelfnm ):
   h5file.close()
   return (model,scaler)
  
-def apply( model, samples, scaler, applyinfo=None ):
-  if applyinfo == None:
-    isclassification = True
-    withclass = isclassification
-    withprobs = []
-    withconfidence=False
-  else:
-    isclassification = applyinfo[dgbkeys.classdictstr]
-    withclass = applyinfo[dgbkeys.withclass]
-    withconfidence= applyinfo[dgbkeys.withconfidence]
-    withprobs = applyinfo[dgbkeys.withprobs]
-
-  doprobabilities = len(withprobs) > 0
-
+def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   samples = np.reshape( samples, (len(samples),-1) )
   if scaler != None:
     samples = scaler.transform( samples )
 
   ret = {}
-  if isclassification and withclass:
-    ret.update({dgbkeys.preddictstr: None}) #TODO
-  else:
-    ret.update({dgbkeys.preddictstr: \
-                model.predict( samples )})
+  res = None
+  if withpred:
+    if isclassification:
+      res = None  #TODO
+    else:
+      res = model.predict( samples )
+    ret.update({dgbkeys.preddictstr: res})
 
-    if isclassification and (doprobabilities or withconfidence):
-      ret.update({dgbkeys.probadictstr: None}) #TODO
+  if isclassification and (doprobabilities or withconfidence):
+    ret.update({dgbkeys.probadictstr: None}) #TODO
 
   return ret

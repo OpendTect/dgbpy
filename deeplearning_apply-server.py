@@ -9,13 +9,18 @@
 
 import argparse
 import numpy as np
+import os
 import psutil
 import selectors
+import signal
 import socket
 import sys
+import time
+import threading
 import traceback
 
 from odpy.common import *
+from odpy import oscommand
 import dgbpy.deeplearning_apply_serverlib as applylib
 
 sel = selectors.DefaultSelector()
@@ -57,6 +62,15 @@ initLogging( args )
 
 applier = None
 
+def signal_handler(signal, frame):
+  raise applylib.ExitCommand()
+signal.signal(signal.SIGINT,signal_handler)
+
+def timerCB():
+  if not parentproc.is_running():
+    os.kill( os.getpid(), signal.SIGINT )
+  threading.Timer(15, timerCB).start()
+
 def accept_wrapper(sock,applier):
   conn, addr = sock.accept()  # Should be ready to read
   conn.setblocking(True)
@@ -74,6 +88,19 @@ lsock.setblocking(True)
 sel.register(lsock, selectors.EVENT_READ, data=None)
 
 parentproc = psutil.Process().parent()
+maxdepth = 10
+while maxdepth > 0:
+  parentproc = parentproc.parent()
+  try:
+    pname = parentproc.name() 
+  except AttributeError:
+    parentproc = psutil.Process().parent()
+    break
+  if 'od_main' in pname or 'od_deeplearn' in pname:
+    break
+  maxdepth -= 1
+
+timerCB()
 
 try:
   if applier == None:
@@ -81,8 +108,6 @@ try:
   lastmessage = False
   cont = True
   while cont:
-    if not parentproc.is_running():
-      break
     events = sel.select(timeout=None)
     for key, mask in events:
       if key.data is None:
@@ -97,9 +122,13 @@ try:
           )
           message.close()
         lastmessage = lastmessage or message.lastmessage
-        cont = not lastmessage or len(events) > 0
-        applier = message.applier
+        cont = not lastmessage or len(events) > 1
+        cont = cont and parentproc.is_running()
+        if cont:
+          applier = message.applier
 except KeyboardInterrupt:
-  std_msg("caught keyboard interrupt, exiting")
+  std_msg('caught keyboard interrupt, exiting')
+except applylib.ExitCommand:
+  std_msg('Found dead parent, exiting')
 finally:
   sel.close()

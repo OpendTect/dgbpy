@@ -7,12 +7,13 @@
 #
 #
 
-import sys
-import selectors
-import json
 import io
+import json
 import numpy as np
+import psutil
+import selectors
 import struct
+import sys
 
 from odpy.common import *
 import dgbpy.keystr as dgbkeys
@@ -20,13 +21,15 @@ from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
 
+class ExitCommand(Exception):
+    pass
+
 class ModelApplier:
     def __init__(self, modelfnm,isfake=False):
         self.fnm_ = modelfnm
         self.pars_ = None
         self.fakeapply_ = isfake
         (self.model_,self.info_,self.scaler_) = self._open()
-        self.outputnms_ = None
         self.applyinfo_ = None
 
     def _open(self):
@@ -38,12 +41,11 @@ class ModelApplier:
         else:
             return dgbmlio.getModel( modelfnm )
 
-    def setOutputs(self, outputnms):
+    def setOutputs(self, outputs):
         if self.fakeapply_:
-            self.outputnms_ = [dgbkeys.classvalstr]
+            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
-            self.outputnms_ = outputnms
-        self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, self.outputnms_ )
+            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
 
     def _usePar(self, pars):
         self.pars_ = pars
@@ -52,19 +54,19 @@ class ModelApplier:
         return self.model_ != None
 
     def doWork(self,inp):
-        #TODO: apply scaler
+        #TODO: apply scaler ?
         nrattribs = inp.shape[0]
         stepout = self.info_['stepout']
         nrzin = inp.shape[-1]
         nroutsamps = nrzin - 2*stepout[2]
-        examples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
+        samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
                                                nrpts=nroutsamps )
-        nrz = examples_shape[-1]
-        examples = np.empty( examples_shape, dtype=inp.dtype )
+        nrz = samples_shape[-1]
+        samples = np.empty( samples_shape, dtype=inp.dtype )
         for zidz in range(nroutsamps):
-          examples[zidz] = inp[:,:,:,zidz:zidz+nrz]
-        ret = dgbmlapply.doApply( self.model_, self.info_, examples, \
-                                   self.applyinfo_ )
+          samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+        ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
+                                  applyinfo=self.applyinfo_ )
         res = list()
         if dgbkeys.preddictstr in ret:
           res.append( ret[dgbkeys.preddictstr] )
@@ -181,7 +183,8 @@ class Message:
         content = { 'result': None }
         if action == 'status':
             content['result'] = 'Server online'
-        elif action == 'killreq':
+            content['pid'] = psutil.Process().pid
+        elif action == 'kill':
             content['result'] = 'Kill request received'
             self.lastmessage = True
         elif action == 'outputs':
@@ -203,13 +206,13 @@ class Message:
         res = list()
         if action == 'apply':
             for arr in self.request.get('data'):
-              res.append( self.applier.doWork(arr) )
+              res = self.applier.doWork(arr)
         else:
             content = {"result": f'Error: invalid action "{action}".'}
         ret = bytes()
         dtypes = list()
         shapes = list()
-        for arr in ret:
+        for arr in res:
           ret += arr.tobytes()
           shapes.append( arr.shape )
           dtypes.append( arr.dtype.name )

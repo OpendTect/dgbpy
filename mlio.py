@@ -80,21 +80,49 @@ def getApplyInfoFromFile( modelfnm, outsubsel=None ):
   return getApplyInfo( dgbhdf5.getInfo(modelfnm), outsubsel )
 
 def getApplyInfo( infos, outsubsel=None ):
-  isclassification = infos[dgbhdf5.classdictstr]
-  withclass = isclassification and \
-              (outsubsel==None or dgbhdf5.classvalstr in outsubsel)
-  withconfidence = isclassification and \
-              (outsubsel==None or dgbhdf5.confvalstr in outsubsel)
+  isclassification = infos[dgbkeys.classdictstr]
   if isclassification:
-    withprobs = dgbhdf5.getClassIndices( infos, outsubsel )
+    names = [dgbkeys.classvalstr]
+    preddtype = 'uint8'
+  else:
+    names = []
+    preddtype = 'float32'
+
+  probdtype = 'float32'
+  confdtype = 'float32'
+  if outsubsel != None:
+    if 'names' in outsubsel:
+      names = outsubsel['names']
+    if dgbkeys.dtypepred in outsubsel:
+      preddtype = outsubsel[dgbkeys.dtypepred]
+    if dgbkeys.dtypeprob in outsubsel:
+      probdtype = outsubsel[dgbkeys.dtypeprob]
+    if dgbkeys.dtypeconf in outsubsel:
+      confdtype = outsubsel[dgbkeys.dtypeconf]
+
+  withpred = (isclassification and dgbkeys.classvalstr in names) or \
+             not isclassification
+  if isclassification:
+    withprobs = dgbhdf5.getClassIndices( infos, names )
   else:
     withprobs = []
-  return {
+  ret = {
     dgbkeys.classdictstr: isclassification,
-    dgbkeys.withclass: withclass,
-    dgbkeys.withconfidence: withconfidence,
-    dgbkeys.withprobs: withprobs
   }
+  withconfidence = isclassification and dgbkeys.confvalstr in names
+
+  if withpred:
+    ret.update({dgbkeys.dtypepred: preddtype})
+  if isclassification:
+    if len(withprobs) > 0:
+      ret.update({
+        dgbkeys.probadictstr: withprobs,
+        dgbkeys.dtypeprob: probdtype
+      })
+    if withconfidence:
+      ret.update({dgbkeys.dtypeconf: confdtype})
+
+  return ret
 
 def getSaveLoc( outnm, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)
