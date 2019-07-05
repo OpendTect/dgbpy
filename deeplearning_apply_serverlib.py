@@ -138,13 +138,14 @@ class Message:
         return struct.pack('=i',len(json_hdr)) + json_hdr
 
     def _json_decode(self, json_bytes, encoding):
-        json_hdr = struct.unpack('=i',json_bytes[:4])[0]
+        hdrlen = 4
+        json_hdr = struct.unpack('=i',json_bytes[:hdrlen])[0]
         tiow = io.TextIOWrapper(
-            io.BytesIO(json_bytes[4:4+json_hdr]), encoding=encoding, newline=""
+            io.BytesIO(json_bytes[hdrlen:hdrlen+json_hdr]), encoding=encoding, newline=""
         )
         obj = json.load(tiow)
         tiow.close()
-        return (obj,json_bytes[4+json_hdr:])
+        return (json_hdr,obj,json_bytes[hdrlen+json_hdr:])
 
     def _array_decode(self, arrptr, shapes, dtypes):
         offset = 0
@@ -243,10 +244,10 @@ class Message:
     def read(self):
         self._read()
 
-        if self._jsonheader_len is None:
-            self.process_protoheader()
+        if self._payload_len is None:
+            self.process_odheader()
 
-        if self._jsonheader_len is not None:
+        if self._payload_len is not None:
             if self.jsonheader is None:
                 self.process_jsonheader()
 
@@ -281,19 +282,18 @@ class Message:
             # Delete reference to socket object for garbage collection
             self.sock = None
 
-    def process_protoheader(self):
+    def process_odheader(self):
         hdrlen = 10
         if len(self._recv_buffer) >= hdrlen:
             self._payload_len = struct.unpack('=i',self._recv_buffer[0:4])[0]
             self._reqid = struct.unpack('=i',self._recv_buffer[4:8])[0]
             self._subid = struct.unpack('=h',self._recv_buffer[8:hdrlen])[0]
-            self._jsonheader_len = struct.unpack('=i',self._recv_buffer[hdrlen:14])[0]
             self._recv_buffer = self._recv_buffer[hdrlen:]
 
     def process_jsonheader(self):
-        hdrlen = self._jsonheader_len
-        if len(self._recv_buffer) >= hdrlen:
-            (self.jsonheader,self._recv_buffer) = self._json_decode(
+        if len(self._recv_buffer) >= 4:
+            (self._jsonheader_len,self.jsonheader,self._recv_buffer) = \
+                self._json_decode(
                     self._recv_buffer, "utf-8"
             )
             for reqhdr in (
@@ -313,7 +313,8 @@ class Message:
         self._recv_buffer = self._recv_buffer[content_len:]
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
-            (self.request,self._recv_buffer) = self._json_decode(data, encoding)
+            (jsonsz,self.request,self._recv_buffer) = \
+                                 self._json_decode(data, encoding)
         elif self.jsonheader["content-type"] == 'binary/array':
             shapes = self.jsonheader['array-shape']
             dtypes = self.jsonheader['content-encoding']
