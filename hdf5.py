@@ -363,7 +363,11 @@ def getOutputs( inpfile ):
     ret.append( confvalstr )
   elif type == loglogtypestr or type == seisproptypestr:
     firsttarget = next(iter(info[exampledictstr]))
-    ret.extend( info[exampledictstr][firsttarget][targetdictstr] )
+    targets = info[exampledictstr][firsttarget][targetdictstr]
+    if isinstance(targets,list):
+      ret.extend(targets)
+    else:
+      ret.append(targets)
 
   return ret
 
