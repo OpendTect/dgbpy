@@ -197,7 +197,7 @@ def getInfo( filenm ):
     else:
       raise KeyError
     grouplbl = odhdf5.getText( info, exname )
-    if idx == 0 and exname == logstr:
+    if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
       nroutputs = len(grouplbl)
     example = {}
     example_sz = odhdf5.getIntValue(info,"Examples."+str(idx)+".Size")
