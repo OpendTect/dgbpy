@@ -68,7 +68,7 @@ def get_np_shape( step, nrpts=None, nrattribs=None ):
   if nrattribs != None:
     ret += (nrattribs,)
   if isinstance( step, int ):
-    ret += ( step*2+1, )
+    ret += ( 1,1,step*2+1, )
     return ret
   for i in step:
     ret += (i*2+1,)
@@ -126,7 +126,7 @@ def getCubeLets( filenm, infos, groupnm, decim ):
     idx = 0
     for dsetnm in dsetnms:
       dset = group[dsetnm]
-      cubelets[idx] = np.array( dset )
+      cubelets[idx] = np.resize(dset,cubelets[idx].shape)
       if isclass :
         output[idx] = odhdf5.getIArray( dset, valuestr )
       else:

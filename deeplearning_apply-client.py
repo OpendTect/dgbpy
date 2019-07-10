@@ -144,27 +144,30 @@ def req_connection(host, port, request):
   message = applylib.Message(sel, sock, addr, request)
   sel.register(sock, events, data=message)
 
-outputnms = dgbhdf5.getOutputNames(modelfnm,[0,1,3,7,10])
 def getApplyPars( args ):
   if args['examples'] == None:
     ret= {
       'stepout': [16,16,16],
-      'nrattribs': 1
+      'nrattribs': 1,
+      'outputnms': dgbhdf5.getOutputNames(modelfnm,[0])
     }
   else:
     exfnm = args['examples'].name
     info = dgbhdf5.getInfo( exfnm )
+    stepout = info['stepout']
+    if not isinstance(stepout,list):
+      stepout=[0,0,stepout]
     ret = {
-      'stepout': info['stepout'],
-      'nrattribs': dgbhdf5.get_nr_attribs( info )
+      'stepout': stepout,
+      'nrattribs': dgbhdf5.get_nr_attribs( info ),
+      'outputnms': dgbhdf5.getOutputs( exfnm )
     }
-  ret.update({'outputs': outputnms})
   return ret
 
 pars = getApplyPars( args )
 stepout = pars['stepout']
 
-nrattribs = 1
+nrattribs = pars['nrattribs']
 nrlines_out = 1
 nrtrcs_out = 100
 nrlines_in = nrlines_out + 2 * stepout[0]
@@ -179,7 +182,7 @@ start = time.time()
 
 host,port = args['addr'], args['port']
 req_connection(host, port, create_request('status'))
-req_connection(host, port, create_request('outputs',outputnms))
+req_connection(host, port, create_request('outputs',pars['outputnms']))
 applydict = {
   'arr': inpdata,
   'stepout': stepout,

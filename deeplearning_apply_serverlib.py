@@ -54,17 +54,27 @@ class ModelApplier:
         return self.model_ != None
 
     def doWork(self,inp):
-        #TODO: apply scaler ?
         nrattribs = inp.shape[0]
         stepout = self.info_['stepout']
         nrzin = inp.shape[-1]
-        nroutsamps = nrzin - 2*stepout[2]
+        vertical =  isinstance(stepout,int)
+        if vertical:
+          nroutsamps = nrzin - 2*stepout
+        else:
+          nroutsamps = nrzin - 2*stepout[2]
         samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
-                                               nrpts=nroutsamps )
+                                              nrpts=nroutsamps )
         nrz = samples_shape[-1]
-        samples = np.empty( samples_shape, dtype=inp.dtype )
-        for zidz in range(nroutsamps):
-          samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+        if nrz == 1:
+          samples = np.resize( np.array(inp), samples_shape )
+        else:
+          samples = np.empty( samples_shape, dtype=inp.dtype )
+          if vertical:
+            for zidz in range(nroutsamps):
+              samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
+          else:
+            for zidz in range(nroutsamps):
+              samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
         res = list()
