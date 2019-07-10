@@ -37,6 +37,9 @@ datagrp.add_argument( '--dataroot',
 datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
+datagrp.add_argument( '--mldir',
+            dest='mldir', nargs=1,
+            help='Machine Learning Directory' )
 odappl = parser.add_argument_group( 'OpendTect application' )
 odappl.add_argument( '--dtectexec',
             metavar='DIR', nargs=1,
