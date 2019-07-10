@@ -42,6 +42,10 @@ netgrp.add_argument( '--port',
             dest='port', action='store',
             type=int, default=65432,
             help='Port to listen on')
+datagrp = parser.add_argument_group( 'Data' )
+datagrp.add_argument( '--mldir',
+            dest='mldir', nargs=1,
+            help='Machine Learning Directory' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--log',
             dest='logfile', metavar='file', nargs='?',
