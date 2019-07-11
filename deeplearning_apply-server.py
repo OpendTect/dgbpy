@@ -65,6 +65,7 @@ args = vars(parser.parse_args())
 initLogging( args )
 
 applier = None
+pid = psutil.Process().pid
 
 def signal_handler(signal, frame):
   raise applylib.ExitCommand()
@@ -72,8 +73,7 @@ signal.signal(signal.SIGINT,signal_handler)
 
 def timerCB():
   if not parentproc.is_running():
-    os.kill( os.getpid(), signal.SIGINT )
-  threading.Timer(15, timerCB).start()
+    os.kill( pid, signal.SIGINT )
 
 def accept_wrapper(sock,applier):
   conn, addr = sock.accept()  # Should be ready to read
@@ -104,7 +104,8 @@ while maxdepth > 0:
     break
   maxdepth -= 1
 
-timerCB()
+timer = threading.Timer(15, timerCB)
+timer.start()
 
 try:
   if applier == None:
@@ -135,4 +136,5 @@ except KeyboardInterrupt:
 except applylib.ExitCommand:
   std_msg('Found dead parent, exiting')
 finally:
+  timer.cancel()
   sel.close()
