@@ -216,8 +216,19 @@ class Message:
         action = self.request.get('action')
         res = list()
         if action == 'apply':
-            for arr in self.request.get('data'):
-              res = self.applier.doWork(arr)
+            try:
+                for arr in self.request.get('data'):
+                    res = self.applier.doWork(arr)
+            except Exception as e:
+                content = {"result": f'Apply error exception: {repr(e)}.'}
+                content_encoding = 'utf-8'
+                response = {
+                    'content_bytes': self._json_encode(content, content_encoding),
+                    'content_type': 'text/json',
+                    'content_encoding': content_encoding,
+                    'arrsize': None,
+                }
+                return response
         else:
             content = {"result": f'Error: invalid action "{action}".'}
         ret = bytes()
