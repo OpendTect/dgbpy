@@ -213,6 +213,8 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
       res = model.predict_classes( samples, batch_size=batch_size )
     else:
       res = model.predict( samples, batch_size=batch_size )
+      res = res.transpose()
+      #TODO: make one output array for each column
     ret.update({dgbkeys.preddictstr: res})
  
   if isclassification and (doprobabilities or withconfidence):
