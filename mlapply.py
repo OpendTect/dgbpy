@@ -8,6 +8,7 @@
 # various tools for applying machine learning
 #
 
+import numpy as np
 import os
 
 from odpy.common import log_msg
@@ -15,13 +16,138 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
 
+def computeScaler_( datasets, infos, scalebyattrib ):
+  ret = dgbmlio.getTrainingDataByInfo( infos, datasets )
+  allx = list()
+  if dgbkeys.xtraindictstr in ret:
+    if len(ret[dgbkeys.xtraindictstr]) > 0:
+      allx.append( ret[dgbkeys.xtraindictstr] )
+  if dgbkeys.xvaliddictstr in ret:
+    if len(ret[dgbkeys.xvaliddictstr]) > 0:
+      allx.append( ret[dgbkeys.xvaliddictstr] )
+  if len(allx) > 0:
+    x_data = np.concatenate( allx )
+    return getScaler( x_data, byattrib=scalebyattrib )
+  return None
+
+def computeScaler( infos, scalebyattrib ):
+  datasets = infos[dgbkeys.trainseldicstr]
+  inp = infos[dgbkeys.inputdictstr]
+  if infos[dgbkeys.typedictstr] == dgbkeys.loglogtypestr:
+    if not dgbmlio.hasScaler(infos):
+      scaler = computeScaler_( datasets, infos, scalebyattrib )
+      for inputnm in inp:
+        inp[inputnm].update({dgbkeys.scaledictstr: scaler})
+  else:
+    for inputnm in inp:
+      if dgbmlio.hasScaler( infos, inputnm ):
+        continue
+      scalingdatasets = dgbmlio.getDatasetsByInput( datasets, inputnm )
+      scaler = computeScaler_( scalingdatasets, infos, scalebyattrib )
+      inp[inputnm].update({dgbkeys.scaledictstr: scaler})
+  return infos
+
+def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale=True ):
+  if isinstance(scale,bool):
+    doscale = scale
+    scalebyattrib = True
+  else:
+    doscale = scale[0]
+    scalebyattrib = len(scale) < 2 or scale[1]
+
+  infos = dgbmlio.getInfo( filenm )
+  datasets = dgbmlio.getDatasetNms(infos[dgbkeys.datasetdictstr],\
+                                   validation_split=split)
+  infos.update({dgbkeys.trainseldicstr: datasets})
+  if doscale:
+    infos = computeScaler( infos, scalebyattrib )
+
+  ret = getScaledTrainingDataByInfo( infos, decim, flatten, scale=doscale )
+  return ret
+
+def getScaledTrainingDataByInfo( infos, decim=False, flatten=False, scale=True ):
+  x_train = list()
+  y_train = list()
+  x_validate = list()
+  y_validate = list()
+  datasets = infos[dgbkeys.trainseldicstr]
+  inp = infos[dgbkeys.inputdictstr]
+  for inputnm in inp:
+    input = inp[inputnm]
+    dsets = dgbmlio.getDatasetsByInput( datasets, inputnm )
+    if decim:
+      dsets = dgbmlio.getSomeDatasets( dsets, decim )
+    ret = dgbmlio.getTrainingDataByInfo( infos, dsets )
+    if scale:
+      scaler = infos[dgbkeys.inputdictstr][inputnm][dgbkeys.scaledictstr]
+      if dgbkeys.xtraindictstr in ret:
+        transform( ret[dgbkeys.xtraindictstr], scaler )
+      if dgbkeys.xvaliddictstr in ret:
+        transform( ret[dgbkeys.xvaliddictstr], scaler )
+    if dgbkeys.xtraindictstr in ret:
+      if len(ret[dgbkeys.xtraindictstr]) > 0:
+        x_train.append( ret[dgbkeys.xtraindictstr] )
+    if dgbkeys.xvaliddictstr in ret:
+      if len(ret[dgbkeys.xvaliddictstr]) > 0:
+        x_validate.append( ret[dgbkeys.xvaliddictstr] )
+    if dgbkeys.ytraindictstr in ret:
+      if len(ret[dgbkeys.ytraindictstr]) > 0:
+        y_train.append( ret[dgbkeys.ytraindictstr] )
+    if dgbkeys.yvaliddictstr in ret:
+      if len(ret[dgbkeys.yvaliddictstr]) > 0:
+        y_validate.append( ret[dgbkeys.yvaliddictstr] )
+  if len(x_train)>0:
+    ret.update({dgbkeys.xtraindictstr: np.concatenate(x_train) })
+  if len(y_train)>0:
+    ret.update({dgbkeys.ytraindictstr: np.concatenate(y_train) })
+  if len(x_validate)>0:
+    ret.update({dgbkeys.xvaliddictstr: np.concatenate(x_validate) })
+  if len(y_validate)>0:
+    ret.update({dgbkeys.yvaliddictstr: np.concatenate(y_validate) })
+
+  if flatten:
+    if dgbkeys.xtraindictstr in ret:
+      x_train = ret[dgbkeys.xtraindictstr]
+      ret[dgbkeys.xtraindictstr] = np.reshape( x_train, (len(x_train),-1) )
+    if dgbkeys.xvaliddictstr in ret:
+      x_validate = ret[dgbkeys.xvaliddictstr]
+      ret[dgbkeys.xvaliddictstr] = np.reshape( x_validate, (len(x_validate),-1) )
+  return ret
+
+def getScaler( x_train, byattrib=True ):
+  import dgbpy.dgbscikit as dgbscikit
+  return dgbscikit.getScaler( x_train, byattrib )
+
+def transform(x_train,scaler):
+  nrattribs = scaler.n_samples_seen_
+  if nrattribs > 0:
+    for a in range(nrattribs):
+      if nrattribs == 1:
+        inp = x_train
+      else:
+        inp = x_train[:,a]
+      inp -= scaler.mean_[a]
+      doscale = np.flatnonzero( scaler.scale_ )
+      if (doscale == a)[a]:
+        inp /= scaler.scale_[a]
+
+def split( arrays, ratio ):
+  if len(arrays) < 1:
+    return None
+  nrpts = len(arrays[0])
+  idxs = np.random.shuffle( np.arange(np.int64(nrpts)) )
+
+
+
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
              outnm=dgbkeys.modelnm, args=None ):
   outfnm = dgbmlio.getSaveLoc( outnm, args )
   decimate = False
   if params != None and dgbkeys.decimkeystr in params:
     decimate = params[dgbkeys.decimkeystr]
-  training = dgbmlio.getTrainingData( examplefilenm, decimate )
+
+  validation_split = 0.2 #Params?
+  training = getScaledTrainingData( examplefilenm, validation_split, decimate )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
@@ -93,3 +219,23 @@ def numpyApply( samples ):
     dgbkeys.preddictstr: np.mean( samples, axis=(1,2,3,4) )
   }
 
+def inputCount( dsets, infos ):
+  inputnms = infos[dgbkeys.inputdictstr]
+  ret = {}
+  for ex in dsets:
+    ret.update({ex: inputCount_({'key': dsets[ex]}, inputnms)})
+  return ret
+
+def inputCount_( dsets, inputnms ):
+  ret = {}
+  for inputnm in inputnms:
+    alldsets = dgbmlio.getDatasetsByInput( dsets, inputnm )
+    nbbyinp = 0
+    for ex in alldsets:
+      dset = alldsets[ex]
+      for groupnm in dset:
+        for inp in dset[groupnm]:
+          nbbyinp += len(dset[groupnm][inp])
+    if nbbyinp>0:
+      ret.update({inputnm: nbbyinp})
+  return ret

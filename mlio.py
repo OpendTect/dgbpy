@@ -21,29 +21,128 @@ kerastrl = 'Keras'
 def getInfo( filenm ):
   return dgbhdf5.getInfo( filenm )
 
-def getTrainingData( filenm, decim=False, flatten=False ):
-  examples = dgbhdf5.getAllCubeLets( filenm, decim )
-  if flatten:
-    x_train = examples[dgbkeys.xtraindictstr]
-    examples[dgbkeys.xtraindictstr] = np.reshape( x_train, (len(x_train),-1) )
-  info = getClasses( getInfo(filenm), examples[dgbkeys.ytraindictstr] )
-  ret = { dgbkeys.infodictstr: info }
-  for ex in examples:
-    ret.update({ex: examples[ex]})
-  if dgbkeys.classesdictstr in info and dgbkeys.ytraindictstr in examples:
-    normalize_class_vector( examples[dgbkeys.ytraindictstr], \
-                            info[dgbkeys.classesdictstr] )
+def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
+  train = {}
+  valid = {}
+  if validation_split == None:
+    validation_split = 0
+  dorandom = True
+  if validation_split > 1:
+    validation_split = 1
+  elif validation_split < 0:
+    validation_split = 0
+  elif validation_split == 0:
+    dorandom = False
+  if valid_inputs == None:
+    valid_inputs = {}
+  for groupnm in dsets:
+    group = dsets[groupnm]
+    traingrp = {}
+    validgrp = {}
+    for inp in group:
+      dsetnms = group[inp].copy()
+      nrpts = len(dsetnms)
+      if dorandom:
+        nrpts = int(nrpts*validation_split)
+        np.random.shuffle( dsetnms )
+      if inp in valid_inputs:
+        if dorandom:
+          traingrp.update({inp: dsetnms[nrpts:]})
+          validgrp.update({inp: dsetnms[:nrpts]})
+        else:
+          validgrp.update({inp: dsetnms})
+      else:
+        if dorandom and len(valid_inputs)<1:
+          traingrp.update({inp: dsetnms[nrpts:]})
+          validgrp.update({inp: dsetnms[:nrpts]})
+        else:
+          traingrp.update({inp: dsetnms})
+    train.update({groupnm: traingrp})
+    valid.update({groupnm: validgrp})
+  return {
+    dgbkeys.traindictstr: train,
+    dgbkeys.validdictstr: valid
+  }
+
+def hasScaler( infos, inputsel=None ):
+  inp = infos[dgbkeys.inputdictstr]
+  for inputnm in inp:
+    if inputsel != None and not inputnm in inputsel:
+      continue
+    if not dgbkeys.scaledictstr in inp[inputnm]:
+      return False
+  return True
+
+def getDatasetsByInput( dslist, inp ):
+  ret = {}
+  for dslistnm in dslist:
+    retdset = {}
+    dsets = dslist[dslistnm]
+    for groupnm in dsets:
+      group = dsets[groupnm]
+      retgrp = {}
+      if inp in group:
+        retgrp.update({inp: group[inp]})
+      retdset.update({groupnm: retgrp})
+    ret.update({dslistnm: retdset})
   return ret
 
-def getClasses( info, y_vec ):
+def getSomeDatasets( dslist, decim=None ):
+  if decim == None or decim <= 0 or decim==False:
+    return dslist
+  if decim > 1:
+    decim = 1
+  ret = {}
+  for dsetnm in dslist:
+    sret = {}
+    dset = dslist[dsetnm]
+    for groupnm in dset:
+      group = dset[groupnm]
+      setgrp = {}
+      for inp in group:
+        dsetnms = group[inp].copy()
+        nrpts = int(len(dsetnms)*decim)
+        np.random.shuffle( dsetnms )
+        del dsetnms[nrpts:]
+        setgrp[inp] = dsetnms
+      sret[groupnm] = setgrp
+    ret[dsetnm] = sret
+  return ret
+
+def getTrainingData( filenm, decim=False ):
+  infos = getInfo( filenm )
+  return getTrainingDataByInfo( infos )
+
+def getTrainingDataByInfo( info, dsetsel=None ):
+  examples = dgbhdf5.getDatasets( info, dsetsel )
+  ret = {}
+  for ex in examples:
+    ret.update({ex: examples[ex]})
+  y_examples = list()
+  if dgbkeys.ytraindictstr in examples:
+    y_examples.append( examples[dgbkeys.ytraindictstr] )
+  if dgbkeys.yvaliddictstr in examples:
+    y_examples.append( examples[dgbkeys.yvaliddictstr] )
+  ret.update({ dgbkeys.infodictstr: getClasses(info,y_examples) })
+  if dgbkeys.classdictstr in info and info[dgbkeys.classdictstr]:
+    if dgbkeys.ytraindictstr in examples:
+      normalize_class_vector( examples[dgbkeys.ytraindictstr], \
+                              info[dgbkeys.classesdictstr] )
+    if dgbkeys.yvaliddictstr in examples:
+      normalize_class_vector( examples[dgbkeys.yvaliddictstr], \
+                              info[dgbkeys.classesdictstr] )
+  return ret
+
+def getClasses( info, y_vectors ):
   if not info[dgbkeys.classdictstr] or dgbkeys.classesdictstr in info:
     return info
   import numpy as np
   classes = []
-  (minval,maxval) = ( np.min(y_vec), np.max(y_vec) )
-  for idx in np.arange(minval,maxval+1,1,dtype=np.uint8):
-    if np.any(y_vec == idx ):
-      classes.append( idx )
+  for y_vec in y_vectors:
+    (minval,maxval) = ( np.min(y_vec), np.max(y_vec) )
+    for idx in np.arange(minval,maxval+1,1,dtype=np.uint8):
+      if np.any(y_vec == idx ):
+        classes.append( idx )
   if len(classes) > 0:
     info.update( {dgbkeys.classesdictstr: np.array(classes,dtype=np.uint8)} )
   return info
@@ -63,18 +162,17 @@ def unnormalize_class_vector( arr, classes ):
 def getModel( modelfnm ):
   infos = dgbhdf5.getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
-  scaler = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     model = dgbkeras.load( modelfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
-    model,scaler = dgbscikit.load( modelfnm )
+    model = dgbscikit.load( modelfnm )
   else:
     from odpy.common import log_msg
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
-  return (model,infos,scaler)
+  return (model,infos)
 
 def getApplyInfoFromFile( modelfnm, outsubsel=None ):
   return getApplyInfo( dgbhdf5.getInfo(modelfnm), outsubsel )

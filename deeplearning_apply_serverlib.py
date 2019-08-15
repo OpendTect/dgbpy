@@ -20,6 +20,7 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
+from dgbpy import dgbscikit
 
 class ExitCommand(Exception):
     pass
@@ -29,7 +30,8 @@ class ModelApplier:
         self.fnm_ = modelfnm
         self.pars_ = None
         self.fakeapply_ = isfake
-        (self.model_,self.info_,self.scaler_) = self._open()
+        self.scaler_ = None
+        (self.model_,self.info_) = self._open()
         self.applyinfo_ = None
 
     def _open(self):
@@ -37,7 +39,7 @@ class ModelApplier:
         if self.fakeapply_:
             info = dgbmlio.getInfo( modelfnm )
             info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
-            return (None,info,None)
+            return (None,info)
         else:
             return dgbmlio.getModel( modelfnm )
 
@@ -46,12 +48,26 @@ class ModelApplier:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
+        self.scaler_ = self.getScaler( outputs )
 
     def _usePar(self, pars):
         self.pars_ = pars
 
     def hasModel(self):
         return self.model_ != None
+
+    def getScaler( self, outputs ):
+        means = list()
+        stddevs = list()
+        if not 'avgs' in outputs or not 'stdevs' in outputs:
+          return None
+        for avg in outputs['avgs']:
+          means.append( avg )
+        for stddev in outputs['stdevs']:
+          stddevs.append( stddev )
+        if len(means) != len(stddevs):
+          return None
+        return dgbscikit.getNewScaler( means, stddevs )
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
@@ -75,6 +91,7 @@ class ModelApplier:
           else:
             for zidz in range(nroutsamps):
               samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+        samples = dgbscikit.scale( samples, self.scaler_ )
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
         res = list()

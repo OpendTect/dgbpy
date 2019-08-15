@@ -57,7 +57,50 @@ def getParams( nb=scikit_dict['nb'] ):
     'number': nb
   }
 
-def save( model, inpfnm, outfnm, save_type='joblib', scaler=None ):
+def getNewScaler( mean, scale ):
+  scaler = StandardScaler()
+  scaler.mean_ = np.array( mean )
+  scaler.scale_ = np.array( scale )
+  scaler.var_ = np.square( scaler.scale_ )
+  scaler.n_samples_seen_ = len(mean)
+  return scaler
+
+def getScaler( x_train, byattrib ):
+  nrattribs = x_train.shape[1]
+  mean = list()
+  var = list()
+  if byattrib:
+    for a in range(nrattribs):
+      inp = x_train[:,a,:,:,:]
+      mean.append( np.mean(inp,dtype=np.float64) )
+      var.append( np.var(inp,dtype=np.float64) )
+  else:
+    mean.append( np.mean(x_train,dtype=np.float64) )
+    var.append( np.var(x_train,dtype=np.float64) )
+  scaler = StandardScaler()
+  scaler.mean_ = np.array( mean )
+  scaler.var_ = np.array( var )
+  scaler.scale_ = np.sqrt( scaler.var_ )
+  scaler.n_samples_seen_ = len(mean)
+  return scaler
+
+def transform( samples, mean, stddev ):
+  samples -= mean
+  samples /= stddev
+  return samples
+
+def scale( samples, scaler ):
+  if scaler == None:
+    return samples
+  if scaler.n_samples_seen_ == 1:
+    samples = transform( samples, scaler.mean_[0], scaler.scale_[0] )
+  else:
+    for i in range(scaler.n_samples_seen_):
+      samples[:,i] = transform( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
+  
+  return samples
+
+def save( model, inpfnm, outfnm, save_type='joblib' ):
   log_msg( 'Saving model.' )
   h5file = h5py.File( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'scikit-learn' )
@@ -75,8 +118,6 @@ def save( model, inpfnm, outfnm, save_type='joblib', scaler=None ):
     joblib.dump( model, joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   h5file.close()
-  if scaler != None:
-    dgbhdf5.addScaler( outfnm, scaler )
   dgbhdf5.addInfo( inpfnm, getMLPlatform(), outfnm )
   log_msg( 'Model saved.' )
 
@@ -87,7 +128,6 @@ def load( modelfnm ):
   modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
   modeltype = odhdf5.getText( h5file, 'type' )
   info = odhdf5.getInfoDataSet( h5file )
-  scaler = dgbhdf5.getScaler( modelfnm )
 
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
@@ -99,7 +139,7 @@ def load( modelfnm ):
     model = pickle.loads( modeldata[:].tostring() )
 
   h5file.close()
-  return (model,scaler)
+  return model
  
 def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   samples = np.reshape( samples, (len(samples),-1) )

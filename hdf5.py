@@ -11,8 +11,11 @@ import random
 import json
 import numpy as np
 import h5py
+
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
+
+from dgbpy import dgbscikit
 from dgbpy.keystr import *
 
 hdf5ext = 'h5'
@@ -26,8 +29,47 @@ def getGroupNames( filenm ):
   h5file.close()
   return ret
 
+def getInputNames( filenm ):
+  h5file = h5py.File( filenm, 'r' )
+  info = getInfo( filenm )
+  ret = list(info[inputdictstr].keys())
+  h5file.close()
+  return ret
+
 def getNrGroups( filenm ):
   return len(getGroupNames(filenm))
+
+def getNrInputs( filenm ):
+  return len(getInputNames(filenm))
+
+def getInputID( info, inpnm ):
+  return info[inputdictstr][inpnm]['id']
+
+def getCubeLetNames( info, groupnms, inputs ):
+  ret = {}
+  for groupnm in groupnms:
+    ret.update({groupnm: getCubeLetNamesByGroup(info,inputs,groupnm)} )
+  return ret
+
+def getCubeLetNamesByGroup( info, inputs, groupnm ):
+  ret = {}
+  for inp in inputs:
+    ret.update({inp: getCubeLetNamesByGroupByInput(info,groupnm,inp)})
+  return ret
+
+def getCubeLetNamesByGroupByInput( info, groupnm, input ):
+  h5file = h5py.File( info[filedictstr], 'r' )
+  if not groupnm in h5file:
+    return {}
+  group = h5file[groupnm]
+  dsetnms = list(group.keys())
+  if xdatadictstr in dsetnms:
+    ret = np.arange(len(group[xdatadictstr]))
+  else:
+    dsetwithinp = np.chararray.startswith( dsetnms, str(getInputID(info,input))+':' )
+    ret = np.extract( dsetwithinp, dsetnms )
+  h5file.close()
+  return np.ndarray.tolist(ret)
 
 def getGroupSize( filenm, groupnm ):
   h5file = h5py.File( filenm, 'r' )
@@ -74,7 +116,7 @@ def get_np_shape( step, nrpts=None, nrattribs=None ):
     ret += (i*2+1,)
   return ret
 
-def getCubeLets( filenm, infos, groupnm, decim ):
+def getCubeLets( infos, datasets, groupnm ):
   survnm = groupnm.replace( ' ', '_' )
   fromwells = survnm in infos[inputdictstr]
   attribsel = None
@@ -86,66 +128,82 @@ def getCubeLets( filenm, infos, groupnm, decim ):
   outdtype = np.float32
   if isclass:
     outdtype = np.uint8
-  if decim:
-    if decim < 0 or decim > 1:
-      std_msg( "Decimation percentage not within [0,1]" )
-      raise ValueError
-  h5file = h5py.File( filenm, 'r' )
+  h5file = h5py.File( infos[filedictstr], 'r' )
   group = h5file[groupnm]
   dsetnms = list(group.keys())
-  if xtraindictstr in dsetnms and ytraindictstr in dsetnms:
-    x_train = group[xtraindictstr]
-    y_train = group[ytraindictstr]
-    if decim:
-      nrpts = len(x_train)
-      idxs = random.choices(np.arange(np.int64(nrpts)),k=np.int64(nrpts*decim))
-      nrpts = len(idxs)
+  hasdata = None
+  if xdatadictstr in dsetnms and ydatadictstr in dsetnms:
+    x_data = group[xdatadictstr]
+    y_data = group[ydatadictstr]
+    allcubelets = list()
+    alloutputs = list()
+    for inputnm in datasets:
+      dsetnms = datasets[inputnm]
+      nrpts = len(dsetnms)
       shape = get_np_shape(stepout,nrpts,nrattribs)
       cubelets = np.empty( shape, np.float32 )
       output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-      idy = 0
-      for idx in idxs:
-        cubelets[idy] = x_train[idx]
-        output[idy] = y_train[idx]
-        idy += 1
-    else:
-      cubelets = np.array( x_train )
-      output = np.array( y_train )
+      idx = 0
+      for dsetnm in dsetnms:
+        dset = x_data[dsetnm]
+        odset = y_data[dsetnm]
+        cubelets[idx] = np.resize(dset,cubelets[idx].shape)
+        output[idx] = np.asarray( odset )
+        idx += 1
+      if nrpts > 0:
+        allcubelets.append( cubelets )
+        alloutputs.append( output )
+    if len(allcubelets) > 0:
+      cubelets = np.concatenate( allcubelets )
+      hasdata = True
+    if len(alloutputs) > 0:
+      output = np.concatenate( alloutputs )
   else:
-    nrpts = len(dsetnms)
-    if decim:
-      np.random.shuffle( dsetnms )
-      nrpts = int(nrpts*decim)
-      if nrpts < 1:
-        return {}
-      del dsetnms[nrpts:]
-    shape = get_np_shape(stepout,nrpts,nrattribs)
-
-    cubelets = np.empty( shape, np.float32 )
-    output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-    idx = 0
-    for dsetnm in dsetnms:
-      dset = group[dsetnm]
-      cubelets[idx] = np.resize(dset,cubelets[idx].shape)
-      if isclass :
-        output[idx] = odhdf5.getIArray( dset, valuestr )
-      else:
-        output[idx] = odhdf5.getDArray( dset, valuestr )
-      idx += 1
-
+    allcubelets = list()
+    alloutputs = list()
+    for inputnm in datasets:
+      dsetnms = datasets[inputnm]
+      nrpts = len(dsetnms)
+      shape = get_np_shape(stepout,nrpts,nrattribs)
+      cubelets = np.empty( shape, np.float32 )
+      output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+      idx = 0
+      for dsetnm in dsetnms:
+        dset = group[dsetnm]
+        cubelets[idx] = np.resize(dset,cubelets[idx].shape)
+        if isclass :
+          output[idx] = odhdf5.getIArray( dset, valuestr )
+        else:
+          output[idx] = odhdf5.getDArray( dset, valuestr )
+        idx += 1
+      if nrpts > 0:
+        allcubelets.append( cubelets )
+        alloutputs.append( output )
+    if len(allcubelets) > 0:
+      cubelets = np.concatenate( allcubelets )
+      hasdata = True
+    if len(alloutputs) > 0:
+      output = np.concatenate( alloutputs )
   h5file.close()
-  ret = {
+  if not hasdata:
+    return {}
+  return {
     xtraindictstr: cubelets,
     ytraindictstr: output
   }
-  return ret
 
-def getAllCubeLets( filenm, decim=False ):
-  infos = getInfo( filenm )
-  groupnms = getGroupNames( filenm )
+def getDatasets_( infos, datasets, fortrain ):
+  dictkeys = list()
+  if fortrain:
+    dictkeys.append( xtraindictstr )
+    dictkeys.append( ytraindictstr )
+  else:
+    dictkeys.append( xvaliddictstr )
+    dictkeys.append( yvaliddictstr )
+  ret = {}
   cubelets = list()
-  for groupnm in groupnms:
-    cubes = getCubeLets(filenm,infos,groupnm,decim)
+  for groupnm in datasets:
+    cubes = getCubeLets(infos,datasets[groupnm],groupnm)
     if len(cubes) > 0:
       cubelets.append( cubes )
   allx = list()
@@ -154,11 +212,31 @@ def getAllCubeLets( filenm, decim=False ):
     allx.append( cubelet[xtraindictstr] )
     ally.append( cubelet[ytraindictstr] )
   if len(allx) > 0:
-    return {
-      xtraindictstr: np.concatenate( allx ),
-      ytraindictstr: np.concatenate( ally )
-    }
-  return {}
+    ret.update({dictkeys[0]: np.concatenate( allx )})
+    ret.update({dictkeys[1]: np.concatenate( ally )})
+  return ret
+
+def getDatasets( infos, dsetsel=None, train=True, validation=True ):
+  ret = {}
+  if dsetsel == None:
+    datasets = infos[datasetdictstr]
+  else:
+    datasets = dsetsel
+  if train:
+    if traindictstr in datasets:
+      traindsets = datasets[traindictstr]
+    else:
+      traindsets = datasets
+    trainret = getDatasets_( infos, traindsets, True )
+    if len(trainret) > 0:
+      for ex in trainret:
+        ret.update({ex: trainret[ex]})
+  if validation and validdictstr in datasets:
+    validret = getDatasets_( infos, datasets[validdictstr], False )
+    if len(validret) > 0:
+      for ex in validret:
+        ret.update({ex: validret[ex]})
+  return ret
 
 def validInfo( info ):
   try:
@@ -188,12 +266,12 @@ def getInfo( filenm ):
   while idx < ex_sz:
     namestr = "Examples."+str(idx)+".Name"
     logstr = "Examples."+str(idx)+".Log"
-    if odhdf5.hasAttr( info, namestr ):
-      exname = namestr
-      extype = "Point-Sets"
-    elif odhdf5.hasAttr( info, logstr ):
+    if odhdf5.hasAttr( info, logstr ):
       exname = logstr
       extype = "Logs"
+    elif odhdf5.hasAttr( info, namestr ):
+      exname = namestr
+      extype = "Point-Sets"
     else:
       raise KeyError
     grouplbl = odhdf5.getText( info, exname )
@@ -215,7 +293,8 @@ def getInfo( filenm ):
     surveystr = "Examples."+str(idx)+".Survey"
     if odhdf5.hasAttr( info, surveystr ):
       surveyfp = path.split( odhdf5.getText(info, surveystr ) )
-      grouplbl = surveyfp[1]
+      surveynm = odhdf5.getText(info, "Examples."+str(idx)+".Name" )
+      grouplbl = surveynm
       example.update({
         targetdictstr: odhdf5.getText( info, exname ),
         pathdictstr: surveyfp[0]
@@ -241,14 +320,23 @@ def getInfo( filenm ):
       idy = 0
       inpp_sz = odhdf5.getIntValue(info,inpsizestr)
       attriblist = list()
+      scales = list()
+      means = list()
       while idy < inpp_sz:
         dsname = odhdf5.getText(info,"Input."+str(idx)+".Name."+str(idy))
         dbkey = odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy))
         attriblist.append({ namedictstr: dsname, iddictstr: idy, \
                             dbkeydictstr: dbkey })
+        scalekey = "Input."+str(idx)+".Stats."+str(idy)
+        if odhdf5.hasAttr(info,scalekey):
+          scale = odhdf5.getDInterval(info,scalekey)
+          means.append( scale[0] )
+          scales.append( scale[1] )
         idy += 1
       if len(attriblist) > 0:
         inp.update({attribdictstr: attriblist} )
+      if len(scales) > 0:
+        inp.update({scaledictstr: dgbscikit.getNewScaler(means,scales) })
 
     input.update({surveyfp[1]: inp})
     idx += 1
@@ -260,8 +348,13 @@ def getInfo( filenm ):
     nroutdictstr: nroutputs,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
-    inputdictstr: input
+    inputdictstr: input,
+    filedictstr: filenm
   }
+
+  retinfo.update({
+    datasetdictstr: getCubeLetNames( retinfo, examples.keys(), input.keys() )
+  })
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
@@ -300,30 +393,6 @@ def getWellInfo( info, filenm ):
 modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
-
-def getScaler( filenm ):
-  from sklearn.preprocessing import StandardScaler
-  h5file = h5py.File( filenm, 'r' )
-  scalergrp = h5file['scaler']
-  scalerpars = json.loads( odhdf5.getAttr(scalergrp,'params') )
-  scaler = StandardScaler().set_params( **scalerpars )
-  scaler.n_samples_seen_ = odhdf5.getIntValue( scalergrp, 'size' )
-  scaler.scale_ = np.array( scalergrp['scale'] )
-  scaler.mean_ = np.array( scalergrp['mean'] )
-  scaler.var_ = np.array( scalergrp['var'] )
-  h5file.close()
-  return scaler
-
-def addScaler( filenm, scaler ):
-  from sklearn.preprocessing import StandardScaler
-  h5file = h5py.File( filenm, 'r+' )
-  scalergrp = h5file.create_group( 'scaler' )
-  odhdf5.setAttr( scalergrp, 'params', json.dumps(scaler.get_params()) )
-  odhdf5.setAttr( scalergrp, 'size', str(scaler.n_samples_seen_) )
-  scalergrp.create_dataset('scale',data=scaler.scale_)
-  scalergrp.create_dataset('mean',data=scaler.mean_)
-  scalergrp.create_dataset('var',data=scaler.var_)
-  h5file.close()
 
 def addInfo( inpfile, plfnm, filenm ):
   h5filein = h5py.File( inpfile, 'r' )

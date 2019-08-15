@@ -141,7 +141,8 @@ def train(model,training,params=keras_dict,trainfile=None):
   import keras
   restore_stdout()
   from keras.callbacks import (EarlyStopping,LearningRateScheduler)
-  classification = training[dgbkeys.infodictstr][dgbkeys.classdictstr]
+  infos = training[dgbkeys.infodictstr]
+  classification = infos[dgbkeys.classdictstr]
   if classification:
     monitor = 'acc'
   else:
@@ -153,37 +154,41 @@ def train(model,training,params=keras_dict,trainfile=None):
   dec_fact = params['dec']
   x_train = {}
   y_train = {}
+  doshuffle = False
   if not decimate:
     if not dgbkeys.xtraindictstr in training:
       log_msg('No data to train the model')
       return model
     x_train = training[dgbkeys.xtraindictstr]
     y_train = training[dgbkeys.ytraindictstr]
+    x_validate = training[dgbkeys.xvaliddictstr]
+    y_validate = training[dgbkeys.yvaliddictstr]
+    doshuffle = True
   for repeat in range(num_bunch):
     log_msg('Starting iteration',str(repeat+1)+'/'+str(num_bunch))
     log_msg('Starting training data creation:')
     if decimate and trainfile != None:
-      import dgbpy.mlio as dgbmlio
-      trainbatch = dgbmlio.getTrainingData( trainfile,dec_fact)
+      import dgbpy.mlapply as dgbmlapply
+      trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, decim=dec_fact )
       if not dgbkeys.xtraindictstr in trainbatch:
         continue
       x_train = trainbatch[dgbkeys.xtraindictstr]
       y_train = trainbatch[dgbkeys.ytraindictstr]
+      x_validate = trainbatch[dgbkeys.xvaliddictstr]
+      y_validate = trainbatch[dgbkeys.yvaliddictstr]
     log_msg('Finished creating',len(x_train),'examples!')
+    log_msg('Validation done on', len(x_validate), 'examples.' )
     while len(x_train.shape) < 5:
       x_train = np.expand_dims(x_train,axis=len(x_train.shape)-1)
     if classification:
-      y_train = keras.utils.to_categorical(y_train,getNrClasses(model))
+      nrclasses = getNrClasses(model)
+      y_train = keras.utils.to_categorical(y_train,nrclasses)
+      y_validate = keras.utils.to_categorical(y_validate,nrclasses)
     redirect_stdout()
- 
-    mask = np.random.permutation(len(x_train))
-    x_train = x_train[mask]
-    y_train = y_train[mask]
-   
-    hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],shuffle=True, \
-                        validation_split=0.2, \
-                        batch_size=params['batch'], \
-                        epochs=params['epoch'])
+    hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],\
+                  shuffle=doshuffle, validation_data=(x_validate,y_validate),\
+                  batch_size=params['batch'], \
+                  epochs=params['epoch'])
     #log_msg( hist.history )
     restore_stdout()
 
