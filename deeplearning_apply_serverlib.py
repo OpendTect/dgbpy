@@ -252,9 +252,10 @@ class Message:
         dtypes = list()
         shapes = list()
         for arr in res:
-          ret += arr.tobytes()
-          shapes.append( arr.shape )
-          dtypes.append( arr.dtype.name )
+          arrout = np.transpose( arr )
+          ret += arrout.tobytes()
+          shapes.append( arrout.shape )
+          dtypes.append( arrout.dtype.name )
         response = {
           'content_bytes': ret,
           'content_type': "binary/array",
