@@ -91,6 +91,8 @@ class ModelApplier:
           else:
             for zidz in range(nroutsamps):
               samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+        scale_fact = 1 # Override of scaler to be used for apply
+        self.scaler_.scale_ = scale_fact * self.scaler_.scale_
         samples = dgbscikit.scale( samples, self.scaler_ )
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
