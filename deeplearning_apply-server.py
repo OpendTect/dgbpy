@@ -64,6 +64,8 @@ parser.add_argument( '--fakeapply', dest='fakeapply', action='store_true',
 args = vars(parser.parse_args())
 initLogging( args )
 
+redirect_stdout()
+
 applier = None
 pid = psutil.Process().pid
 
