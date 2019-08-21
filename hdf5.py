@@ -141,15 +141,19 @@ def getCubeLets( infos, datasets, groupnm ):
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
       shape = get_np_shape(stepout,nrpts,nrattribs)
-      cubelets = np.empty( shape, np.float32 )
-      output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-      idx = 0
-      for dsetnm in dsetnms:
-        dset = x_data[dsetnm]
-        odset = y_data[dsetnm]
-        cubelets[idx] = np.resize(dset,cubelets[idx].shape)
-        output[idx] = np.asarray( odset )
-        idx += 1
+      if len(x_data) == nrpts and len(y_data) == nrpts:
+        cubelets = np.resize( x_data, shape ).astype( np.float32 )
+        output = np.resize( y_data, (nrpts,infos[nroutdictstr]) ).astype( outdtype )
+      else:
+        cubelets = np.empty( shape, np.float32 )
+        output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+        idx = 0
+        for dsetnm in dsetnms:
+          dset = x_data[dsetnm]
+          odset = y_data[dsetnm]
+          cubelets[idx] = np.resize(dset,cubelets[idx].shape)
+          output[idx] = np.asarray( odset )
+          idx += 1
       if nrpts > 0:
         allcubelets.append( cubelets )
         alloutputs.append( output )
