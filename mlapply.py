@@ -30,24 +30,24 @@ def computeScaler_( datasets, infos, scalebyattrib ):
     return getScaler( x_data, byattrib=scalebyattrib )
   return None
 
-def computeScaler( infos, scalebyattrib ):
+def computeScaler( infos, scalebyattrib, force=False ):
   datasets = infos[dgbkeys.trainseldicstr]
   inp = infos[dgbkeys.inputdictstr]
   if infos[dgbkeys.typedictstr] == dgbkeys.loglogtypestr:
-    if not dgbmlio.hasScaler(infos):
+    if not dgbmlio.hasScaler(infos) or force:
       scaler = computeScaler_( datasets, infos, scalebyattrib )
       for inputnm in inp:
         inp[inputnm].update({dgbkeys.scaledictstr: scaler})
   else:
     for inputnm in inp:
-      if dgbmlio.hasScaler( infos, inputnm ):
+      if dgbmlio.hasScaler( infos, inputnm ) and not force:
         continue
       scalingdatasets = dgbmlio.getDatasetsByInput( datasets, inputnm )
       scaler = computeScaler_( scalingdatasets, infos, scalebyattrib )
       inp[inputnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
-def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale=True ):
+def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale=True, force=False ):
   if isinstance(scale,bool):
     doscale = scale
     scalebyattrib = True
@@ -60,7 +60,7 @@ def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale
                                    validation_split=split)
   infos.update({dgbkeys.trainseldicstr: datasets})
   if doscale:
-    infos = computeScaler( infos, scalebyattrib )
+    infos = computeScaler( infos, scalebyattrib, force )
 
   ret = getScaledTrainingDataByInfo( infos, decim, flatten, scale=doscale )
   return ret
