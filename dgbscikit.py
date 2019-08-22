@@ -142,6 +142,7 @@ def load( modelfnm ):
   return model
  
 def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
+  model.verbose = 0
   samples = np.reshape( samples, (len(samples),-1) )
   if scaler != None:
     samples = scaler.transform( samples )
