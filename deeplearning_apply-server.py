@@ -115,7 +115,7 @@ try:
   lastmessage = False
   cont = True
   while cont:
-    events = sel.select(timeout=None)
+    events = sel.select(timeout=300)
     for key, mask in events:
       if key.data is None:
         accept_wrapper(key.fileobj,applier)
