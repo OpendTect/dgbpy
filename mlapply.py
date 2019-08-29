@@ -154,18 +154,17 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
       params = dgbkeras.getParams()
     model = dgbkeras.getDefaultModel(training[dgbkeys.infodictstr])
     model = dgbkeras.train( model, training, params, trainfile=examplefilenm )
-    dgbkeras.save( model, examplefilenm, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getParams()
-    #(model,scaler) = dgbscikit.train( training, params, trainfile=examplefilenm )
-    #dgbscikit.save( model, examplefilenm, outfnm, scaler=scaler )
+    # dgbscikit.train( training, params, trainfile=examplefilenm )
     raise AttributeError
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
+  dgbmlio.saveModel( model, examplefilenm, platform, training[dgbkeys.infodictstr], outfnm )
   return (outfnm != None and os.path.isfile( outfnm ))
 
 def reformat( res, applyinfo ):

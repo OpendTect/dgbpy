@@ -195,11 +195,8 @@ def train(model,training,params=keras_dict,trainfile=None):
   keras.utils.print_summary( model, print_fn=log_msg )
   return model
 
-def save( model, inpfnm, outfnm ):
-  log_msg( 'Saving model.' )
-  model.save( outfnm ) #Keep first!
-  dgbhdf5.addInfo( inpfnm, getMLPlatform(), outfnm )
-  log_msg( 'Model saved.' )
+def save( model, outfnm ):
+  model.save( outfnm )
 
 def load( modelfnm ):
   from odpy.common import redirect_stdout,restore_stdout

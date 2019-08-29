@@ -317,20 +317,31 @@ def getInfo( filenm ):
       iddictstr: idx
     }
     logsstr = "Input."+str(idx)+".Logs"
+    inpp_sz = 0
     if odhdf5.hasAttr( info, logsstr ):
       inp.update({logdictstr: odhdf5.getText(info, logsstr )})
-    inpsizestr = "Input."+str(idx)+".Size"
-    if odhdf5.hasAttr( info, inpsizestr ):
+      inpp_sz = len( inp[logdictstr] )
+    else:
+      inpsizestr = 'Input.'+str(idx)+'.Size'
+      if odhdf5.hasAttr( info, inpsizestr ):
+        inpp_sz = odhdf5.getIntValue(info,inpsizestr)
+    if inpp_sz > 0:
       idy = 0
-      inpp_sz = odhdf5.getIntValue(info,inpsizestr)
       attriblist = list()
       scales = list()
       means = list()
       while idy < inpp_sz:
-        dsname = odhdf5.getText(info,"Input."+str(idx)+".Name."+str(idy))
-        dbkey = odhdf5.getText(info,"Input."+str(idx)+".ID."+str(idy))
-        attriblist.append({ namedictstr: dsname, iddictstr: idy, \
-                            dbkeydictstr: dbkey })
+        attribinp = {}
+        dsnamestr = 'Input.'+str(idx)+'.Name.'+str(idy)
+        if odhdf5.hasAttr( info, dsnamestr ):
+          attribinp.update({ namedictstr: odhdf5.getText(info,dsnamestr) })
+        dbkeystr = 'Input.'+str(idx)+'.ID.'+str(idy)
+        if odhdf5.hasAttr( info, dbkeystr ):
+          attribinp.update({ dbkeydictstr: odhdf5.getText(info,dbkeystr) })
+        if len(attribinp.keys()) > 0:
+          attribinp.update({ iddictstr: idy })
+        if len(attribinp.keys()) > 0:
+          attriblist.append( attribinp )
         scalekey = "Input."+str(idx)+".Stats."+str(idy)
         if odhdf5.hasAttr(info,scalekey):
           scale = odhdf5.getDInterval(info,scalekey)
@@ -398,7 +409,7 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
-def addInfo( inpfile, plfnm, filenm ):
+def addInfo( inpfile, plfnm, infos, filenm ):
   h5filein = h5py.File( inpfile, 'r' )
   h5fileout = h5py.File( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
@@ -414,6 +425,17 @@ def addInfo( inpfile, plfnm, filenm ):
   odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(nrout) )
   for idx in range(nrout):
     odhdf5.setAttr( dsinfoout, modelIdxStr(idx), outps[idx] )
+
+  from odpy.common import log_msg
+  inp = infos[inputdictstr]
+  for inputnm in inp:
+    input = inp[inputnm]
+    if not scaledictstr in input:
+      continue
+    scale = input[scaledictstr]
+    keyval = 'Input.' + str(input[iddictstr]) + '.Stats.'
+    for i in range(len(scale.scale_)):
+      odhdf5.setAttr( dsinfoout, keyval+str(i), str(scale.mean_[i])+'`'+str(scale.scale_[i]) )
 
   h5fileout.close()
 

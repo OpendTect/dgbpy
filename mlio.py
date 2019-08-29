@@ -159,6 +159,22 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
+def saveModel( model, inpfnm, platform, infos, outfnm ):
+  from odpy.common import log_msg
+  log_msg( 'Saving model.' )
+  if platform == dgbkeys.kerasplfnm:
+    import dgbpy.dgbkeras as dgbkeras
+    dgbkeras.save( model, outfnm )
+  elif platform == dgbkeys.scikitplfnm:
+    import dgbpy.dgbscikit as dgbscikit
+    log_msg( 'Unsupported machine learning platform' )
+    raise AttributeError
+  else:
+    log_msg( 'Unsupported machine learning platform' )
+    raise AttributeError
+  dgbhdf5.addInfo( inpfnm, platform, infos, outfnm )
+  log_msg( 'Model saved.' )
+
 def getModel( modelfnm ):
   infos = dgbhdf5.getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
