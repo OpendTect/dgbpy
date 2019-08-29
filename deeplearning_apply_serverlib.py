@@ -57,16 +57,21 @@ class ModelApplier:
         return self.model_ != None
 
     def getScaler( self, outputs ):
+        if outputs[dgbkeys.surveydictstr] in self.info_[dgbkeys.inputdictstr]:
+          survdirnm = outputs[dgbkeys.surveydictstr]
+          inp = self.info_[dgbkeys.inputdictstr][survdirnm]
+          if dgbkeys.scaledictstr in inp:
+            return inp[dgbkeys.scaledictstr]
         means = list()
         stddevs = list()
         if not 'avgs' in outputs or not 'stdevs' in outputs:
-          return None
+          return self.scaler_
         for avg in outputs['avgs']:
           means.append( avg )
         for stddev in outputs['stdevs']:
           stddevs.append( stddev )
         if len(means) != len(stddevs):
-          return None
+          return self.scaler_
         return dgbscikit.getNewScaler( means, stddevs )
 
     def doWork(self,inp):
