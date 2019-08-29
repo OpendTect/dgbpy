@@ -74,35 +74,45 @@ class ModelApplier:
         stepout = self.info_['stepout']
         nrzin = inp.shape[-1]
         vertical =  isinstance(stepout,int)
+        chunksz = inp.shape[2]
         if vertical:
-          nroutsamps = nrzin - 2*stepout
+            nrzoutsamps = nrzin - 2*stepout
         else:
-          nroutsamps = nrzin - 2*stepout[2]
+            chunksz -= 2*stepout[1]
+            nrzoutsamps = nrzin - 2*stepout[2]
+        nroutsamps = nrzoutsamps * chunksz
         samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
-                                              nrpts=nroutsamps )
+                                              nrpts=nrzoutsamps )
         nrz = samples_shape[-1]
-        if nrz == 1:
-          samples = np.resize( np.array(inp), samples_shape )
-        else:
-          samples = np.empty( samples_shape, dtype=inp.dtype )
-          if vertical:
-            for zidz in range(nroutsamps):
-              samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
+        allsamples = list()
+        for i in range(chunksz):
+          if nrz == 1:
+            allsamples.append( np.resize( np.array(inp), samples_shape ) )
           else:
-            for zidz in range(nroutsamps):
-              samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
-        scale_fact = 1 # Override of scaler to be used for apply
-        self.scaler_.scale_ = scale_fact * self.scaler_.scale_
+            loc_samples = np.empty( samples_shape, dtype=inp.dtype )
+            if vertical:
+              for zidz in range(nrzoutsamps):
+                loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
+            else:
+              for zidz in range(nrzoutsamps):
+                loc_samples[zidz] = inp[:,:,i:i+1,zidz:zidz+nrz]
+          allsamples.append( loc_samples )
+        samples = np.concatenate( allsamples )
         samples = dgbscikit.scale( samples, self.scaler_ )
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
         res = list()
-        if dgbkeys.preddictstr in ret:
-          res.append( ret[dgbkeys.preddictstr] )
-        if dgbkeys.probadictstr in ret:
-          res.append( ret[dgbkeys.probadictstr] )
-        if dgbkeys.confdictstr in ret:
-          res.append( ret[dgbkeys.confdictstr] )
+        outkeys = list()
+        outkeys.append( dgbkeys.preddictstr )
+        outkeys.append( dgbkeys.probadictstr )
+        outkeys.append( dgbkeys.confdictstr )
+        for outkey in outkeys:
+          if outkey in ret:
+            if chunksz > 1:
+              nrattrret = ret[outkey].shape[-1]
+              ret[outkey] = np.resize( ret[outkey], (nrzoutsamps,chunksz,nrattrret))
+            print( ret[outkey].shape )
+            res.append( ret[outkey] )
         return res
 
 
