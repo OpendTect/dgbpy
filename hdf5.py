@@ -426,7 +426,6 @@ def addInfo( inpfile, plfnm, infos, filenm ):
   for idx in range(nrout):
     odhdf5.setAttr( dsinfoout, modelIdxStr(idx), outps[idx] )
 
-  from odpy.common import log_msg
   inp = infos[inputdictstr]
   for inputnm in inp:
     input = inp[inputnm]
