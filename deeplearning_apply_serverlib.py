@@ -79,11 +79,11 @@ class ModelApplier:
         stepout = self.info_['stepout']
         nrzin = inp.shape[-1]
         vertical =  isinstance(stepout,int)
-        chunksz = inp.shape[2]
         if vertical:
+            chunksz = 1
             nrzoutsamps = nrzin - 2*stepout
         else:
-            chunksz -= 2*stepout[1]
+            chunksz = inp.shape[2] - 2*stepout[1]
             nrzoutsamps = nrzin - 2*stepout[2]
         nroutsamps = nrzoutsamps * chunksz
         samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
@@ -92,7 +92,10 @@ class ModelApplier:
         allsamples = list()
         for i in range(chunksz):
           if nrz == 1:
-            allsamples.append( np.resize( np.array(inp), samples_shape ) )
+            if chunksz < 2:
+              allsamples.append( np.resize( np.array(inp), samples_shape ) )
+            else:
+              allsamples.append( np.resize( np.array(inp), samples_shape ) ) #review
           else:
             loc_samples = np.empty( samples_shape, dtype=inp.dtype )
             if vertical:
@@ -101,7 +104,7 @@ class ModelApplier:
             else:
               for zidz in range(nrzoutsamps):
                 loc_samples[zidz] = inp[:,:,i:i+1,zidz:zidz+nrz]
-          allsamples.append( loc_samples )
+            allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
         samples = dgbscikit.scale( samples, self.scaler_ )
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \

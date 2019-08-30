@@ -82,10 +82,12 @@ servercmd.append( '--address' )
 servercmd.append( str(args['addr']) )
 servercmd.append( '--port' )
 servercmd.append( str(args['port']) )
-servercmd.append( '--log' )
-servercmd.append( args['servlogfile'].name )
-servercmd.append( '--syslog' )
-servercmd.append( args['servsysout'].name )
+if args['servlogfile'].name != '<stdout>':
+  servercmd.append( '--log' )
+  servercmd.append( args['servlogfile'].name )
+if args['servsysout'].name != '<stdout>':
+  servercmd.append( '--syslog' )
+  servercmd.append( args['servsysout'].name )
 if args['fakeapply']:
   servercmd.append( '--fakeapply' )
 
@@ -95,10 +97,11 @@ time.sleep( 2 )
 def getApplyTrace( dict ):
   arr3d = dict['arr']
   stepout = dict['stepout']
+  procstep = dict['step']-1
   idx = dict['idx']
   idy = dict['idy']
   return arr3d[:,idx-stepout[0]:idx+stepout[0]+1,\
-                 idy-stepout[1]:idy+stepout[1]+1,:]
+                 idy-stepout[1]:idy+stepout[1]+procstep+1,:]
 
 def create_request(action, value=None):
   if value == None:
@@ -115,6 +118,7 @@ def create_request(action, value=None):
         action=action,
         value= {
           'names': value,
+          dgbkeys.surveydictstr: 'None',
           dgbkeys.dtypepred: 'uint8',
           dgbkeys.dtypeprob: 'float32',
           dgbkeys.dtypeconf: 'float32'
@@ -149,7 +153,8 @@ def getApplyPars( args ):
     ret= {
       'stepout': [16,16,16],
       'nrattribs': 1,
-      'outputnms': dgbhdf5.getOutputNames(modelfnm,[0])
+      'outputnms': dgbhdf5.getOutputNames(modelfnm,[0]),
+      'surveydirnm': 'None'
     }
   else:
     exfnm = args['examples'].name
@@ -168,11 +173,12 @@ pars = getApplyPars( args )
 stepout = pars['stepout']
 
 nrattribs = pars['nrattribs']
-nrlines_out = 1
-nrtrcs_out = 100
+nrlines_out = 20
+nrtrcs_out = 800
+chunk_step = 50
 nrlines_in = nrlines_out + 2 * stepout[0]
 nrtrcs_in = nrtrcs_out + 2 * stepout[1]
-nrz_in = 463
+nrz_in = 378
 nrz_out = nrz_in - 2 * stepout[2]
 inpdata = np.random.random( nrattribs*nrlines_in*nrtrcs_in*nrz_in )
 inpdata = inpdata.reshape((nrattribs,nrlines_in,nrtrcs_in,nrz_in))
@@ -187,12 +193,16 @@ applydict = {
   'arr': inpdata,
   'stepout': stepout,
   'idx': stepout[0],
-  'idy': stepout[1]
+  'idy': stepout[1],
+  'step': chunk_step,
 }
 lastidy = nrtrcs_in-stepout[1]
 nrrepeats = 1
+trcrg = range(stepout[1],nrtrcs_in-stepout[1])
+nrtrcs = (nrrepeats * len(trcrg))
 for i in range(nrrepeats):
-  for idy in range(stepout[1],nrtrcs_in-stepout[1]):
+  applydict['idx'] = i
+  for idy in range(stepout[1],nrtrcs_in-stepout[1],chunk_step):
     applydict['idy'] = idy
     req_connection(host, port, create_request('data',applydict))
 
@@ -221,4 +231,4 @@ finally:
   oscommand.kill( serverproc )
   duration = time.time()-start
   log_msg( "Total time:",  "{:.3f}".format(duration), "s.;", \
-         "{:.3f}".format(nrtrcs_out/duration), "tr/s." )
+         "{:.3f}".format(nrtrcs/duration), "tr/s." )
