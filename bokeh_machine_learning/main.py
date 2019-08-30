@@ -102,12 +102,12 @@ def selParsGrp( platformnm ):
   parameterspanel.child = column( parsgrp, parsbackbut )
   curdoc().add_root(mainpanel)
 
-def getParams():
+def getUiParams():
   parsgrp = getParsGrp( platformfld.value )
   if platformfld.value == uikeras.getPlatformNm():
-    return uikeras.getParams( keraspars )
+    return uikeras.getUiParams( keraspars )
   elif platformfld.value == uisklearn.getPlatformNm():
-    return uisklearn.getParams( sklearnpars )
+    return uisklearn.getUiParams( sklearnpars )
   return {}
 
 def getProcArgs( platfmnm, pars, outnm ):
@@ -123,7 +123,8 @@ def getProcArgs( platfmnm, pars, outnm ):
   return ret
 
 def doRun( cb = None ):
-  scriptargs = getProcArgs( platformfld.value, getParams(), outputnmfld.value )
+  scriptargs = getProcArgs( platformfld.value, getUiParams(), \
+                            outputnmfld.value )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
   return execCommand( cmdtorun, background=True )

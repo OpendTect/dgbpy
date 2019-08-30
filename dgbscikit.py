@@ -24,7 +24,11 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
 platform = (dgbkeys.scikitplfnm,'Scikit-learn')
-mltypes = [('linear','Linear'),('ensemble','Ensemble'),('neuralnet','Neural Network')]
+mltypes = (\
+            ('linear','Linear'),\
+            ('ensemble','Ensemble'),\
+            ('neuralnet','Neural Network')\
+          )
 lineartypes = [('oslq','Ordinary Least Squares')]
 ensembletypes = [('randfor','Random Forests')]
 nntypes = [('mlp','Multi-Layer Perceptron')]

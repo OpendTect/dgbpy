@@ -83,7 +83,7 @@ def getUiPars():
     }
   }
 
-def getParams( sklearnpars ):
+def getUiParams( sklearnpars ):
   sklearngrp = sklearnpars['uiobjects']
   return None
   #return dgbscikit.getParams( sklearngrp['nbparfld'].value )

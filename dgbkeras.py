@@ -18,12 +18,29 @@ import dgbpy.hdf5 as dgbhdf5
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
+mltypes = (\
+            ('lenet','LeNet - Malenov'),\
+#            ('squeezenet','SqueezeNet'),\
+#            ('other','MobilNet V2'),\
+          )
 
 def getMLPlatform():
   return platform[0]
 
 def getUIMLPlatform():
   return platform[1]
+
+def getUiModelTypes():
+  return dgbkeys.getNames( mltypes )
+
+def isLeNet( mltype ):
+  return mltype == mltypes[0][0] or mltype == mltypes[0][1]
+
+def isSqueezeNet( mltype ):
+  return mltype == mltypes[1][0] or mltype == mltypes[1][1]
+
+def isMobilNetV2( mltype ):
+  return mltype == mltypes[2][0] or mltype == mltypes[2][1]
 
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
@@ -32,19 +49,22 @@ keras_dict = {
   'iters': 15,
   'epoch': 15,
   'batch': 32,
-  'patience': 10
+  'patience': 10,
+  'type': mltypes[0][0],
 }
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
                iters=keras_dict['iters'], epochs=keras_dict['epoch'],
-               batch=keras_dict['batch'], patience=keras_dict['patience'] ):
+               batch=keras_dict['batch'], patience=keras_dict['patience'],
+               nntype=keras_dict['type'] ):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'dec': dec,
     'iters': iters,
     'epoch': epochs,
     'batch': batch,
-    'patience': patience
+    'patience': patience,
+    'type': nntype
   }
   if not dodec:
     ret['dec'] = 0
@@ -66,7 +86,7 @@ def getLayer( model, name ):
 def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
-def getDefaultModel(setup):
+def getDefaultModel(setup,type):
   from odpy.common import redirect_stdout,restore_stdout
   redirect_stdout()
   import keras
