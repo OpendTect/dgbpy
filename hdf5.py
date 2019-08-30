@@ -409,7 +409,9 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
-def addInfo( inpfile, plfnm, infos, filenm ):
+def addInfo( inpfile, plfnm, filenm, infos=None ):
+  if infos == None:
+    infos = getInfo( inpfile )
   h5filein = h5py.File( inpfile, 'r' )
   h5fileout = h5py.File( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
