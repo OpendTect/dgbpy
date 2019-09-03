@@ -344,9 +344,11 @@ def getInfo( filenm ):
           attriblist.append( attribinp )
         scalekey = "Input."+str(idx)+".Stats."+str(idy)
         if odhdf5.hasAttr(info,scalekey):
-          scale = odhdf5.getDInterval(info,scalekey)
-          means.append( scale[0] )
-          scales.append( scale[1] )
+          scaletxt = odhdf5.getAttr(info,scalekey)
+          if scaletxt != '0`0':
+            scale = odhdf5.getDInterval(info,scalekey)
+            means.append( scale[0] )
+            scales.append( scale[1] )
         idy += 1
       if len(attriblist) > 0:
         inp.update({attribdictstr: attriblist} )
