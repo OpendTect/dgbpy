@@ -10,11 +10,13 @@
 
 import os
 import re
+from datetime import datetime
 import numpy as np
 
-from odpy.common import log_msg
+from odpy.common import log_msg, get_log_file
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
+
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
@@ -160,7 +162,7 @@ def train(model,training,params=keras_dict,trainfile=None):
   redirect_stdout()
   import keras
   restore_stdout()
-  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
+  from keras.callbacks import (EarlyStopping,LearningRateScheduler,TensorBoard)
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
   if classification:
@@ -169,6 +171,24 @@ def train(model,training,params=keras_dict,trainfile=None):
     monitor = 'loss'
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
   LR_sched = LearningRateScheduler(schedule = adaptive_lr)
+  callbacks = [early_stopping,LR_sched]
+  batchsize = params['batch']
+  logdir = os.path.dirname( get_log_file() )
+  logdir = os.path.dirname(logdir)
+  survdir = os.path.basename(logdir)
+  logdir = os.path.dirname(logdir)
+  logdir = os.path.join( logdir, 'MachineLearning' )
+  jobnm = survdir + '_run'
+  if os.path.exists(logdir):
+    nrsavedruns = 0
+    with os.scandir(logdir) as it:
+      for entry in it:
+        if entry.name.startswith(jobnm) and entry.is_dir():
+          nrsavedruns += 1
+    logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+':'.join( datetime.now().isoformat().split(':')[0:-1] ) )
+    tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, batch_size=batchsize,\
+                               write_graph=True, write_grads=True, write_images=True)
+    callbacks.append( tensor_board )
   num_bunch = params['iters']
   decimate = params[dgbkeys.decimkeystr]
   dec_fact = params['dec']
@@ -205,9 +225,9 @@ def train(model,training,params=keras_dict,trainfile=None):
       y_train = keras.utils.to_categorical(y_train,nrclasses)
       y_validate = keras.utils.to_categorical(y_validate,nrclasses)
     redirect_stdout()
-    hist = model.fit(x=x_train,y=y_train,callbacks=[early_stopping, LR_sched],\
+    hist = model.fit(x=x_train,y=y_train,callbacks=callbacks,\
                   shuffle=doshuffle, validation_data=(x_validate,y_validate),\
-                  batch_size=params['batch'], \
+                  batch_size=batchsize, \
                   epochs=params['epoch'])
     #log_msg( hist.history )
     restore_stdout()
