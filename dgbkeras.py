@@ -108,22 +108,22 @@ def getDefaultModel(setup,type):
     steps = (nrinputs,1,1,2*stepout+1)
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
-            name='conv_layer1',input_shape=steps,data_format="channels_first"))
+            name='conv_layer1',input_shape=steps,data_format='channels_first'))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2', data_format='channels_first'))
   model.add(Dropout(0.2))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer3'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer3',data_format='channels_first'))
   model.add(Dropout(0.2))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer4'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer4',data_format='channels_first'))
   model.add(Dropout(0.2))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer5'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer5',data_format='channels_first'))
   model.add(Flatten())
   model.add(Dense(50,name = 'dense_layer1'))
   model.add(BatchNormalization())
@@ -227,7 +227,9 @@ def load( modelfnm ):
   return ret
 
 def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, scaler=None, batch_size=keras_dict['batch'] ):
+  redirect_stdout()
   import keras
+  restore_stdout()
   ret = {}
   res = None
   if withpred:
