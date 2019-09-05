@@ -62,8 +62,12 @@ if __name__ == '__main__':
   printProcessTime( 'Machine Learning Training', True, odcommon.log_msg )
   odcommon.log_msg( '\n' )
   dict = json.loads( args['dict'][0] )
-  success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
-                                dict['parameters'], dict['output'], args )
+  try:
+    success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
+                                  dict['parameters'], dict['output'], args )
+  except Exception as e:
+    odcommon.log_msg( 'Exception:', e )
+    sys.exit(1)
   if not success:
     sys.exit(1)
 
