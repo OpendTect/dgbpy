@@ -48,7 +48,8 @@ class ModelApplier:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
-        self.scaler_ = self.getScaler( outputs )
+        if dgbmlio.hasScaler(self.info_):
+            self.scaler_ = self.getScaler( outputs )
 
     def _usePar(self, pars):
         self.pars_ = pars
@@ -88,6 +89,7 @@ class ModelApplier:
         nroutsamps = nrzoutsamps * chunksz
         samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
                                               nrpts=nrzoutsamps )
+        nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
         allsamples = list()
         for i in range(chunksz):
@@ -103,7 +105,7 @@ class ModelApplier:
                 loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
             else:
               for zidz in range(nrzoutsamps):
-                loc_samples[zidz] = inp[:,:,i:i+1,zidz:zidz+nrz]
+                loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
         samples = dgbscikit.scale( samples, self.scaler_ )
@@ -119,7 +121,6 @@ class ModelApplier:
             if chunksz > 1:
               nrattrret = ret[outkey].shape[-1]
               ret[outkey] = np.resize( ret[outkey], (nrzoutsamps,chunksz,nrattrret))
-            print( ret[outkey].shape )
             res.append( ret[outkey] )
         return res
 
