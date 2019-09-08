@@ -44,6 +44,7 @@ def isSqueezeNet( mltype ):
 def isMobilNetV2( mltype ):
   return mltype == mltypes[2][0] or mltype == mltypes[2][1]
 
+firstconvlayernm = 'conv_layer1'
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
   dgbkeys.decimkeystr: False,
@@ -85,6 +86,22 @@ def getLayer( model, name ):
       return lay
   return None
 
+def getDataFormat( model ):
+  convlay1_config = getLayer(model,firstconvlayernm).get_config()
+  return convlay1_config['data_format']
+
+def getCubeletStepout( model ):
+  convlay1_config = getLayer(model,firstconvlayernm).get_config()
+  data_format = getDataFormat( model )
+  if data_format == 'channels_first':
+    cubeszs = convlay1_config['batch_input_shape'][2:]
+  elif data_format == 'channels_last':
+    cubeszs = convlay1_config['batch_input_shape'][1:-1]
+  stepout = tuple()
+  for cubesz in cubeszs:
+    stepout += (int((cubesz-1)/2),)
+  return (stepout,cubeszs)
+
 def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
@@ -109,7 +126,7 @@ def getDefaultModel(setup,type,data_format='channels_first'):
     steps = (nrinputs,1,1,2*stepout+1)
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
-            name='conv_layer1',input_shape=steps,data_format=data_format))
+            name=firstconvlayernm,input_shape=steps,data_format=data_format))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
   model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2', data_format=data_format))
@@ -249,6 +266,9 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
   restore_stdout()
   ret = {}
   res = None
+  if getDataFormat(model) == 'channels_last':
+    samples = transform( samples )
+    
   if withpred:
     if isclassification:
       res = model.predict_classes( samples, batch_size=batch_size )
@@ -271,6 +291,24 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
       res = np.diff(sortedprobs,axis=1)
       ret.update({dgbkeys.confdictstr: res})
 
+  return ret
+
+def transform( samples ):
+  nrsamples = samples.shape[0]
+  nrattribs = samples.shape[1]
+  cube_shape = samples.shape[2:]
+  ret = np.empty( (nrsamples, cube_shape[0], cube_shape[1], cube_shape[2], nrattribs ), dtype = samples.dtype )
+  for iattr in range(nrattribs):
+    ret[:,:,:,:,iattr] = samples[:,iattr]
+  return ret
+
+def transformBack( samples ):
+  nrsamples = samples.shape[0]
+  cube_shape = samples.shape[1:-1]
+  nrattribs = samples.shape[-1]
+  ret = np.empty( (nrsamples, nrattribs, cube_shape[0], cube_shape[1], cube_shape[2] ), dtype = samples.dtype )
+  for iattr in range(nrattribs):
+    ret[:,iattr] = samples[:,:,:,:,iattr]
   return ret
 
 def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):
