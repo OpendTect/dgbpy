@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 import numpy as np
 
-from odpy.common import log_msg, get_log_file
+from odpy.common import log_msg, get_log_file, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 
@@ -89,7 +89,6 @@ def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
 def getDefaultModel(setup,type,data_format='channels_first'):
-  from odpy.common import redirect_stdout,restore_stdout
   redirect_stdout()
   import keras
   restore_stdout()
@@ -158,7 +157,6 @@ def getDefaultModel(setup,type,data_format='channels_first'):
   return model
 
 def train(model,training,params=keras_dict,trainfile=None):
-  from odpy.common import redirect_stdout,restore_stdout
   redirect_stdout()
   import keras
   restore_stdout()
@@ -239,7 +237,6 @@ def save( model, outfnm ):
   model.save( outfnm )
 
 def load( modelfnm ):
-  from odpy.common import redirect_stdout,restore_stdout
   redirect_stdout()
   from keras.models import load_model
   ret = load_model( modelfnm, compile=False )
