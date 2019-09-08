@@ -179,7 +179,7 @@ def reformat( res, applyinfo ):
 def doApplyFromFile( modelfnm, samples, outsubsel=None ):
   (model,info) = dgbmlio.getModel( modelfnm )
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
-  return doApply( model, info, samples, applyinfo )
+  return doApply( model, info, samples, applyinfo=applyinfo )
 
 def doApply( model, info, samples, scaler=None, applyinfo=None ):
   platform = info[dgbkeys.plfdictstr]
