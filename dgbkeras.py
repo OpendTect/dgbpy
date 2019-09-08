@@ -200,7 +200,7 @@ def train(model,training,params=keras_dict,trainfile=None):
       for entry in it:
         if entry.name.startswith(jobnm) and entry.is_dir():
           nrsavedruns += 1
-    logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+':'.join( datetime.now().isoformat().split(':')[0:-1] ) )
+    logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
     tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, batch_size=batchsize,\
                                write_graph=True, write_grads=True, write_images=True)
     callbacks.append( tensor_board )
