@@ -12,6 +12,7 @@ import os
 import re
 from datetime import datetime
 import numpy as np
+import math
 
 from odpy.common import log_msg, get_log_file, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
@@ -77,8 +78,14 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
 # Function that takes the epoch as input and returns the desired learning rate
 # input_int: the epoch that is currently being entered
 def adaptive_lr(input_int):
+  
+  initial_lrate = 0.01
+  drop = 0.5
+  epochs_drop = 5.0
+  lr = initial_lrate * math.pow(drop,
+         math.floor((1+input_int)/epochs_drop)) 
   # return the learning rate (quite arbitrarily decaying)
-  return 0.1**input_int
+  return lr
 
 def getLayer( model, name ):
   for lay in model.layers:
@@ -154,7 +161,7 @@ def getDefaultModel(setup,type,data_format='channels_first'):
   model.add(Activation('softmax'))
 
 # initiate the model compiler options
-  learnrate = 0.001
+  learnrate = 0.01
   metrics = ['accuracy']
   if isclassification:
     opt = keras.optimizers.adam(lr=learnrate)
