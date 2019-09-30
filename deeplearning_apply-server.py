@@ -94,11 +94,8 @@ lsock.setblocking(True)
 sel.register(lsock, selectors.EVENT_READ, data=None)
 
 proc = psutil.Process()
-pprocidfilename = "od_subproc_" + str(proc.ppid()) + ".pid"
-if isWin():
-  writeFile( "C:\\TEMP\\" + pprocidfilename, str(proc.pid) )
-else:
-  writeFile( "/tmp/" + pprocidfilename, str(proc.pid) )
+pprocidfilename = "od_serv_subproc_" + str(proc.ppid()) + ".pid"
+writeFile( os.path.join(getTempDir(),pprocidfilename), str(proc.pid) )
 
 maxdepth = 10
 parentproc = proc.parent()
