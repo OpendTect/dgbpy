@@ -16,7 +16,7 @@ import dgbpy.hdf5 as dgbhdf5
 
 nladbdirid = '100060'
 mltrlgrp = 'Deep Learning Model'
-kerastrl = 'Keras'
+dgbtrl = 'dGB'
 
 def getInfo( filenm ):
   return dgbhdf5.getInfo( filenm )
@@ -243,6 +243,6 @@ def getSaveLoc( outnm, args ):
   try:
     dbkey = oddbman.getDBKeyForName( dblist, outnm )
   except ValueError:
-    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,kerastrl,\
+    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,dgbtrl,\
                                        dgbhdf5.hdf5ext,args)
   return oddbman.getFileLocation( dbkey, args )
