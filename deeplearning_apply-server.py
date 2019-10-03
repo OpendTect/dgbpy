@@ -7,25 +7,8 @@
 #
 #
 
-import argparse
-import numpy as np
-import os
-import psutil
-import selectors
-import signal
-import socket
 import sys
-import time
-import threading
-import traceback
-
-from odpy.common import *
-from odpy import oscommand
-import dgbpy.deeplearning_apply_serverlib as applylib
-
-sel = selectors.DefaultSelector()
-
-# -- command line parser
+import argparse
 
 parser = argparse.ArgumentParser(
           description='Server application of a trained machine learning model')
@@ -60,14 +43,36 @@ parser.add_argument( '--fakeapply', dest='fakeapply', action='store_true',
                      default=False,
                      help="applies a numpy average instead of the model" )
 
-
 args = vars(parser.parse_args())
+from odpy.common import *
 initLogging( args )
-
 redirect_stdout()
 
-applier = None
-pid = psutil.Process().pid
+# Start listening as quickly as possible
+import selectors
+import socket
+sel = selectors.DefaultSelector()
+host,port = args['addr'], args['port']
+lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Avoid bind() exception: OSError: [Errno 48] Address already in use
+lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+lsock.bind((host, port))
+lsock.listen()
+std_msg("listening on", (host, port))
+lsock.setblocking(True)
+sel.register(lsock, selectors.EVENT_READ, data=None)
+
+
+# Keep all lengthy operations below
+import numpy as np
+import os
+import psutil
+import signal
+import threading
+import traceback
+
+import dgbpy.deeplearning_apply_serverlib as applylib
+
 
 def signal_handler(signal, frame):
   raise applylib.ExitCommand()
@@ -83,29 +88,23 @@ def accept_wrapper(sock,applier):
   message = applylib.Message(sel, conn, addr, applier)
   sel.register(conn, selectors.EVENT_READ, data=message)
 
-host,port = args['addr'], args['port']
-lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# Avoid bind() exception: OSError: [Errno 48] Address already in use
-lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-lsock.bind((host, port))
-lsock.listen()
-std_msg("listening on", (host, port))
-lsock.setblocking(True)
-sel.register(lsock, selectors.EVENT_READ, data=None)
-
 proc = psutil.Process()
+pid = proc.pid
 pprocidfilename = "od_serv_subproc_" + str(proc.ppid()) + ".pid"
-writeFile( os.path.join(getTempDir(),pprocidfilename), str(proc.pid) )
+pprocidfilename = os.path.join(getTempDir(),pprocidfilename)
+writeFile( pprocidfilename, str(proc.pid) )
 
 maxdepth = 10
 parentproc = proc.parent()
 while maxdepth > 0:
+  if parentproc == None:
+    parentproc = proc.parent()
   parentproc = parentproc.parent()
   try:
     pname = parentproc.name() 
   except AttributeError:
-    parentproc = psutil.Process().parent()
-    break
+    maxdepth -= 1
+    continue
   if 'od_main' in pname or 'od_deeplearn' in pname:
     break
   maxdepth -= 1
@@ -113,6 +112,7 @@ while maxdepth > 0:
 timer = threading.Timer(15, timerCB)
 timer.start()
 
+applier = None
 try:
   if applier == None:
     applier = applylib.ModelApplier( args['modelfile'].name, args['fakeapply'] )
@@ -143,4 +143,6 @@ except applylib.ExitCommand:
   std_msg('Found dead parent, exiting')
 finally:
   timer.cancel()
+  if os.path.exists(pprocidfilename):
+    os.remove(pprocidfilename)
   sel.close()
