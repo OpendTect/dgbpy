@@ -141,13 +141,13 @@ def split( arrays, ratio ):
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
              outnm=dgbkeys.modelnm, args=None ):
-  outfnm = dgbmlio.getSaveLoc( outnm, args )
   decimate = False
   if params != None and dgbkeys.decimkeystr in params:
     decimate = params[dgbkeys.decimkeystr]
 
   validation_split = 0.2 #Params?
   training = getScaledTrainingData( examplefilenm, validation_split, decimate )
+  outfnm = dgbmlio.getSaveLoc( outnm, training[dgbkeys.infodictstr][dgbkeys.typedictstr], args )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
