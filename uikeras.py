@@ -63,6 +63,8 @@ def getUiParams( keraspars ):
   nrepochs = kerasgrp['epochfld'].value
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
+  if epochdrop < 1:
+    epochdrop = 1
   return getParams( doDecimate(kerasgrp['dodecimatefld']), \
                              kerasgrp['decimatefld'].value/100, \
                              kerasgrp['iterfld'].value, \
