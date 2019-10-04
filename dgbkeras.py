@@ -29,9 +29,6 @@ if withtensorboard:
 else:
   from keras.callbacks import (EarlyStopping,LearningRateScheduler)
 
-log_msg( 'Tensorboard?', withtensorboard,
-         os.environ['KERAS_WITH_TENSORBOARD'] != False,
-         os.environ['KERAS_WITH_TENSORBOARD'] != 'No' )
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\

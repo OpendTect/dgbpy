@@ -152,7 +152,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getUiParams()
-    model = dgbkeras.getDefaultModel(training[dgbkeys.infodictstr],params['type'])
+    model = dgbkeras.getDefaultModel(training[dgbkeys.infodictstr],
+                     type=params['type'],
+                     learnrate=params['learnrate'])
     model = dgbkeras.train( model, training, params, trainfile=examplefilenm )
   elif platform == dgbkeys.scikitplfnm:
     log_msg( 'scikit platform not supported (yet)' )
