@@ -167,8 +167,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
     dgbkeras.save( model, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
-    log_msg( 'Unsupported machine learning platform' )
-    raise AttributeError
+    dgbscikit.save(model,inpfnm, outfnm)
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError

@@ -157,12 +157,10 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
                      learnrate=params['learnrate'])
     model = dgbkeras.train( model, training, params, trainfile=examplefilenm )
   elif platform == dgbkeys.scikitplfnm:
-    log_msg( 'scikit platform not supported (yet)' )
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getUiParams()
-    # dgbscikit.train( training, params, trainfile=examplefilenm )
-    raise AttributeError
+    model = dgbscikit.train( training, params )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
