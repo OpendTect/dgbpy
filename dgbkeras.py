@@ -22,12 +22,16 @@ import dgbpy.hdf5 as dgbhdf5
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
-  withtensorboard = os.environ['KERAS_WITH_TENSORBOARD'] != False or \
-                    os.environ['KERAS_WITH_TENSORBOARD'] != 'No'
+  withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
+                          os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
 if withtensorboard:
   from keras.callbacks import (EarlyStopping,LearningRateScheduler,TensorBoard)
 else:
   from keras.callbacks import (EarlyStopping,LearningRateScheduler)
+
+log_msg( 'Tensorboard?', withtensorboard,
+         os.environ['KERAS_WITH_TENSORBOARD'] != False,
+         os.environ['KERAS_WITH_TENSORBOARD'] != 'No' )
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
