@@ -238,11 +238,12 @@ def getApplyInfo( infos, outsubsel=None ):
 
   return ret
 
-def getSaveLoc( outnm, args ):
+def getSaveLoc( outnm, ftype, args ):
   dblist = oddbman.getDBList(mltrlgrp,args)
   try:
     dbkey = oddbman.getDBKeyForName( dblist, outnm )
   except ValueError:
-    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,dgbtrl,\
-                                       dgbhdf5.hdf5ext,args)
+    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,dgbtrlgit status
+				       ,\
+                                       dgbhdf5.hdf5ext,ftype,args)
   return oddbman.getFileLocation( dbkey, args )
