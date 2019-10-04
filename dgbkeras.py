@@ -20,12 +20,28 @@ import dgbpy.hdf5 as dgbhdf5
 
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+withtensorboard = True
+if 'KERAS_WITH_TENSORBOARD' in os.environ:
+  withtensorboard = os.environ['KERAS_WITH_TENSORBOARD'] != False or \
+                    os.environ['KERAS_WITH_TENSORBOARD'] != 'No'
+if withtensorboard:
+  from keras.callbacks import (EarlyStopping,LearningRateScheduler,TensorBoard)
+else:
+  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
+
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
             ('lenet','LeNet - Malenov'),\
 #            ('squeezenet','SqueezeNet'),\
 #            ('other','MobilNet V2'),\
           )
+
+cudacores = [ '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
+              '288',  '384',  '448',  '480',  '512',  '576',  '640',  '768', \
+              '896',  '960',  '1024', '1152', '1280', '1344', '1408', '1536', \
+              '1664', '1792', '1920', '2048', '2176', '2304', '2432', '2496', \
+              '2560', '2688', '2816', '2880', '2944', '3072', '3584', '3840', \
+              '4352', '4608', '4992', '5120' ]
 
 def getMLPlatform():
   return platform[0]
@@ -53,14 +69,17 @@ keras_dict = {
   'iters': 15,
   'epoch': 15,
   'batch': 32,
-  'patience': 10,
+  'patience': 5,
+  'learnrate': 0.01,
+  'epochdrop': 5,
   'type': mltypes[0][0],
 }
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
                iters=keras_dict['iters'], epochs=keras_dict['epoch'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
-               nntype=keras_dict['type'] ):
+               learnrate=keras_dict['learnrate'],
+               epochdrop=keras_dict['epochdrop'],nntype=keras_dict['type'] ):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'dec': dec,
@@ -68,6 +87,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
     'epoch': epochs,
     'batch': batch,
     'patience': patience,
+    'learnrate': learnrate,
+    'epochdrop': epochdrop,
     'type': nntype
   }
   if not dodec:
@@ -77,15 +98,14 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
 
 # Function that takes the epoch as input and returns the desired learning rate
 # input_int: the epoch that is currently being entered
-def adaptive_lr(input_int):
-  
-  initial_lrate = 0.01
-  drop = 0.5
-  epochs_drop = 5.0
-  lr = initial_lrate * math.pow(drop,
-         math.floor((1+input_int)/epochs_drop)) 
-  # return the learning rate (quite arbitrarily decaying)
-  return lr
+def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
+                      epochs_drop=keras_dict['epochdrop']):
+  def adaptive_lr(input_int):
+    drop = 0.5
+    return initial_lrate * math.pow(drop,
+                                    math.floor((1+input_int)/epochs_drop))
+    # return the learning rate (quite arbitrarily decaying)
+  return LearningRateScheduler(adaptive_lr)
 
 def getLayer( model, name ):
   for lay in model.layers:
@@ -112,7 +132,9 @@ def getCubeletStepout( model ):
 def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
-def getDefaultModel(setup,type,data_format='channels_first'):
+def getDefaultModel(setup,type=keras_dict['type'],
+                    learnrate=keras_dict['learnrate'],
+                    data_format='channels_first'):
   redirect_stdout()
   import keras
   restore_stdout()
@@ -161,7 +183,6 @@ def getDefaultModel(setup,type,data_format='channels_first'):
   model.add(Activation('softmax'))
 
 # initiate the model compiler options
-  learnrate = 0.01
   metrics = ['accuracy']
   if isclassification:
     opt = keras.optimizers.adam(lr=learnrate)
@@ -171,6 +192,7 @@ def getDefaultModel(setup,type,data_format='channels_first'):
       loss = 'binary_crossentropy'
   else:
     opt = keras.optimizers.RMSprop(lr=learnrate)
+#    set_epsilon( 1 )
     from keras import backend as K
     def root_mean_squared_error(y_true, y_pred):
       return K.sqrt(K.mean(K.square(y_pred - y_true)))
@@ -184,7 +206,6 @@ def train(model,training,params=keras_dict,trainfile=None):
   redirect_stdout()
   import keras
   restore_stdout()
-  from keras.callbacks import (EarlyStopping,LearningRateScheduler,TensorBoard)
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
   if classification:
@@ -192,7 +213,7 @@ def train(model,training,params=keras_dict,trainfile=None):
   else:
     monitor = 'loss'
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
-  LR_sched = LearningRateScheduler(schedule = adaptive_lr)
+  LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
   callbacks = [early_stopping,LR_sched]
   batchsize = params['batch']
   logdir = os.path.dirname( get_log_file() )
@@ -201,7 +222,7 @@ def train(model,training,params=keras_dict,trainfile=None):
   logdir = os.path.dirname(logdir)
   logdir = os.path.join( logdir, 'MachineLearning' )
   jobnm = survdir + '_run'
-  if os.path.exists(logdir):
+  if withtensorboard and os.path.exists(logdir):
     nrsavedruns = 0
     with os.scandir(logdir) as it:
       for entry in it:
