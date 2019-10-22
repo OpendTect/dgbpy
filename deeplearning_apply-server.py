@@ -103,7 +103,7 @@ if 'parentpid' in args:
   ppid = args['parentpid']
   if ppid > 0:
     parentproc = psutil.Process( ppid )
-  timer.start()
+    timer.start()
 
 applier = None
 try:
