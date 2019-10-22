@@ -16,6 +16,10 @@ parser.add_argument( '-v', '--version',
             action='version',version='%(prog)s 2.0')
 parser.add_argument( 'modelfile', type=argparse.FileType('r'),
                      help='The input trained model file' )
+parser.add_argument( '--ppid',
+                     dest='parentpid', action='store',
+                     type=int, default=-1,
+                     help='PID of the parent process' )
 netgrp = parser.add_argument_group( 'Network' )
 netgrp.add_argument( '--address',
             dest='addr', metavar='ADDRESS', action='store',
@@ -55,9 +59,14 @@ sel = selectors.DefaultSelector()
 host,port = args['addr'], args['port']
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Avoid bind() exception: OSError: [Errno 48] Address already in use
-lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-lsock.bind((host, port))
-lsock.listen()
+#lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+  lsock.bind((host, port))
+  lsock.listen()
+except Exception as e:
+  log_msg( 'Connection error for port', port, 'on host', host )
+  log_msg( e )
+  raise e
 std_msg("listening on", (host, port))
 lsock.setblocking(True)
 sel.register(lsock, selectors.EVENT_READ, data=None)
@@ -88,29 +97,13 @@ def accept_wrapper(sock,applier):
   message = applylib.Message(sel, conn, addr, applier)
   sel.register(conn, selectors.EVENT_READ, data=message)
 
-proc = psutil.Process()
-pid = proc.pid
-pprocidfilename = "od_serv_subproc_" + str(proc.ppid()) + ".pid"
-pprocidfilename = os.path.join(getTempDir(),pprocidfilename)
-writeFile( pprocidfilename, str(proc.pid) )
-
-maxdepth = 10
-parentproc = proc.parent()
-while maxdepth > 0:
-  if parentproc == None:
-    parentproc = proc.parent()
-  parentproc = parentproc.parent()
-  try:
-    pname = parentproc.name() 
-  except AttributeError:
-    maxdepth -= 1
-    continue
-  if 'od_main' in pname or 'od_deeplearn' in pname:
-    break
-  maxdepth -= 1
-
 timer = threading.Timer(15, timerCB)
-timer.start()
+parentproc = None
+if 'parentpid' in args:
+  ppid = args['parentpid']
+  if ppid > 0:
+    parentproc = psutil.Process( ppid )
+  timer.start()
 
 applier = None
 try:
@@ -134,7 +127,9 @@ try:
           message.close()
         lastmessage = lastmessage or message.lastmessage
         cont = not lastmessage or len(events) > 1
-        cont = cont and parentproc.is_running()
+        cont = cont
+        if parentproc != None and not parentproc.is_running():
+          cont = False
         if cont:
           applier = message.applier
 except KeyboardInterrupt:
@@ -143,6 +138,4 @@ except applylib.ExitCommand:
   std_msg('Found dead parent, exiting')
 finally:
   timer.cancel()
-  if os.path.exists(pprocidfilename):
-    os.remove(pprocidfilename)
   sel.close()
