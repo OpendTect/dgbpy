@@ -30,24 +30,62 @@ def computeScaler_( datasets, infos, scalebyattrib ):
     return getScaler( x_data, byattrib=scalebyattrib )
   return None
 
+def computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib):
+  chunknb = len(datasets)
+  chunkmean = list()
+  chunkstd = list()
+  chunklen = list()
+  for dataset in datasets:
+    datasetchunk = dgbmlio.getDatasetsByInput( dataset, inputnm )
+    chunksize = 0
+    for dsetnm in datasetchunk:
+      data = datasetchunk[dsetnm]
+      for groupnm in data:
+        inp = data[groupnm]
+        chunksize += len(inp[inputnm])
+    chunklen.append(chunksize)
+    scaleronechunk = computeScaler_( datasetchunk, infos, scalebyattrib )
+    chunkmean.append(scaleronechunk.mean_)
+    chunkstd.append(scaleronechunk.scale_)
+  if chunknb < 2:
+    return getNewScaler( chunkmean[0], chunkstd[0] )
+  attrnb = len(chunkmean[0])
+  #Calculate Mean and Var
+  totalmean = list()
+  totalstd = list()
+  for attr in range(attrnb):
+    attrmeansum = 0
+    attrstdsum = 0
+    attrsize = 0
+    for ichunk in range(chunknb):
+      attrchunksize = chunklen[ichunk]
+      attrmeansum += chunkmean[ichunk][attr] * attrchunksize
+      attrstdsum += chunkstd[ichunk][attr] * attrchunksize
+      attrsize += attrchunksize
+    attrmeansum /= attrsize
+    attrstdsum /= attrsize
+    totalmean.append( attrmeansum )
+    totalstd.append( attrstdsum )
+  return getNewScaler( totalmean, totalstd )
+
 def computeScaler( infos, scalebyattrib, force=False ):
   datasets = infos[dgbkeys.trainseldicstr]
   inp = infos[dgbkeys.inputdictstr]
   if infos[dgbkeys.typedictstr] == dgbkeys.loglogtypestr:
     if not dgbmlio.hasScaler(infos) or force:
-      scaler = computeScaler_( datasets, infos, scalebyattrib )
+      scaler = computeScaler_( datasets[0], infos, scalebyattrib )
       for inputnm in inp:
         inp[inputnm].update({dgbkeys.scaledictstr: scaler})
   else:
     for inputnm in inp:
       if dgbmlio.hasScaler( infos, inputnm ) and not force:
         continue
-      scalingdatasets = dgbmlio.getDatasetsByInput( datasets, inputnm )
-      scaler = computeScaler_( scalingdatasets, infos, scalebyattrib )
+      scaler = computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib)
       inp[inputnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
-def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale=True, force=False ):
+def getScaledTrainingData( filenm, flatten=False, scale=True, force=False, 
+                           nbchunks=1, split=None ):
   if isinstance(scale,bool):
     doscale = scale
     scalebyattrib = True
@@ -56,27 +94,38 @@ def getScaledTrainingData( filenm, split=None, decim=False, flatten=False, scale
     scalebyattrib = len(scale) < 2 or scale[1]
 
   infos = dgbmlio.getInfo( filenm )
-  datasets = dgbmlio.getDatasetNms(infos[dgbkeys.datasetdictstr],\
-                                   validation_split=split)
+  dsets = dgbmlio.getChunks(infos[dgbkeys.datasetdictstr],nbchunks)
+  datasets = []
+  for dset in dsets:
+    datasets.append( dgbmlio.getDatasetNms(dset,validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets})
   if doscale:
     infos = computeScaler( infos, scalebyattrib, force )
+  decimate = nbchunks > 1
+  ret = {}
+  ret.update({dgbkeys.infodictstr: infos})
+  if decimate: #Decimate, only need to update output information
+    y_examples = list()
+    for dataset in datasets:
+      examples = dgbhdf5.getDatasets( infos, dataset )
+      if dgbkeys.ytraindictstr in examples:
+        y_examples.append( examples[dgbkeys.ytraindictstr] )
+      if dgbkeys.yvaliddictstr in examples:
+        y_examples.append( examples[dgbkeys.yvaliddictstr] )
+    ret.update({ dgbkeys.infodictstr: dgbmlio.getClasses(infos,y_examples) })
+    return ret
+  return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=scale )
 
-  ret = getScaledTrainingDataByInfo( infos, decim, flatten, scale=doscale )
-  return ret
-
-def getScaledTrainingDataByInfo( infos, decim=False, flatten=False, scale=True ):
+def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   x_train = list()
   y_train = list()
   x_validate = list()
   y_validate = list()
-  datasets = infos[dgbkeys.trainseldicstr]
+  datasets = infos[dgbkeys.trainseldicstr][ichunk]
   inp = infos[dgbkeys.inputdictstr]
   for inputnm in inp:
     input = inp[inputnm]
     dsets = dgbmlio.getDatasetsByInput( datasets, inputnm )
-    if decim:
-      dsets = dgbmlio.getSomeDatasets( dsets, decim )
     ret = dgbmlio.getTrainingDataByInfo( infos, dsets )
     if scale:
       scaler = infos[dgbkeys.inputdictstr][inputnm][dgbkeys.scaledictstr]
@@ -105,18 +154,24 @@ def getScaledTrainingDataByInfo( infos, decim=False, flatten=False, scale=True )
   if len(y_validate)>0:
     ret.update({dgbkeys.yvaliddictstr: np.concatenate(y_validate) })
 
-  if flatten:
-    if dgbkeys.xtraindictstr in ret:
-      x_train = ret[dgbkeys.xtraindictstr]
-      ret[dgbkeys.xtraindictstr] = np.reshape( x_train, (len(x_train),-1) )
-    if dgbkeys.xvaliddictstr in ret:
-      x_validate = ret[dgbkeys.xvaliddictstr]
-      ret[dgbkeys.xvaliddictstr] = np.reshape( x_validate, (len(x_validate),-1) )
+  if not flatten:
+    return ret
+
+  if dgbkeys.xtraindictstr in ret:
+    x_train = ret[dgbkeys.xtraindictstr]
+    ret[dgbkeys.xtraindictstr] = np.reshape( x_train, (len(x_train),-1) )
+  if dgbkeys.xvaliddictstr in ret:
+    x_validate = ret[dgbkeys.xvaliddictstr]
+    ret[dgbkeys.xvaliddictstr] = np.reshape( x_validate, (len(x_validate),-1) )
   return ret
 
 def getScaler( x_train, byattrib=True ):
   import dgbpy.dgbscikit as dgbscikit
   return dgbscikit.getScaler( x_train, byattrib )
+
+def getNewScaler( mean, scale ):
+  import dgbpy.dgbscikit as dgbscikit
+  return dgbscikit.getNewScaler( mean, scale )
 
 def transform(x_train,scaler):
   nrattribs = scaler.n_samples_seen_
@@ -131,40 +186,34 @@ def transform(x_train,scaler):
       if (doscale == a)[a]:
         inp /= scaler.scale_[a]
 
-def split( arrays, ratio ):
-  if len(arrays) < 1:
-    return None
-  nrpts = len(arrays[0])
-  idxs = np.random.shuffle( np.arange(np.int64(nrpts)) )
-
-
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
              outnm=dgbkeys.modelnm, args=None ):
-  decimate = False
-  if params != None and dgbkeys.decimkeystr in params:
-    decimate = params[dgbkeys.decimkeystr]
-
-  validation_split = 0.2 #Params?
-  training = getScaledTrainingData( examplefilenm, validation_split, decimate )
-  outfnm = dgbmlio.getSaveLoc( outnm, training[dgbkeys.infodictstr][dgbkeys.typedictstr], args )
+  trainingdp = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getUiParams()
-    model = dgbkeras.getDefaultModel(training[dgbkeys.infodictstr],
+    validation_split = 0.2 #Params?
+    trainingdp = getScaledTrainingData( examplefilenm, flatten=False, scale=True, force=False,
+                                        nbchunks=params['nbchunk'],
+                                        split=validation_split )
+    model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                      type=params['type'],
                      learnrate=params['learnrate'])
-    model = dgbkeras.train( model, training, params, trainfile=examplefilenm )
+    model = dgbkeras.train( model, trainingdp, params, trainfile=examplefilenm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getUiParams()
-    model = dgbscikit.train( training, params )
+    trainingdp = getScaledTrainingData( examplefilenm, flatten=True, scale=True, force=False )
+    model = dgbscikit.train( trainingdp, params )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
-  dgbmlio.saveModel( model, examplefilenm, platform, training[dgbkeys.infodictstr], outfnm )
+  infos = trainingdp[dgbkeys.infodictstr]
+  outfnm = dgbmlio.getSaveLoc( outnm, infos[dgbkeys.typedictstr], args )
+  dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
   return (outfnm != None and os.path.isfile( outfnm ))
 
 def reformat( res, applyinfo ):
@@ -238,3 +287,10 @@ def inputCount_( dsets, inputnms ):
     if nbbyinp>0:
       ret.update({inputnm: nbbyinp})
   return ret
+
+def split( arrays, ratio ):
+  if len(arrays) < 1:
+    return None
+  nrpts = len(arrays[0])
+  idxs = np.random.shuffle( np.arange(np.int64(nrpts)) )
+

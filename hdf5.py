@@ -391,11 +391,36 @@ def getAttribInfo( info, filenm ):
     return info
 
   info.update( {classesdictstr: getClassIndices(info)} )
+  info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
+
+def arroneitemsize( dtype ):
+  arr = np.empty(1,dtype)
+  return arr.itemsize
+
+def getTotalSize(info):
+  nrattribs = get_nr_attribs( info )
+  step = info[stepoutdictstr]
+  datasets = info[datasetdictstr]
+  nrpts = 0
+  for groupnm in datasets:
+    alldata = datasets[groupnm]
+    for inp in alldata:
+      nrpts += len(alldata[inp])
+  examplesshape = get_np_shape( step, nrpts, nrattribs )
+  x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
+  y_size = examplesshape[0]
+  if info[classdictstr]:
+    y_size *= len(info[classesdictstr])
+  else:
+    y_size *= info[nroutdictstr]
+  y_size *= arroneitemsize(np.float32)
+  return x_size + y_size
 
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
+  info.update( {estimatedsizedictstr: getTotalSize(info)} )
   info[classdictstr] = odhdf5.hasAttr(infods,'Target Value Type') and odhdf5.getText(infods,'Target Value Type') == "ID"
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),

@@ -9,7 +9,7 @@
 from functools import partial
 
 from bokeh.layouts import column
-from bokeh.models.widgets import CheckboxGroup, Select, Slider
+from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
 
 from dgbpy.dgbkeras import *
 from dgbpy import uibokeh
@@ -19,13 +19,22 @@ def getPlatformNm( full=False ):
     return platform
   return getMLPlatform()
 
-def getUiPars():
+def getSizeStr( sizeinbytes ):
+  ret = 'Size: '
+  try:
+    import humanfriendly
+    ret += humanfriendly.format_size( sizeinbytes )
+  except Exception as e:
+    ret += str(int(sizeinbytes)) + ' bytes'
+  return ret
+
+def getUiPars(estimatedszgb=None):
   dict = keras_dict
   modeltypfld = Select(title='Type',value=getUiModelTypes()[0],
                        options=getUiModelTypes() )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],
               title='Epochs')
-  batchfld = Select(title='Number of Batch',value=cudacores[2],
+  batchfld = Select(title='Batch Size',value=cudacores[2],
                     options=cudacores)
   lrfld = Slider(start=1,end=100,value=dict['learnrate']*1000,
                  title='Initial Learning Rate '+ '('+u'\u2030'+')')
@@ -34,22 +43,25 @@ def getUiPars():
   patiencefld = Slider(start=1,end=100,value=dict['patience'],
                 title='Patience')
   dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
-  decimatefld = Slider(start=0.1,end=99.9,value=dict['dec']*100, step=0.1,
-                title='Decimation (%)')
-  iterfld = Slider(start=1,end=100,value=dict['iters'],
-              title='Iterations')
-  decimateCB( dodecimatefld.active, decimatefld, iterfld )
-  dodecimatefld.on_click(partial(decimateCB,decimatefld=decimatefld,iterfld=iterfld))
+  chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],value_throttled=dict['nbchunk'],
+                    title='Number of Chunks',callback_policy='mouseup')
+  sizefld = None
+  if estimatedszgb != None:
+    sizefld = Div( text=getSizeStr(estimatedszgb) )
+  decimateCB( dodecimatefld.active,chunkfld,sizefld, estimatedszgb )
+  dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld,
+                                 estimatedszgb=estimatedszgb))
+  chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld, estimatedszgb))
   parsgrp = column(modeltypfld, \
-                   batchfld,epochfld,patiencefld,lrfld,edfld,dodecimatefld, \
-                   decimatefld,iterfld)
+                   batchfld,epochfld,patiencefld,lrfld,edfld,sizefld,dodecimatefld, \
+                   chunkfld)
   return {
     'grp' : parsgrp,
     'uiobjects': {
       'modeltypfld': modeltypfld,
       'dodecimatefld': dodecimatefld,
-      'decimatefld': decimatefld,
-      'iterfld': iterfld,
+      'sizefld': sizefld,
+      'chunkfld': chunkfld,
       'epochfld': epochfld,
       'batchfld': batchfld,
       'patiencefld': patiencefld,
@@ -57,6 +69,11 @@ def getUiPars():
       'edfld': edfld
     }
   }
+
+def chunkfldCB(sizefld,datasize,attr,old,new):
+  if sizefld == None:
+    return
+  sizefld.text = getSizeStr( datasize/new )
 
 def getUiParams( keraspars ):
   kerasgrp = keraspars['uiobjects']
@@ -66,8 +83,7 @@ def getUiParams( keraspars ):
   if epochdrop < 1:
     epochdrop = 1
   return getParams( doDecimate(kerasgrp['dodecimatefld']), \
-                             kerasgrp['decimatefld'].value/100, \
-                             kerasgrp['iterfld'].value, \
+                             kerasgrp['chunkfld'].value, \
                              kerasgrp['epochfld'].value, \
                              int(kerasgrp['batchfld'].value), \
                              kerasgrp['patiencefld'].value, \
@@ -78,7 +94,12 @@ def getUiParams( keraspars ):
 def doDecimate( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
 
-def decimateCB( widgetactivelist, decimatefld, iterfld ):
+def decimateCB( widgetactivelist,chunkfld,sizefld,estimatedszgb ):
   decimate = uibokeh.integerListContains( widgetactivelist, 0 )
-  decimatefld.visible = decimate
-  iterfld.visible = decimate
+  chunkfld.visible = decimate
+  if sizefld == None:
+    return
+  size = estimatedszgb
+  if decimate:
+    size /= chunkfld.value
+  sizefld.text = getSizeStr( size )

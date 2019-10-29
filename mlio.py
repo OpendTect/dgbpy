@@ -64,6 +64,24 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
     dgbkeys.validdictstr: valid
   }
 
+def getChunks(dsets,nbchunks):
+  ret = []
+  for ichunk in range(nbchunks):
+    datagrp = {}
+    for groupnm in dsets:
+      alldata = dsets[groupnm]
+      surveys = {}
+      for inp in alldata:
+        datalist = alldata[inp]
+        nrpts = len(datalist)
+        start = int(ichunk * nrpts / nbchunks)
+        end = int((ichunk+1) * nrpts / nbchunks)
+        datalist = datalist[start:end]
+        surveys.update({inp: datalist})
+      datagrp.update({groupnm: surveys})
+    ret.append(datagrp)
+  return ret
+  
 def hasScaler( infos, inputsel=None ):
   inp = infos[dgbkeys.inputdictstr]
   for inputnm in inp:

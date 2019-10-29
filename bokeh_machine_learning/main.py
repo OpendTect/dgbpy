@@ -22,6 +22,7 @@ from odpy.oscommand import (getPythonCommand, execCommand, kill,
 import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uikeras, uisklearn
+from dgbpy import mlio as dgbmlio
 
 parser = argparse.ArgumentParser(
             description='Select parameters for machine learning model training')
@@ -61,6 +62,7 @@ args = vars(parser.parse_args())
 odcommon.initLogging( args )
 odcommon.proclog_logger.setLevel( 'DEBUG' )
 
+examplefilenm =  args['h5file'].name
 trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
 
 traintabnm = 'Training'
@@ -79,7 +81,8 @@ platformparsbut = uibokeh.getButton(paramtabnm,\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
 outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
 
-keraspars = uikeras.getUiPars()
+info = dgbmlio.getInfo( examplefilenm )
+keraspars = uikeras.getUiPars( info['estimatedsize'] )
 sklearnpars = uisklearn.getUiPars()
 parsgroups = (keraspars,sklearnpars)
 parsbackbut = uibokeh.getButton('Back',\
@@ -112,7 +115,7 @@ def getUiParams():
 
 def getProcArgs( platfmnm, pars, outnm ):
   ret = {
-    'posargs': [args['h5file'].name],
+    'posargs': [examplefilenm],
     'odargs': odcommon.getODArgs( args ),
     'dict': {
       'platform': platfmnm,

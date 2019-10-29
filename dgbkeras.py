@@ -66,8 +66,7 @@ firstconvlayernm = 'conv_layer1'
 lastlayernm = 'pre-softmax_layer'
 keras_dict = {
   dgbkeys.decimkeystr: False,
-  'dec': 0.1,
-  'iters': 15,
+  'nbchunk': 10,
   'epoch': 15,
   'batch': 32,
   'patience': 5,
@@ -76,15 +75,14 @@ keras_dict = {
   'type': mltypes[0][0],
 }
 
-def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
-               iters=keras_dict['iters'], epochs=keras_dict['epoch'],
+def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
+               epochs=keras_dict['epoch'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],
                epochdrop=keras_dict['epochdrop'],nntype=keras_dict['type'] ):
   ret = {
     dgbkeys.decimkeystr: dodec,
-    'dec': dec,
-    'iters': iters,
+    'nbchunk': nbchunk,
     'epoch': epochs,
     'batch': batch,
     'patience': patience,
@@ -93,8 +91,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], dec=keras_dict['dec'],
     'type': nntype
   }
   if not dodec:
-    ret['dec'] = 0
-    ret['iters'] = 1
+    ret['nbchunk'] = 1
   return ret
 
 # Function that takes the epoch as input and returns the desired learning rate
@@ -217,28 +214,28 @@ def train(model,training,params=keras_dict,trainfile=None):
   LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
   callbacks = [early_stopping,LR_sched]
   batchsize = params['batch']
-  logdir = os.path.dirname( get_log_file() )
-  logdir = os.path.dirname(logdir)
-  survdir = os.path.basename(logdir)
-  logdir = os.path.dirname(logdir)
-  logdir = os.path.join( logdir, 'MachineLearning' )
-  jobnm = survdir + '_run'
-  if withtensorboard and os.path.exists(logdir):
-    nrsavedruns = 0
-    with os.scandir(logdir) as it:
-      for entry in it:
-        if entry.name.startswith(jobnm) and entry.is_dir():
-          nrsavedruns += 1
-    logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
-    tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, batch_size=batchsize,\
+  logfilenm = get_log_file()
+  if logfilenm != None:
+    logdir = os.path.dirname(logfilenm)
+    survdir = os.path.basename(logdir)
+    logdir = os.path.dirname(logdir)
+    logdir = os.path.join( logdir, 'MachineLearning' )
+    jobnm = survdir + '_run'
+    if withtensorboard and os.path.exists(logdir):
+      nrsavedruns = 0
+      with os.scandir(logdir) as it:
+        for entry in it:
+          if entry.name.startswith(jobnm) and entry.is_dir():
+            nrsavedruns += 1
+      logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
+      tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, batch_size=batchsize,\
                                write_graph=True, write_grads=True, write_images=True)
-    callbacks.append( tensor_board )
-  num_bunch = params['iters']
-  decimate = params[dgbkeys.decimkeystr]
-  dec_fact = params['dec']
+      callbacks.append( tensor_board )
+  nbchunks = len( infos[dgbkeys.trainseldicstr] )
   x_train = {}
   y_train = {}
   doshuffle = False
+  decimate = nbchunks > 1
   if not decimate:
     if not dgbkeys.xtraindictstr in training:
       log_msg('No data to train the model')
@@ -247,13 +244,13 @@ def train(model,training,params=keras_dict,trainfile=None):
     y_train = training[dgbkeys.ytraindictstr]
     x_validate = training[dgbkeys.xvaliddictstr]
     y_validate = training[dgbkeys.yvaliddictstr]
-    doshuffle = True
-  for repeat in range(num_bunch):
-    log_msg('Starting iteration',str(repeat+1)+'/'+str(num_bunch))
+  for ichunk in range(nbchunks):
+    log_msg('Starting iteration',str(ichunk+1)+'/'+str(nbchunks))
     log_msg('Starting training data creation:')
     if decimate and trainfile != None:
       import dgbpy.mlapply as dgbmlapply
-      trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, decim=dec_fact )
+      trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, flatten=False,
+                                                 scale=True, ichunk=ichunk )
       if not dgbkeys.xtraindictstr in trainbatch:
         continue
       x_train = trainbatch[dgbkeys.xtraindictstr]
