@@ -19,15 +19,14 @@ import sklearn
 from sklearn.preprocessing import StandardScaler
 import xgboost
 from sklearn import preprocessing
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-#from sklearn.experimental import enable_hist_gradient_boosting
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.ensemble import AdaBoostRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 #from sklearn.multioutput import MultiOutputRegressor
-from sklearn.neural_network import MLPRegressor
-from sklearn.svm import SVR
+from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.svm import SVC, SVR
 
 from odpy.common import log_msg
 import odpy.hdf5 as odhdf5
@@ -35,13 +34,20 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
 platform = (dgbkeys.scikitplfnm,'Scikit-learn')
-mltypes = (\
+regmltypes = (\
             ('linear','Linear'),\
             ('ensemble','Ensemble'),\
             ('neuralnet','Neural Network'),\
-            ('svr','SVR')
+            ('svm','SVM')
+          )
+classmltypes = (\
+            ('logistic','Logistic'),\
+            ('ensemble','Ensemble'),\
+            ('neuralnet','Neural Network'),\
+            ('svm','SVM')
           )
 lineartypes = [ ('oslq','Ordinary Least Squares') ]
+logistictypes = [ ('log','Logistic Regression Classifier') ]
 ensembletypes = [\
                   ('randfor','Random Forests'),\
                   ('gbc','Gradient Boosting'),\
@@ -49,7 +55,7 @@ ensembletypes = [\
                   ('xgb','XGBoost: (Random Forests)')\
                 ]
 nntypes = [ ('mlp','Multi-Layer Perceptron') ]
-svrtypes = [ ('svr','Support Vector Regression') ]
+svmtypes = [ ('svm','Support Vector Machine') ]
 
 savetypes = ( 'joblib', 'pickle' )
 defsavetype = savetypes[0]
@@ -60,11 +66,16 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-def getUiModelTypes():
-  return dgbkeys.getNames( mltypes )
+def getUiModelTypes(isclassification):
+  if isclassification:
+    return dgbkeys.getNames( classmltypes )
+  return dgbkeys.getNames( regmltypes )
 
 def getUiLinearTypes():
   return dgbkeys.getNames( lineartypes )
+
+def getUiLogTypes():
+  return dgbkeys.getNames( logistictypes )
 
 def getUiEnsembleTypes():
   return dgbkeys.getNames( ensembletypes )
@@ -72,8 +83,8 @@ def getUiEnsembleTypes():
 def getUiNNTypes():
   return dgbkeys.getNames( nntypes )
 
-def getUiSVRTypes():
-  return dgbkeys.getNames( svrtypes)
+def getUiSVMTypes():
+  return dgbkeys.getNames( svmtypes)
 
 scikit_dict = {
   'ensemblepars': {
@@ -108,7 +119,7 @@ scikit_dict = {
     'lay5': 3,
     'nb': 3
     },
-  'svrpars': {
+  'svmpars': {
     'kernel': 'Radial Basis Function',
     'degree': 3
     }
@@ -117,7 +128,14 @@ scikit_dict = {
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
     'decimation': False,
-    'modelname': 'Ordinary Least Squares'
+    'modelname': modelname
+    }
+
+def getLogPars( modelname='Logistic Regression Classifier',solver='Liblinear'):
+  return {
+    'decimation': False,
+    'modelname': modelname,
+    'solver': solver
     }
 
 def getEnsembleParsRF( modelname='Random Forests',
@@ -127,7 +145,7 @@ def getEnsembleParsRF( modelname='Random Forests',
     'decimation': False,
     'maxdep' : maxdep,
     'est': est,
-    'modelname': 'Random Forests'
+    'modelname': modelname
     }
 
 def getEnsembleParsGB( modelname='Gradient Boosting',
@@ -139,7 +157,7 @@ def getEnsembleParsGB( modelname='Gradient Boosting',
     'maxdep' : maxdep,
     'est': est,
     'lr': lr,
-    'modelname': 'Gradient Boosting'
+    'modelname': modelname
     }
 
 def getEnsembleParsAda( modelname='Adaboost',
@@ -150,7 +168,7 @@ def getEnsembleParsAda( modelname='Adaboost',
     #'maxdep' : maxdep,
     'est': est,
     'lr': lr,
-    'modelname': 'Adaboost'
+    'modelname': modelname
     }
 
 def getEnsembleParsXG( modelname='XGBoost: (Random Forests)',
@@ -162,7 +180,7 @@ def getEnsembleParsXG( modelname='XGBoost: (Random Forests)',
     'maxdep' : maxdep,
     'est': est,
     'lr': lr,
-    'modelname': 'XGBoost: (Random Forests)'
+    'modelname': modelname
     }
 
 def getNNPars( modelname='Multi-Layer Perceptron',
@@ -184,19 +202,18 @@ def getNNPars( modelname='Multi-Layer Perceptron',
     'lay4': lay4,
     'lay5': lay5,
     'nb': nb,
-    'modelname': 'Multi-Layer Perceptron'
+    'modelname': modelname
     }
 
-def getSVRPars( modelname='Support Vector Regression',
-                kernel = scikit_dict['svrpars']['kernel'],
-                degree = scikit_dict['svrpars']['degree'] ):
+def getSVMPars( modelname='Support Vector Machine',
+                kernel = scikit_dict['svmpars']['kernel'],
+                degree = scikit_dict['svmpars']['degree'] ):
   return {
     'decimation': False,
     'kernel': kernel,
     'degree': degree,
-    'modelname': 'Support Vector Regression'
+    'modelname': modelname
     }
-
 
 def getNewScaler( mean, scale ):
   scaler = StandardScaler()
@@ -241,66 +258,58 @@ def scale( samples, scaler ):
   
   return samples
 
-def train( training, params=scikit_dict ):
-  #learning rate need to multiply by 0.0001(Neural Network)
-  #Please check sklearn documentation for more application of each methods
-  #
-  #TODO: add URL ?
+def getDefaultModel(setup,params=scikit_dict):
   modelname = params['modelname']
-  x_train = training[dgbkeys.xtraindictstr]
-  y_train = training[dgbkeys.ytraindictstr]
+  isclassification = setup[dgbhdf5.classdictstr]
   try:
-    #TODO: remove: flattening can be done with getScaledTrainingData
-    x_train = np.reshape( x_train, (len(x_train),-1) )
     if modelname == 'Ordinary Least Squares':
-      model = LinearRegression(fit_intercept=True, normalize=False,
-                               copy_X=True, n_jobs=None)
+      model = LinearRegression(fit_intercept=True, normalize=False, copy_X=True, n_jobs=None)
+    elif modelname == 'Logistic Regression Classifier':
+      solvername = params['solver']
+      #transform UI name to actual kernel function name
+      if solvername == 'Newton-CG':
+        solver = 'newton-cg'
+      elif solvername == 'Lbfgs':
+        solver = 'lbfgs'
+      elif solvername == 'Liblinear':
+        solver = 'liblinear'
+      elif solvername == 'Sag':
+        solver = 'sag'
+      elif solvername == 'Saga':
+        solver = 'saga'
+      model = LogisticRegression('l2',False,0.0001,1.0,True,1,None,None,solver)
     elif modelname == 'Random Forests':
       max_depth = params['maxdep']
       n_estimators = params['est']
-      model = RandomForestRegressor(n_estimators, 'mse', max_depth,
-                                    min_samples_split=2, min_samples_leaf=1,
-                                    min_weight_fraction_leaf=0.0,
-                                    max_features='auto', max_leaf_nodes=None,
-                                    min_impurity_decrease=0.0,
-                                    min_impurity_split=None,
-                                    bootstrap=True, oob_score=False,
-                                    n_jobs=None, random_state=None, verbose=0,
-                                    warm_start=False)
+      if isclassification:
+        model = RandomForestClassifier(n_estimators,'gini', max_depth)
+      else:
+        model = RandomForestRegressor(n_estimators,'mse', max_depth)     
     elif modelname == 'Gradient Boosting':
       max_depth = params['maxdep']
       n_estimators = params['est']
       learning_rate = params['lr']
-      model = GradientBoostingRegressor('ls', learning_rate, n_estimators, 1.0,
-                                        'friedman_mse', 2, 1, 0.0, max_depth,
-                                        min_impurity_decrease=0.0,
-                                        min_impurity_split=None, init=None,
-                                        random_state=None, max_features=None,
-                                        alpha=0.9, verbose=0,
-                                        max_leaf_nodes=None, warm_start=False,
-                                        presort='auto',
-                                        validation_fraction=0.1,
-                                        n_iter_no_change=None, tol=0.0001)
+      if isclassification:
+        model = GradientBoostingClassifier('deviance', learning_rate, n_estimators, 1.0, 'friedman_mse',
+                                        2, 1, 0.0, max_depth)
+      else:
+        model = GradientBoostingRegressor('ls', learning_rate, n_estimators, 1.0, 'friedman_mse',
+                                        2, 1, 0.0, max_depth)
     elif modelname == 'Adaboost':
-      #we use default maxdepth here 3
-      #max_depth = params['maxdep']
       n_estimators = params['est']
       learning_rate = params['lr']
-      model = AdaBoostRegressor(None, n_estimators, learning_rate,
-                                loss='linear', random_state=None)
-      #model =  AdaBoostRegressor(DecisionTreeRegressor('mse', 'best', max_depth), n_estimators,learning_rate,loss='linear', random_state=None)
+      if isclassification:
+        model = AdaBoostClassifier(None,n_estimators,learning_rate)
+      else:
+        model = AdaBoostRegressor(None, n_estimators, learning_rate)
     elif modelname == 'XGBoost: (Random Forests)':
       max_depth = params['maxdep']
       n_estimators = params['est']
       learning_rate = params['lr']
-      model = xgboost.XGBRFRegressor(max_depth,learning_rate,n_estimators,
-                          verbosity=1,silent=None,objective='reg:squarederror',
-                          n_jobs=1,nthread=None,gamma=0,min_child_weight=1,
-                          max_delta_step=0,subsample=0.8,colsample_bytree=1,
-                          colsample_bylevel=1, colsample_bynode=0.8,
-                          reg_alpha=0, reg_lambda=1e-05, scale_pos_weight=1,
-                          base_score=0.5, random_state=0, seed=None,
-                          missing=None)
+      if isclassification:
+        model = xgboost.XGBRFClassifier(max_depth,learning_rate,n_estimators)
+      else:
+        model = xgboost.XGBRFRegressor(max_depth,learning_rate,n_estimators)
     elif modelname == 'Multi-Layer Perception':
       lay1 = params['lay1']
       lay2 = params['lay2']
@@ -312,14 +321,13 @@ def train( training, params=scikit_dict ):
       hidden_layer = hidden_layer[0:nb]
       max_iter = params['maxitr']
       learning_rate_init = params['lr']
-      model = MLPRegressor(hidden_layer,'relu','adam',0.0001,'auto',
-                            'constant',learning_rate_init,0.5, max_iter,
-                            shuffle=True, random_state=None, tol=0.0001,
-                            verbose=False,warm_start=False,momentum=0.9,
-                            nesterovs_momentum=True,early_stopping=False,
-                            validation_fraction=0.1, beta_1=0.9,
-                            beta_2=0.999, epsilon=1e-08, n_iter_no_change=10)
-    elif modelname == 'Support Vector Regression':
+      if isclassification:
+        model = MLPClassifier(hidden_layer,'relu','adam',0.0001,'auto',
+                            'constant',learning_rate_init,0.5, max_iter)
+      else:
+        model = MLPRegressor(hidden_layer,'relu','adam',0.0001,'auto',
+                            'constant',learning_rate_init,0.5, max_iter)
+    elif modelname == 'Support Vector Machine':
       name = params['kernel']
       #transform UI name to actual kernel function name
       if name == 'Radial Basis Function':
@@ -331,14 +339,19 @@ def train( training, params=scikit_dict ):
       elif name == 'Sigmoid':
         kernel = 'sigmoid'
       degree = params['degree']
-      model = SVR(kernel, degree, gamma='auto_deprecated', coef0=0.0,
-                  tol=0.001, C=1.0, epsilon=0.1, shrinking=True, cache_size=200,
-                  verbose=False, max_iter=-1)
-    model = model.fit(x_train,y_train)
+      if isclassification:
+        model = SVC(1.0, kernel, degree)
+      else:
+        model = SVR(kernel, degree)
   except Exception as e:
     log_msg( 'Exception:', e )
     raise e
   return model
+
+def train(model, trainingdp):
+  x_train = trainingdp[dgbkeys.xtraindictstr]
+  y_train = trainingdp[dgbkeys.ytraindictstr]
+  return model.fit(x_train,y_train)
 
 def save( model, inpfnm, outfnm, save_type=defsavetype ):
   h5file = h5py.File( outfnm, 'w' )

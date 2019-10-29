@@ -33,7 +33,19 @@ def getLinearGrp():
     'uiobjects': {
       'lineartyp': lineartyp
     },
-    'name': mltypes[0][1]
+    'name': regmltypes[0][1]
+  }
+
+def getLogGrp():
+  logtyp = Select(title='Model',value='Logistic Regression Classifier',options=getUiLogTypes() )
+  solvertyp = Select(title='Solver',value='Liblinear',
+                     options=['Newton-CG','Lbfgs','Liblinear','Sag','Saga'])
+  return {
+    'uiobjects': {
+      'logtyp': logtyp,
+      'solvertyp': solvertyp
+    },
+    'name': classmltypes[0][1]
   }
 
 def getEnsembleGrp():
@@ -59,7 +71,7 @@ def getEnsembleGrp():
       'estparfldxg': xggrp['uiobjects']['estparfldxg'],
       'lrparfldxg': xggrp['uiobjects']['lrparfldxg']
     },
-    'name': mltypes[1][1],
+    'name': regmltypes[1][1],
   }
 
 def getNNGrp():
@@ -105,26 +117,25 @@ def getNNGrp():
       'lessbutton': lessbutton,
       'buttonparfld': buttonparfld,
     },
-    'name': mltypes[2][1],
+    'name': regmltypes[2][1],
     'nb': nb
   }
 
-def getSVRPars():
+def getSVMGrp():
   dict = scikit_dict
-  svrtyp = Select(title='Model',value='Support Vector Regression',options=getUiSVRTypes() )
+  svmtyp = Select(title='Model',value='Support Vector Machine',options=getUiSVMTypes() )
   kernel = Select(title='Kernel',value='Radial Basis Function',
                   options=['Linear','Polynomial','Radial Basis Function','Sigmoid'])
-  degree = Slider(start=1,end=5,value=dict['svrpars']['degree'],step=1,title='Degree')
+  degree = Slider(start=1,end=5,value=dict['svmpars']['degree'],step=1,title='Degree')
   kernel.on_change('value',partial(kernelChgCB,deg=degree))
   kernelChgCB( 'value', 'Radial Basis Function', 'Radial Basis Function',degree)
   return {
-    #'grp': column(svrtyp,kernel,degree),
     'uiobjects': {
-      'svrtyp': svrtyp,
+      'svmtyp': svmtyp,
       'kernel': kernel,
       'degree': degree
     },
-    'name': mltypes[3][1]
+    'name': regmltypes[3][1]
   }
 
 #deg visible only when polynomial kernel function
@@ -187,8 +198,8 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
     ret['ensembletyp'].visible = True
     ret['depparfldrf'].visible = True
     ret['estparfldrf'].visible = True
-  elif new == 'SVR':
-    ret['svrtyp'].visible = True
+  elif new == 'SVM':
+    ret['svmtyp'].visible = True
     ret['kernel'].visible = True
   else:
     for uifld in  ret:
@@ -202,7 +213,6 @@ def getRFGrp():
   estparfldrf = Slider(start=10,end=1000,value=dict['est'],step=10,title='Estimators')
   depparfldrf = Slider(start=10,end=200,value=dict['maxdep'],step=10,title='Max Depth')
   return {
-    #'grp': column(estparfldrf,depparfldrf),
     'uiobjects': {
       'depparfldrf': depparfldrf,
       'estparfldrf': estparfldrf
@@ -254,49 +264,86 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
   for uifld in  ret:
     ret[uifld].visible = True
 
-def getUiPars():
-  modeltyp = Select(title='Type',value='Ensemble',options=getUiModelTypes())
-  lineargrp = getLinearGrp()
+def getUiPars(isclassification):
+  models = getUiModelTypes(isclassification)
+  modeltyp = Select(title='Type',value = models[0],options=models)
+  if isclassification:
+    lineargrp = getLogGrp()
+    deftype = classmltypes[0][1]
+    linearkey = 'loggrp'
+  else:
+    lineargrp = getLinearGrp()
+    deftype = regmltypes[0][1]
+    linearkey = 'lineargrp'
   ensemblegrp = getEnsembleGrp()
   nngrp = getNNGrp()
-  svrgrp = getSVRPars()
-  modelsgrp = (lineargrp,ensemblegrp,nngrp,svrgrp)
+  svmgrp = getSVMGrp()
+  modelsgrp = (lineargrp,ensemblegrp,nngrp,svmgrp)
   modeltyp.on_change('value',partial(modelChgCB,cb=modeltyp,modelsgrp=modelsgrp))
-  modelChgCB( 'value', mltypes[0][1], mltypes[1][1], modeltyp, modelsgrp )
-  parsgrp = column(modeltyp, \
-                   lineargrp['uiobjects']['lineartyp'], \
-                   ensemblegrp['uiobjects']['ensembletyp'], \
-                   ensemblegrp['uiobjects']['estparfldrf'], \
-                   ensemblegrp['uiobjects']['depparfldrf'], \
-                   ensemblegrp['uiobjects']['estparfldgb'], \
-                   ensemblegrp['uiobjects']['depparfldgb'], \
-                   ensemblegrp['uiobjects']['lrparfldgb'], \
-                   ensemblegrp['uiobjects']['estparfldada'], \
-                   ensemblegrp['uiobjects']['lrparfldada'], \
-                   ensemblegrp['uiobjects']['estparfldxg'], \
-                   ensemblegrp['uiobjects']['depparfldxg'], \
-                   ensemblegrp['uiobjects']['lrparfldxg'], \
-                   nngrp['uiobjects']['nntyp'], \
-                   nngrp['uiobjects']['itrparfld'], \
-                   nngrp['uiobjects']['lrparfld'], \
-                   nngrp['uiobjects']['lay1parfld'], \
-                   nngrp['uiobjects']['lay2parfld'], \
-                   nngrp['uiobjects']['lay3parfld'], \
-                   nngrp['uiobjects']['lay4parfld'], \
-                   nngrp['uiobjects']['lay5parfld'], \
-                   nngrp['uiobjects']['buttonparfld'], \
-                   svrgrp['uiobjects']['svrtyp'], \
-                   svrgrp['uiobjects']['kernel'], \
-                   svrgrp['uiobjects']['degree']
-                   )
+  modelChgCB( 'value', deftype, deftype, modeltyp, modelsgrp )
+  if isclassification:
+    parsgrp = column(modeltyp, \
+                     lineargrp['uiobjects']['logtyp'], \
+                     lineargrp['uiobjects']['solvertyp'], \
+                     ensemblegrp['uiobjects']['ensembletyp'], \
+                     ensemblegrp['uiobjects']['estparfldrf'], \
+                     ensemblegrp['uiobjects']['depparfldrf'], \
+                     ensemblegrp['uiobjects']['estparfldgb'], \
+                     ensemblegrp['uiobjects']['depparfldgb'], \
+                     ensemblegrp['uiobjects']['lrparfldgb'], \
+                     ensemblegrp['uiobjects']['estparfldada'], \
+                     ensemblegrp['uiobjects']['lrparfldada'], \
+                     ensemblegrp['uiobjects']['estparfldxg'], \
+                     ensemblegrp['uiobjects']['depparfldxg'], \
+                     ensemblegrp['uiobjects']['lrparfldxg'], \
+                     nngrp['uiobjects']['nntyp'], \
+                     nngrp['uiobjects']['itrparfld'], \
+                     nngrp['uiobjects']['lrparfld'], \
+                     nngrp['uiobjects']['lay1parfld'], \
+                     nngrp['uiobjects']['lay2parfld'], \
+                     nngrp['uiobjects']['lay3parfld'], \
+                     nngrp['uiobjects']['lay4parfld'], \
+                     nngrp['uiobjects']['lay5parfld'], \
+                     nngrp['uiobjects']['buttonparfld'], \
+                     svmgrp['uiobjects']['svmtyp'], \
+                     svmgrp['uiobjects']['kernel'], \
+                     svmgrp['uiobjects']['degree']
+                     )
+  else:
+    parsgrp = column(modeltyp, \
+                     lineargrp['uiobjects']['lineartyp'], \
+                     ensemblegrp['uiobjects']['ensembletyp'], \
+                     ensemblegrp['uiobjects']['estparfldrf'], \
+                     ensemblegrp['uiobjects']['depparfldrf'], \
+                     ensemblegrp['uiobjects']['estparfldgb'], \
+                     ensemblegrp['uiobjects']['depparfldgb'], \
+                     ensemblegrp['uiobjects']['lrparfldgb'], \
+                     ensemblegrp['uiobjects']['estparfldada'], \
+                     ensemblegrp['uiobjects']['lrparfldada'], \
+                     ensemblegrp['uiobjects']['estparfldxg'], \
+                     ensemblegrp['uiobjects']['depparfldxg'], \
+                     ensemblegrp['uiobjects']['lrparfldxg'], \
+                     nngrp['uiobjects']['nntyp'], \
+                     nngrp['uiobjects']['itrparfld'], \
+                     nngrp['uiobjects']['lrparfld'], \
+                     nngrp['uiobjects']['lay1parfld'], \
+                     nngrp['uiobjects']['lay2parfld'], \
+                     nngrp['uiobjects']['lay3parfld'], \
+                     nngrp['uiobjects']['lay4parfld'], \
+                     nngrp['uiobjects']['lay5parfld'], \
+                     nngrp['uiobjects']['buttonparfld'], \
+                     svmgrp['uiobjects']['svmtyp'], \
+                     svmgrp['uiobjects']['kernel'], \
+                     svmgrp['uiobjects']['degree']
+                     )
   return {
     'grp' : parsgrp,
     'uiobjects': {
       'modeltyp': modeltyp,
-      'lineargrp': lineargrp,
+      linearkey: lineargrp,
       'ensemblegrp': ensemblegrp,
       'nngrp': nngrp,
-      'svrgrp': svrgrp
+      'svmgrp': svmgrp
     }
   }
 
@@ -306,6 +353,9 @@ def getUiParams( sklearnpars ):
   if modeltype.value == 'Linear':
     parmobj = sklearngrp['lineargrp']['uiobjects']
     return getLinearPars( parmobj['lineartyp'].value )
+  if modeltype.value == 'Logistic':
+    parmobj = sklearngrp['loggrp']['uiobjects']
+    return getLogPars( parmobj['logtyp'].value,parmobj['solvertyp'].value)
   if modeltype.value == 'Ensemble':
     parmobj = sklearngrp['ensemblegrp']['uiobjects']
     if parmobj['ensembletyp'].value == 'Random Forests':
@@ -334,9 +384,9 @@ def getUiParams( sklearnpars ):
                       parmobj['lay4parfld'].value,
                       parmobj['lay5parfld'].value,
                       sklearngrp['nngrp']['nb'].value)
-  elif modeltype.value == 'SVR':
-    parmobj = sklearngrp['svrgrp']['uiobjects']
-    return getSVRPars( parmobj['svrtyp'].value,
+  elif modeltype.value == 'SVM':
+    parmobj = sklearngrp['svmgrp']['uiobjects']
+    return getSVMPars( parmobj['svmtyp'].value,
                        parmobj['kernel'].value,
                        parmobj['degree'].value )
   return None

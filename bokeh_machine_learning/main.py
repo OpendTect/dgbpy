@@ -83,7 +83,7 @@ outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
 
 info = dgbmlio.getInfo( examplefilenm )
 keraspars = uikeras.getUiPars( info['estimatedsize'] )
-sklearnpars = uisklearn.getUiPars()
+sklearnpars = uisklearn.getUiPars( info['classification'] )
 parsgroups = (keraspars,sklearnpars)
 parsbackbut = uibokeh.getButton('Back',\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
