@@ -258,7 +258,7 @@ def scale( samples, scaler ):
   
   return samples
 
-def getDefaultModel(setup,params=scikit_dict):
+def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']
   isclassification = setup[dgbhdf5.classdictstr]
   try:

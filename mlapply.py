@@ -195,7 +195,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
     if params == None:
       params = dgbkeras.getUiParams()
     validation_split = 0.2 #Params?
-    trainingdp = getScaledTrainingData( examplefilenm, flatten=False, scale=True, force=False,
+    trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
+                                        scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
     model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
@@ -206,8 +207,10 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getUiParams()
-    trainingdp = getScaledTrainingData( examplefilenm, flatten=True, scale=True, force=False )
-    model = dgbscikit.train( trainingdp, params )
+    trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
+                                        scale=True, force=False )
+    model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr], params )
+    model = dgbscikit.train( model, trainingdp )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
