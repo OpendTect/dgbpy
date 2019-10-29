@@ -217,6 +217,7 @@ def train(model,training,params=keras_dict,trainfile=None):
   logfilenm = get_log_file()
   if logfilenm != None:
     logdir = os.path.dirname(logfilenm)
+    logdir = os.path.dirname(logdir)
     survdir = os.path.basename(logdir)
     logdir = os.path.dirname(logdir)
     logdir = os.path.join( logdir, 'MachineLearning' )
