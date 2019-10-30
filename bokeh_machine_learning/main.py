@@ -38,9 +38,13 @@ datagrp.add_argument( '--dataroot',
 datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
-datagrp.add_argument( '--mldir',
+traingrp = parser.add_argument_group( 'Training' )
+traingrp.add_argument( '--modelfnm',
+            dest='model', nargs=1,
+            help='Input model file name' )
+traingrp.add_argument( '--mldir',
             dest='mldir', nargs=1,
-            help='Machine Learning Directory' )
+            help='Machine Learning Logging Base Directory' )
 odappl = parser.add_argument_group( 'OpendTect application' )
 odappl.add_argument( '--dtectexec',
             metavar='DIR', nargs=1,
@@ -114,15 +118,27 @@ def getUiParams():
   return {}
 
 def getProcArgs( platfmnm, pars, outnm ):
+  traintype = dgbmlapply.TrainType.New
   ret = {
     'posargs': [examplefilenm],
     'odargs': odcommon.getODArgs( args ),
     'dict': {
       'platform': platfmnm,
-      'output': outnm,
-      'parameters': pars
+      'parameters': pars,
+      'output': outnm
     }
   }
+  dict = ret['dict']
+  if 'model' in args:
+    model = args['model']
+    if model != None and len(model)>0:
+      dict.update({'model': model[0]})
+      traintype = dgbmlapply.TrainType.Resume #TODO: from GUI
+  if 'mldir' in args:
+    mldir = args['mldir']
+    if mldir != None and len(mldir)>0:
+      dict.update({'logdir': mldir[0]})
+  dict.update({dgbkeys.typedictstr: traintype.name})
   return ret
 
 def doRun( cb = None ):

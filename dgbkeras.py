@@ -20,15 +20,13 @@ import dgbpy.hdf5 as dgbhdf5
 
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+from keras.callbacks import (EarlyStopping,LearningRateScheduler)
 withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
   withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
                           os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
 if withtensorboard:
-  from keras.callbacks import (EarlyStopping,LearningRateScheduler,TensorBoard)
-else:
-  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
-
+  from keras.callbacks import TensorBoard
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
@@ -130,6 +128,24 @@ def getCubeletStepout( model ):
 def getNrClasses( model ):
   return getLayer(model,lastlayernm).get_config()['units']
 
+def getLogDir( basedir, args ):
+  logdir = basedir
+  if not withtensorboard or logdir == None or not os.path.exists(logdir):
+    return None
+
+  if dgbkeys.surveydictstr in args:
+    jobnm = args[dgbkeys.surveydictstr][0] + '_run'
+  else:
+    jobnm = 'run'
+
+  nrsavedruns = 0
+  with os.scandir(logdir) as it:
+    for entry in it:
+      if entry.name.startswith(jobnm) and entry.is_dir():
+        nrsavedruns += 1
+  logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
+  return logdir
+
 def getDefaultModel(setup,type=keras_dict['type'],
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
@@ -200,7 +216,7 @@ def getDefaultModel(setup,type=keras_dict['type'],
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
-def train(model,training,params=keras_dict,trainfile=None):
+def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   redirect_stdout()
   import keras
   restore_stdout()
@@ -214,24 +230,11 @@ def train(model,training,params=keras_dict,trainfile=None):
   LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
   callbacks = [early_stopping,LR_sched]
   batchsize = params['batch']
-  logfilenm = get_log_file()
-  if logfilenm != None:
-    logdir = os.path.dirname(logfilenm)
-    logdir = os.path.dirname(logdir)
-    survdir = os.path.basename(logdir)
-    logdir = os.path.dirname(logdir)
-    logdir = os.path.join( logdir, 'MachineLearning' )
-    jobnm = survdir + '_run'
-    if withtensorboard and os.path.exists(logdir):
-      nrsavedruns = 0
-      with os.scandir(logdir) as it:
-        for entry in it:
-          if entry.name.startswith(jobnm) and entry.is_dir():
-            nrsavedruns += 1
-      logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
-      tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, batch_size=batchsize,\
-                               write_graph=True, write_grads=True, write_images=True)
-      callbacks.append( tensor_board )
+  if logdir != None:
+    tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, \
+                               batch_size=batchsize,\
+                         write_graph=True, write_grads=True, write_images=True)
+    callbacks.append( tensor_board )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   x_train = {}
   y_train = {}

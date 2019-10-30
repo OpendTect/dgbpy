@@ -16,6 +16,7 @@ import json
 
 from odpy import common as odcommon
 from odpy.oscommand import getPythonExecNm, printProcessTime
+import dgbpy.keystr as dgbkeys
 import dgbpy.mlapply as dgbmlapply
 
 parser = argparse.ArgumentParser(
@@ -35,9 +36,6 @@ datagrp.add_argument( '--dataroot',
 datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
-datagrp.add_argument( '--mldir',
-            dest='mldir', nargs=1,
-            help='Machine Learning Directory' )
 odappl = parser.add_argument_group( 'OpendTect application' )
 odappl.add_argument( '--dtectexec',
             metavar='DIR', nargs=1,
@@ -62,9 +60,24 @@ if __name__ == '__main__':
   printProcessTime( 'Machine Learning Training', True, odcommon.log_msg )
   odcommon.log_msg( '\n' )
   dict = json.loads( args['dict'][0] )
+  traintype = None
+  if dgbkeys.typedictstr in dict:
+    traintype = dgbmlapply.TrainType[ dict[dgbkeys.typedictstr] ]
+  model = None
+  if 'model' in dict:
+    model = dict['model']
+  logdir = None
+  if 'logdir' in dict:
+    logdir = dict['logdir']
   try:
-    success = dgbmlapply.doTrain( args['h5file'].name, dict['platform'],
-                                  dict['parameters'], dict['output'], args )
+    success = dgbmlapply.doTrain( args['h5file'].name,
+                                  platform=dict['platform'],
+                                  type=traintype,
+                                  params=dict['parameters'],
+                                  logdir=logdir,
+                                  modelin=model,
+                                  outnm=dict['output'],
+                                  args=args )
   except Exception as e:
     odcommon.log_msg( 'Exception:', e )
     sys.exit(1)

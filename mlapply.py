@@ -8,6 +8,7 @@
 # various tools for applying machine learning
 #
 
+from enum import Enum
 import numpy as np
 import os
 
@@ -15,6 +16,8 @@ from odpy.common import log_msg
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
+
+TrainType = Enum( 'TrainType', 'New Resume Transfer', module=__name__ )
 
 def computeScaler_( datasets, infos, scalebyattrib ):
   ret = dgbmlio.getTrainingDataByInfo( infos, datasets )
@@ -187,8 +190,15 @@ def transform(x_train,scaler):
         inp /= scaler.scale_[a]
 
 
-def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
-             outnm=dgbkeys.modelnm, args=None ):
+def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
+             params=None, outnm=dgbkeys.modelnm, logdir=None, modelin=None,
+             args=None ):
+  (model,infos) = (None,None)
+  if type == None:
+    type = TrainType.New
+  if type != TrainType.New:
+    (model,infos) = dgbmlio.getModel( modelin )
+
   trainingdp = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
@@ -199,21 +209,27 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, params=None, \
                                         scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
-    model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
-                     type=params['type'],
-                     learnrate=params['learnrate'])
-    model = dgbkeras.train( model, trainingdp, params, trainfile=examplefilenm )
+    logdir = dgbkeras.getLogDir( logdir, args )
+    if type == TrainType.New:
+      model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
+                                       type=params['type'],
+                                       learnrate=params['learnrate'])
+    model = dgbkeras.train( model, trainingdp, params,
+                            trainfile=examplefilenm, logdir=logdir )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
       params = dgbscikit.getUiParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
                                         scale=True, force=False )
-    model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr], params )
+    if type == TrainType.New:
+      model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
+                                         params )
     model = dgbscikit.train( model, trainingdp )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
+
   infos = trainingdp[dgbkeys.infodictstr]
   outfnm = dgbmlio.getSaveLoc( outnm, infos[dgbkeys.typedictstr], args )
   dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
