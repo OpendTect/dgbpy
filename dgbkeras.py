@@ -233,7 +233,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   if logdir != None:
     tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, \
                                batch_size=batchsize,\
-                         write_graph=True, write_grads=True, write_images=True)
+                         write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   x_train = {}
