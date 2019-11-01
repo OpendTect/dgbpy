@@ -222,8 +222,8 @@ def getApplyInfo( infos, outsubsel=None ):
   probdtype = 'float32'
   confdtype = 'float32'
   if outsubsel != None:
-    if 'names' in outsubsel:
-      names = outsubsel['names']
+    if 'targetnames' in outsubsel:
+      names = outsubsel['targetnames']
     if dgbkeys.dtypepred in outsubsel:
       preddtype = outsubsel[dgbkeys.dtypepred]
     if dgbkeys.dtypeprob in outsubsel:

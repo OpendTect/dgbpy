@@ -58,22 +58,41 @@ class ModelApplier:
         return self.model_ != None
 
     def getScaler( self, outputs ):
-        if outputs[dgbkeys.surveydictstr] in self.info_[dgbkeys.inputdictstr]:
-          survdirnm = outputs[dgbkeys.surveydictstr]
-          inp = self.info_[dgbkeys.inputdictstr][survdirnm]
-          if dgbkeys.scaledictstr in inp:
-            return inp[dgbkeys.scaledictstr]
+        if not 'scales' in outputs:
+            return self.scaler_
+
+        scales = outputs['scales']
         means = list()
         stddevs = list()
-        if not 'avgs' in outputs or not 'stdevs' in outputs:
-          return self.scaler_
-        for avg in outputs['avgs']:
-          means.append( avg )
-        for stddev in outputs['stdevs']:
-          stddevs.append( stddev )
-        if len(means) != len(stddevs):
-          return self.scaler_
-        return dgbscikit.getNewScaler( means, stddevs )
+        scaleratios = list()
+        for scl in scales:
+            means.append( scl['avg'] )
+            stddevs.append( scl['stdev'] )
+            scaleratios.append( scl['scaleratio'] )
+
+        if len(means) > 0:
+            self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
+        if outputs[dgbkeys.surveydictstr] in self.info_[dgbkeys.inputdictstr]:
+            survdirnm = outputs[dgbkeys.surveydictstr]
+            inp = self.info_[dgbkeys.inputdictstr][survdirnm]
+            if dgbkeys.scaledictstr in inp:
+                inpscale = inp[dgbkeys.scaledictstr]
+                attribs = inp[dgbkeys.attribdictstr]
+                for scl in scales:
+                    applykey = scl[dgbkeys.dbkeydictstr]
+                    applynm = scl[dgbkeys.namedictstr]
+                    iattr = 0
+                    for attrib in attribs:
+                        if attrib[dgbkeys.dbkeydictstr] == applykey or \
+                           attrib[dgbkeys.namedictstr] == applynm:
+                           idx = attrib[dgbkeys.iddictstr]
+                           self.scaler_.scale_[idx] = inpscale.scale_[idx]
+                           self.scaler_.mean_[idx] = inpscale.mean_[idx]
+                           break
+                        else:
+                          self.scaler_.scale_[iattr] *= scaleratios[iattr]
+                        iattr += 1
+        return self.scaler_
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
@@ -237,8 +256,11 @@ class Message:
             content['result'] = 'Kill request received'
             self.lastmessage = True
         elif action == 'outputs':
-            self.applier.setOutputs( self.request.get('value') )
-            content['result'] = 'Output names received'
+            try:
+              self.applier.setOutputs( self.request.get('value') )
+              content['result'] = 'Output names received'
+            except Exception as e:
+              content = {"result": f'start error exception: {repr(e)}.'}
         else:
             content['result'] = f'Error: invalid action "{action}".'
         content_encoding = 'utf-8'
