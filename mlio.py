@@ -15,6 +15,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 
 nladbdirid = '100060'
+mlinpgrp = 'Deep Learning Example Data'
 mltrlgrp = 'Deep Learning Model'
 dgbtrl = 'dGB'
 
@@ -255,8 +256,28 @@ def getApplyInfo( infos, outsubsel=None ):
 
   return ret
 
+dblistall = None
+
+def modelNameIsFree( modnm, type, args, reload=True ):
+  modinfo = dbInfoForModel( modnm, args, reload )
+  if modinfo == None:
+    return True
+
+  if modinfo['TranslatorGroup'] != mltrlgrp or modinfo['Format'] != dgbtrl:
+    return False
+
+  if 'Type' in modinfo:
+    return type == modinfo['Type']
+  return False
+
+def dbInfoForModel( modnm, args, reload=True ):
+  global dblistall
+  if dblistall == None or reload:
+    dblistall = oddbman.getDBList(mltrlgrp, alltrlsgrps=True, args=args)
+  return oddbman.getInfoFromDBListByNameOrKey( modnm, dblistall )
+
 def getSaveLoc( outnm, ftype, args ):
-  dblist = oddbman.getDBList(mltrlgrp,args=args)
+  dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)
   try:
     dbkey = oddbman.getDBKeyForName( dblist, outnm )
   except ValueError:
