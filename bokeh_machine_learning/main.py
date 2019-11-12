@@ -12,9 +12,9 @@ import argparse
 import psutil
 from functools import partial
 
+from bokeh.io import curdoc
 from bokeh.layouts import column
 from bokeh.models.widgets import Panel, Select, Tabs, TextInput
-from bokeh.plotting import curdoc
 
 import odpy.common as odcommon
 from odpy.oscommand import (getPythonCommand, execCommand, kill,
@@ -83,7 +83,7 @@ ML_PLFS.append( uisklearn.getPlatformNm(True) )
 platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
 platformparsbut = uibokeh.getButton(paramtabnm,\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
-outputnmfld = TextInput(title='Output model:',value=dgbkeys.modelnm)
+outputnmfld = TextInput(title='Output model:')
 
 info = dgbmlio.getInfo( examplefilenm )
 keraspars = uikeras.getUiPars( info['estimatedsize'] )
@@ -94,6 +94,27 @@ parsbackbut = uibokeh.getButton('Back',\
 
 def mlchgCB( attrnm, old, new):
   selParsGrp( new )
+
+def nameChgCB( attrnm, old, new):
+  if len(new) < 1:
+    return
+
+  curbg = outputnmfld.background
+  (exists,sametrl,sameformat,sametyp) = \
+                  dgbmlio.modelNameExists( new,info['type'], \
+                  args=args,reload=False)
+  if dgbmlio.modelNameIsFree(new,info['type'],args=args,reload=False):
+    if exists and sametrl and sameformat and sametyp != None and sametyp:
+      outputnmfld.background = '#FFFF00'
+    else:
+      outputnmfld.background = None
+  else:
+    outputnmfld.background = '#FF0000'
+  outputnmfld.value = new
+  if outputnmfld.background == curbg:
+    return
+  curdoc().clear()
+  curdoc().add_root(mainpanel)
 
 def getParsGrp( platformnm ):
   for platform,parsgroup in zip(ML_PLFS,parsgroups):
@@ -142,8 +163,15 @@ def getProcArgs( platfmnm, pars, outnm ):
   return ret
 
 def doRun( cb = None ):
+  modelnm = outputnmfld.value
+  canwrite = dgbmlio.modelNameIsFree(modelnm,info['type'],args=args,reload=True)
+  if not canwrite:
+    odcommon.log_msg( 'Output model is not writable, please provide another name' )
+    #TODO: replace with netpacket
+    return False
+  
   scriptargs = getProcArgs( platformfld.value, getUiParams(), \
-                            outputnmfld.value )
+                            modelnm )
   cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                                scriptargs['dict'], scriptargs['odargs'] )
   return execCommand( cmdtorun, background=True )
@@ -174,12 +202,14 @@ def trainMonitorCB( proc ):
   return True
 
 platformfld.on_change('value',mlchgCB)
+outputnmfld.on_change('value_input',nameChgCB)
 buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
 trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
 
 def initWin():
   platformfld.value = ML_PLFS[0][0]
   mlchgCB( 'value', 0, platformfld.value )
+  nameChgCB( 'value', 0, dgbkeys.modelnm )
   curdoc().title = 'Machine Learning'
 
 initWin()

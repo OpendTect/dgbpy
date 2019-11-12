@@ -259,16 +259,26 @@ def getApplyInfo( infos, outsubsel=None ):
 dblistall = None
 
 def modelNameIsFree( modnm, type, args, reload=True ):
-  modinfo = dbInfoForModel( modnm, args, reload )
-  if modinfo == None:
+  (exists,sametrl,sameformat,sametyp) = \
+             modelNameExists( modnm, type, args, reload )
+  if exists == False:
     return True
-
-  if modinfo['TranslatorGroup'] != mltrlgrp or modinfo['Format'] != dgbtrl:
+  if not sametrl or not sameformat:
     return False
-
-  if 'Type' in modinfo:
-    return type == modinfo['Type']
+  if sametyp != None:
+    return sametyp
   return False
+
+def modelNameExists( modnm, type, args, reload=True ):
+  (sametrl,sameformat,sametyp) = (None,None,None)
+  modinfo = dbInfoForModel( modnm, args, reload )
+  exists = modinfo != None
+  if exists:
+    sametrl =  modinfo['TranslatorGroup'] == mltrlgrp
+    sameformat = modinfo['Format'] == dgbtrl
+    if 'Type' in modinfo:
+      sametyp = type == modinfo['Type']
+  return (exists,sametrl,sameformat,sametyp)
 
 def dbInfoForModel( modnm, args, reload=True ):
   global dblistall

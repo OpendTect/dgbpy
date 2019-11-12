@@ -56,8 +56,11 @@ def getRunButtonsBar(runact,abortact,pauseact,resumeact,timercb):
 
 def startStopCB( cb, run_fn, abort_fn, timer_fn, repeat=2000 ):
   if isReady( cb ):
+    canrun = run_fn( cb['timerobj'] )
+    if not canrun:
+      return
+    cb['timerobj'] = canrun
     setRunning( cb )
-    cb['timerobj'] = run_fn( cb['timerobj'] )
     cb.update({
       'cb': curdoc().add_periodic_callback(partial(timerCB,cb=cb,timer_fn=timer_fn),repeat)
     })
