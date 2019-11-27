@@ -80,6 +80,7 @@ import signal
 import threading
 import traceback
 
+from odpy.common import Timer
 import dgbpy.deeplearning_apply_serverlib as applylib
 
 
@@ -89,7 +90,7 @@ signal.signal(signal.SIGINT,signal_handler)
 
 def timerCB():
   if not parentproc.is_running():
-    os.kill( pid, signal.SIGINT )
+    os.kill( psutil.Process().pid, signal.SIGINT )
 
 def accept_wrapper(sock,applier):
   conn, addr = sock.accept()  # Should be ready to read
@@ -97,7 +98,7 @@ def accept_wrapper(sock,applier):
   message = applylib.Message(sel, conn, addr, applier)
   sel.register(conn, selectors.EVENT_READ, data=message)
 
-timer = threading.Timer(15, timerCB)
+timer = Timer(15, timerCB)
 parentproc = None
 if 'parentpid' in args:
   ppid = args['parentpid']
