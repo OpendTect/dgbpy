@@ -268,31 +268,44 @@ def getInfo( filenm ):
   nroutputs = 1
   examples = {}
   while idx < ex_sz:
-    namestr = "Examples."+str(idx)+".Name"
-    logstr = "Examples."+str(idx)+".Log"
+    namestr = 'Examples.'+str(idx)+'.Name'
+    logstr = 'Examples.'+str(idx)+'.Log'
     if odhdf5.hasAttr( info, logstr ):
       exname = logstr
-      extype = "Logs"
+      extype = 'Logs'
     elif odhdf5.hasAttr( info, namestr ):
       exname = namestr
-      extype = "Point-Sets"
+      extype = 'Point-Sets'
     else:
-      raise KeyError
-    grouplbl = odhdf5.getText( info, exname )
-    if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
-      nroutputs = len(grouplbl)
+      exname = None
+      extype = 'Images'
+    if exname == None:
+      grouplbl = 'Images'
+    else:
+      grouplbl = odhdf5.getText( info, exname )
+      if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
+        nroutputs = len(grouplbl)
     example = {}
-    example_sz = odhdf5.getIntValue(info,"Examples."+str(idx)+".Size")
-    idy = 0
-    while idy < example_sz:
-      exyname = odhdf5.getText(info,"Examples."+str(idx)+".Name."+str(idy))
-      exidstr = odhdf5.getText(info,"Examples."+str(idx)+".ID."+str(idy))
-      exstruct = {namedictstr: exyname, iddictstr: idy, dbkeydictstr: exidstr}
-      survstr = "Examples."+str(idx)+".Survey."+str(idy)
-      if odhdf5.hasAttr( info, survstr ):
-        exstruct.update({locationdictstr: odhdf5.getText(info,survstr)})
+    exampleszstr = 'Examples.' + str(idx) + '.Size'
+    if odhdf5.hasAttr( info, exampleszstr ):
+      example_sz = odhdf5.getIntValue(info,exampleszstr)
+      idy = 0
+      while idy < example_sz:
+        exyname = odhdf5.getText(info,"Examples."+str(idx)+'.Name.'+str(idy))
+        exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID.'+str(idy))
+        exstruct = {namedictstr: exyname, iddictstr: idy, dbkeydictstr: exidstr}
+        survstr = 'Examples.'+str(idx)+'.Survey.'+str(idy)
+        if odhdf5.hasAttr( info, survstr ):
+          exstruct.update({locationdictstr: odhdf5.getText(info,survstr)})
+        example = {extype: exstruct}
+        idy += 1
+    else:
+      exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID')
+      exstruct = {namedictstr: extype, iddictstr: 0, dbkeydictstr: exidstr}
+      survstr = 'Examples.'+str(idx)+'.Survey ID'
+      exstruct.update({locationdictstr: odhdf5.getText(info,survstr)})
       example = {extype: exstruct}
-      idy += 1
+
     example.update({iddictstr: idx})
     surveystr = "Examples."+str(idx)+".Survey"
     if odhdf5.hasAttr( info, surveystr ):
@@ -302,7 +315,7 @@ def getInfo( filenm ):
       example.update({
         targetdictstr: odhdf5.getText( info, exname ),
         pathdictstr: surveyfp[0]
-        })
+      })
 
     examples.update({grouplbl: example})
     idx += 1

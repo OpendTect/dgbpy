@@ -31,6 +31,7 @@ if withtensorboard:
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
             ('lenet','LeNet - Malenov'),\
+            ('unet','U-Net'),\
 #            ('squeezenet','SqueezeNet'),\
 #            ('other','MobilNet V2'),\
           )
@@ -54,11 +55,14 @@ def getUiModelTypes():
 def isLeNet( mltype ):
   return mltype == mltypes[0][0] or mltype == mltypes[0][1]
 
-def isSqueezeNet( mltype ):
+def isUnet( mltype ):
   return mltype == mltypes[1][0] or mltype == mltypes[1][1]
 
-def isMobilNetV2( mltype ):
+def isSqueezeNet( mltype ):
   return mltype == mltypes[2][0] or mltype == mltypes[2][1]
+
+def isMobilNetV2( mltype ):
+  return mltype == mltypes[3][0] or mltype == mltypes[3][1]
 
 firstconvlayernm = 'conv_layer1'
 lastlayernm = 'pre-softmax_layer'
@@ -102,6 +106,29 @@ def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
                                     math.floor((1+input_int)/epochs_drop))
     # return the learning rate (quite arbitrarily decaying)
   return LearningRateScheduler(adaptive_lr)
+
+def cross_entropy_balanced(y_true, y_pred):
+  from keras.models import K
+  from keras.optimizers import tf
+  _epsilon = _to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
+  y_pred   = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
+  y_pred   = tf.log(y_pred/ (1 - y_pred))
+
+  y_true = tf.cast(y_true, tf.float32)
+  count_neg = tf.reduce_sum(1. - y_true)
+  count_pos = tf.reduce_sum(y_true)
+  beta = count_neg / (count_neg + count_pos)
+  pos_weight = beta / (1 - beta)
+  cost = tf.nn.weighted_cross_entropy_with_logits(logits=y_pred, targets=y_true, pos_weight=pos_weight)
+  cost = tf.reduce_mean(cost * (1 - beta))
+  return tf.where(tf.equal(count_pos, 0.0), 0.0, cost)
+
+def _to_tensor(x, dtype):
+  from keras.optimizers import tf
+  x = tf.convert_to_tensor(x)
+  if x.dtype != dtype:
+    x = tf.cast(x, dtype)
+  return x
 
 def getLayer( model, name ):
   for lay in model.layers:
@@ -149,13 +176,6 @@ def getLogDir( basedir, args ):
 def getDefaultModel(setup,type=keras_dict['type'],
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
-  redirect_stdout()
-  import keras
-  restore_stdout()
-  from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
-  from keras.layers.normalization import BatchNormalization
-  from keras.models import (Sequential)
-
   nrinputs = dgbhdf5.get_nr_attribs(setup)
   isclassification = setup[dgbhdf5.classdictstr]
   if isclassification:
@@ -167,6 +187,26 @@ def getDefaultModel(setup,type=keras_dict['type'],
     steps = (nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1)
   except TypeError:
     steps = (nrinputs,1,1,2*stepout+1)
+
+  if isLeNet( type ):
+    return getDefaultLeNet(setup,isclassification,steps,nroutputs,
+                           learnrate=learnrate,data_format=data_format)
+  elif ifUnet( type ):
+    return getDefaultUnet(setup,isclassification,steps,nroutputs,
+                          learnrate=learnrate,data_format=data_format)
+  else:
+    return None
+
+def getDefaultLeNet(setup,isclassification,steps,nroutputs,
+                    learnrate=keras_dict['learnrate'],
+                    data_format='channels_first'):
+  redirect_stdout()
+  import keras
+  restore_stdout()
+  from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
+  from keras.layers.normalization import BatchNormalization
+  from keras.models import Sequential
+
   model = Sequential()
   model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
             name=firstconvlayernm,input_shape=steps,data_format=data_format))
@@ -214,6 +254,110 @@ def getDefaultModel(setup,type=keras_dict['type'],
 
 # Compile the model with the desired optimizer, loss, and metric
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
+  return model
+
+def getDefaultUnet(setup,isclassification,steps,nroutputs,
+                    learnrate=keras_dict['learnrate'],
+                    data_format='channels_first'):
+  redirect_stdout()
+  import keras
+  restore_stdout()
+  from keras.layers import (concatenate,Conv3D,Input,MaxPooling3D,UpSampling3D)
+  from keras.models import Model
+  from keras.optimizers import Adam
+
+  if data_format == 'channels_first':
+    stepout = (steps[1],steps[2],steps[3],1)
+  else:
+    stepout = steps
+
+  inputs = Input(stepout)
+
+  conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
+  conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv1)
+  pool1 = MaxPooling3D(pool_size=(2,2,2))(conv1)
+
+  conv2 = Conv3D(4, (3,3,3), activation='relu', padding='same')(pool1)
+  conv2 = Conv3D(4, (3,3,3), activation='relu', padding='same')(conv2)
+  pool2 = MaxPooling3D(pool_size=(2,2,2))(conv2)
+
+  conv3 = Conv3D(8, (3,3,3), activation='relu', padding='same')(pool2)
+  conv3 = Conv3D(8, (3,3,3), activation='relu', padding='same')(conv3)
+  pool3 = MaxPooling3D(pool_size=(2,2,2))(conv3)
+
+  conv4 = Conv3D(64, (3,3,3), activation='relu', padding='same')(pool3)
+  conv4 = Conv3D(64, (3,3,3), activation='relu', padding='same')(conv4)
+
+  up5 = concatenate([UpSampling3D(size=(2,2,2))(conv4), conv3], axis=4)
+  conv5 = Conv3D(8, (3,3,3), activation='relu', padding='same')(up5)
+  conv5 = Conv3D(8, (3,3,3), activation='relu', padding='same')(conv5)
+
+  up6 = concatenate([UpSampling3D(size=(2,2,2))(conv5), conv2], axis=4)
+  conv6 = Conv3D(4, (3,3,3), activation='relu', padding='same')(up6)
+  conv6 = Conv3D(4, (3,3,3), activation='relu', padding='same')(conv6)
+
+  up7 = concatenate([UpSampling3D(size=(2,2,2))(conv6), conv1], axis=4)
+  conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same')(up7)
+  conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv7)
+
+  conv8 = Conv3D(1, (1,1,1), activation='sigmoid')(conv7)
+
+  model = Model(inputs=[inputs], outputs=[conv8])
+  model.compile(optimizer = Adam(lr = learnrate), \
+                loss = cross_entropy_balanced, metrics = ['accuracy'])
+
+  return model
+
+def getDefaultUnet2D(setup,isclassification,steps,nroutputs,
+                    learnrate=keras_dict['learnrate'],
+                    data_format='channels_first'):
+  redirect_stdout()
+  import keras
+  restore_stdout()
+  from keras.layers import (concatenate,Conv2D,Input,MaxPooling2D,UpSampling2D)
+  from keras.models import Model
+  from keras.optimizers import Adam
+
+  if data_format == 'channels_first':
+    stepout = (steps[1],steps[2],1)
+  else:
+    stepout = steps
+
+  inputs = Input(stepout)
+
+  conv1 = Conv2D(2, (3,3), activation='relu', padding='same')(inputs)
+  conv1 = Conv2D(2, (3,3), activation='relu', padding='same')(conv1)
+  pool1 = MaxPooling2D(pool_size=(2,2))(conv1)
+
+  conv2 = Conv2D(4, (3,3), activation='relu', padding='same')(pool1)
+  conv2 = Conv2D(4, (3,3), activation='relu', padding='same')(conv2)
+  pool2 = MaxPooling2D(pool_size=(2,2))(conv2)
+
+  conv3 = Conv2D(8, (3,3), activation='relu', padding='same')(pool2)
+  conv3 = Conv2D(8, (3,3), activation='relu', padding='same')(conv3)
+  pool3 = MaxPooling2D(pool_size=(2,2))(conv3)
+
+  conv4 = Conv2D(64, (3,3), activation='relu', padding='same')(pool3)
+  conv4 = Conv2D(64, (3,3), activation='relu', padding='same')(conv4)
+
+  up5 = concatenate([UpSampling2D(size=(2,2))(conv4), conv3], axis=3)
+  conv5 = Conv2D(8, (3,3), activation='relu', padding='same')(up5)
+  conv5 = Conv2D(8, (3,3), activation='relu', padding='same')(conv5)
+
+  up6 = concatenate([UpSampling2D(size=(2,2))(conv5), conv2], axis=3)
+  conv6 = Conv2D(4, (3,3), activation='relu', padding='same')(up6)
+  conv6 = Conv2D(4, (3,3), activation='relu', padding='same')(conv6)
+
+  up7 = concatenate([UpSampling2D(size=(2,2))(conv6), conv1], axis=3)
+  conv7 = Conv2D(2, (3,3), activation='relu', padding='same')(up7)
+  conv7 = Conv2D(2, (3,3), activation='relu', padding='same')(conv7)
+
+  conv8 = Conv2D(1, (1,1), activation='sigmoid')(conv7)
+
+  model = Model(inputs=[inputs], outputs=[conv8])
+  model.compile(optimizer = Adam(lr = learnrate), \
+                loss = cross_entropy_balanced, metrics = ['accuracy'])
+
   return model
 
 def train(model,training,params=keras_dict,trainfile=None,logdir=None):
