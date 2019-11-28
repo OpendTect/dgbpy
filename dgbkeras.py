@@ -392,6 +392,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     y_train = training[dgbkeys.ytraindictstr]
     x_validate = training[dgbkeys.xvaliddictstr]
     y_validate = training[dgbkeys.yvaliddictstr]
+    doshuffle = True
   for ichunk in range(nbchunks):
     log_msg('Starting iteration',str(ichunk+1)+'/'+str(nbchunks))
     log_msg('Starting training data creation:')
