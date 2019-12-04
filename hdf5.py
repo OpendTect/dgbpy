@@ -122,9 +122,12 @@ def getCubeLets( infos, datasets, groupnm ):
   attribsel = None
   if fromwells:
     attribsel = survnm
-  nrattribs = get_nr_attribs( infos, attribsel )
+  inpnrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos[stepoutdictstr]
   isclass = infos[classdictstr]
+  img2img = infos[shapedictstr] == seisimgtoimgtypestr
+  if img2img:
+    outnrattribs = 1
   outdtype = np.float32
   if isclass:
     outdtype = np.uint8
@@ -140,20 +143,29 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      shape = get_np_shape(stepout,nrpts,nrattribs)
+      inpshape = get_np_shape(stepout,nrpts,inpnrattribs)
+      if img2img:
+        outshape = get_np_shape(stepout,nrpts,outnrattribs)
       if len(x_data) == nrpts and len(y_data) == nrpts:
-        cubelets = np.resize( x_data, shape ).astype( np.float32 )
-        output = np.resize( y_data, (nrpts,infos[nroutdictstr]) ).astype( outdtype )
+        cubelets = np.resize( x_data, inpshape ).astype( np.float32 )
+        if img2img:
+          output = np.resize( y_data, outshape ).astype( outdtype )
+        else:
+          output = np.resize( y_data, (nrpts,infos[nroutdictstr]) ).astype( outdtype )
       else:
-        cubelets = np.empty( shape, np.float32 )
-        output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-        idx = 0
-        for dsetnm in dsetnms:
+        cubelets = np.empty( inpshape, np.float32 )
+        if img2img:
+          output = np.empty( outshape, outdtype )
+        else:
+          output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+        for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
           dset = x_data[dsetnm]
           odset = y_data[dsetnm]
-          cubelets[idx] = np.resize(dset,cubelets[idx].shape)
-          output[idx] = np.asarray( odset )
-          idx += 1
+          cubelets[idx] = np.resize( dset, cubelets[idx].shape )
+          if img2img:
+            output[idx] = np.resize( odset, output[idx].shape )
+          else:
+            output[idx] = np.asarray( odset )
       if nrpts > 0:
         allcubelets.append( cubelets )
         alloutputs.append( output )
@@ -168,18 +180,24 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      shape = get_np_shape(stepout,nrpts,nrattribs)
-      cubelets = np.empty( shape, np.float32 )
-      output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
-      idx = 0
-      for dsetnm in dsetnms:
+      inpshape = get_np_shape(stepout,nrpts,inpnrattribs)
+      cubelets = np.empty( inpshape, np.float32 )
+      if img2img:
+        outshape = get_np_shape(stepout,nrpts,outnrattribs)
+        output = np.empty( outshape, outdtype )
+      else:
+        output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+      for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = group[dsetnm]
-        cubelets[idx] = np.resize(dset,cubelets[idx].shape)
-        if isclass :
-          output[idx] = odhdf5.getIArray( dset, valuestr )
+        if img2img:
+          cubelets[idx] = np.resize(dset[1:],cubelets[idx].shape)
+          output[idx] = np.resize(dset[0],output[idx].shape)
         else:
-          output[idx] = odhdf5.getDArray( dset, valuestr )
-        idx += 1
+          cubelets[idx] = np.resize(dset,cubelets[idx].shape)
+          if isclass :
+            output[idx] = odhdf5.getIArray( dset, valuestr )
+          else:
+            output[idx] = odhdf5.getDArray( dset, valuestr )
       if nrpts > 0:
         allcubelets.append( cubelets )
         alloutputs.append( output )
@@ -257,59 +275,73 @@ def getInfo( filenm ):
     h5file.close()
     return {}
 
+  isclassification = True
   type = odhdf5.getText(info,typestr)
+  img2img = False
+  shapeval = cubeletvalstr
+  if odhdf5.hasAttr(info,shapestr):
+    shapeval = odhdf5.getText(info,shapestr)
+    img2img = shapeval == seisimgtoimgtypestr
+    isclassification = type == classvalstr
+
   if odhdf5.hasAttr(info,"Trace.Stepout"):
     stepout = odhdf5.getIStepInterval(info,"Trace.Stepout") 
   elif odhdf5.hasAttr(info,"Depth.Stepout"):
     stepout = odhdf5.getIStepInterval(info,"Depth.Stepout")
-  classification = True
   ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
   idx = 0
   nroutputs = 1
   examples = {}
   while idx < ex_sz:
-    namestr = 'Examples.'+str(idx)+'.Name'
     logstr = 'Examples.'+str(idx)+'.Log'
+    namestr = 'Examples.'+str(idx)+'.Name'
+    idstr = 'Examples.'+str(idx)+'.ID'
+    survstr = 'Examples.'+str(idx)+'.Survey'
     if odhdf5.hasAttr( info, logstr ):
       exname = logstr
       extype = 'Logs'
     elif odhdf5.hasAttr( info, namestr ):
-      exname = namestr
-      extype = 'Point-Sets'
+      if img2img:
+        extype = imagevalstr
+        exname = survstr
+      else:
+        extype = 'Point-Sets'
+        exname = namestr
     else:
-      exname = None
-      extype = 'Images'
-    if exname == None:
-      grouplbl = 'Images'
-    else:
-      grouplbl = odhdf5.getText( info, exname )
-      if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
-        nroutputs = len(grouplbl)
+      raise KeyError
+    grouplbl = odhdf5.getText( info, exname )
+    if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
+      nroutputs = len(grouplbl)
     example = {}
     exampleszstr = 'Examples.' + str(idx) + '.Size'
     if odhdf5.hasAttr( info, exampleszstr ):
       example_sz = odhdf5.getIntValue(info,exampleszstr)
       idy = 0
+      survexamples = list()
       while idy < example_sz:
         exyname = odhdf5.getText(info,"Examples."+str(idx)+'.Name.'+str(idy))
         exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID.'+str(idy))
-        exstruct = {namedictstr: exyname, iddictstr: idy, dbkeydictstr: exidstr}
-        survstr = 'Examples.'+str(idx)+'.Survey.'+str(idy)
-        if odhdf5.hasAttr( info, survstr ):
-          exstruct.update({locationdictstr: odhdf5.getText(info,survstr)})
-        example = {extype: exstruct}
+        exstruct = {dbkeydictstr: exidstr, iddictstr: idy}
+        survidystr = 'Examples.'+str(idx)+'.Survey.'+str(idy)
+        if odhdf5.hasAttr( info, survidystr ):
+          exstruct.update({locationdictstr: odhdf5.getText(info,survidystr)})
+        survexamples.append( {exyname: exstruct } )
         idy += 1
+      example = {extype: survexamples, iddictstr: idx}
     else:
+      exyname = odhdf5.getText(info,'Examples.'+str(idx)+'.Name')
       exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID')
-      exstruct = {namedictstr: extype, iddictstr: 0, dbkeydictstr: exidstr}
-      survstr = 'Examples.'+str(idx)+'.Survey ID'
-      exstruct.update({locationdictstr: odhdf5.getText(info,survstr)})
-      example = {extype: exstruct}
+      location = None
+      if isinstance( exidstr, list ):
+        location = exidstr[1]
+        exidstr = exidstr[0]
+      exstruct = {dbkeydictstr: exidstr, iddictstr: 0}
+      if location != None:
+        exstruct.update({locationdictstr: location})
+      example = {extype: [{exyname: exstruct}] }
 
-    example.update({iddictstr: idx})
-    surveystr = "Examples."+str(idx)+".Survey"
-    if odhdf5.hasAttr( info, surveystr ):
-      surveyfp = path.split( odhdf5.getText(info, surveystr ) )
+    if exname == logstr and odhdf5.hasAttr( info, survstr ):
+      surveyfp = path.split( odhdf5.getText(info, survstr ) )
       surveynm = odhdf5.getText(info, "Examples."+str(idx)+".Name" )
       grouplbl = surveynm
       example.update({
@@ -343,7 +375,10 @@ def getInfo( filenm ):
       attriblist = list()
       scales = list()
       means = list()
-      while idy < inpp_sz:
+      idystart = 0
+      if img2img:
+        idystart = 1
+      for idy in range(idystart,inpp_sz):
         attribinp = {}
         dsnamestr = 'Input.'+str(idx)+'.Name.'+str(idy)
         if odhdf5.hasAttr( info, dsnamestr ):
@@ -362,7 +397,6 @@ def getInfo( filenm ):
             scale = odhdf5.getDInterval(info,scalekey)
             means.append( scale[0] )
             scales.append( scale[1] )
-        idy += 1
       if len(attriblist) > 0:
         inp.update({attribdictstr: attriblist} )
       if len(scales) > 0:
@@ -373,8 +407,9 @@ def getInfo( filenm ):
 
   retinfo = {
     typedictstr: type,
+    shapedictstr: shapeval,
     stepoutdictstr: stepout,
-    classdictstr: True,
+    classdictstr: isclassification,
     nroutdictstr: nroutputs,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
@@ -393,17 +428,16 @@ def getInfo( filenm ):
 
   if type == loglogtypestr or type == seisproptypestr:
     return getWellInfo( retinfo, filenm )
-  elif type == seisclasstypestr:
+  elif type == seisclasstypestr or type == seispredtypestr:
     return getAttribInfo( retinfo, filenm )
 
   std_msg( "Unrecognized dataset type: ", type )
   raise KeyError
 
 def getAttribInfo( info, filenm ):
-  if not info[classdictstr]:
-    return info
+  if info[classdictstr]:
+    info.update( {classesdictstr: getClassIndices(info)} )
 
-  info.update( {classesdictstr: getClassIndices(info)} )
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
 
@@ -412,7 +446,7 @@ def arroneitemsize( dtype ):
   return arr.itemsize
 
 def getTotalSize(info):
-  nrattribs = get_nr_attribs( info )
+  inpnrattribs = get_nr_attribs( info )
   step = info[stepoutdictstr]
   datasets = info[datasetdictstr]
   nrpts = 0
@@ -420,21 +454,27 @@ def getTotalSize(info):
     alldata = datasets[groupnm]
     for inp in alldata:
       nrpts += len(alldata[inp])
-  examplesshape = get_np_shape( step, nrpts, nrattribs )
+  examplesshape = get_np_shape( step, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
-  y_size = examplesshape[0]
+  img2img = info[shapedictstr] == seisimgtoimgtypestr
   if info[classdictstr]:
-    y_size *= len(info[classesdictstr])
+    nroutvals = len(info[classesdictstr])
   else:
-    y_size *= info[nroutdictstr]
-  y_size *= arroneitemsize(np.float32)
+    nroutvals = info[nroutdictstr]
+  if img2img:
+    outshape = get_np_shape( step, nrpts, nroutvals )
+  else:
+    outshape = get_np_shape( (0), nrpts, nroutvals )
+  y_size = np.prod( outshape ) * arroneitemsize( np.float32 )
   return x_size + y_size
 
 def getWellInfo( info, filenm ):
   h5file = h5py.File( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
-  info.update( {estimatedsizedictstr: getTotalSize(info)} )
   info[classdictstr] = odhdf5.hasAttr(infods,'Target Value Type') and odhdf5.getText(infods,'Target Value Type') == "ID"
+  if info[classdictstr]:
+    info.update( {classesdictstr: getLogClassIndices(info)} )
+  info.update( {estimatedsizedictstr: getTotalSize(info)} )
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
@@ -486,6 +526,10 @@ def getClassIndices( info, filternms=None ):
     if filternms==None or groupnm in filternms:
       ret.append( info[exampledictstr][groupnm][iddictstr] )
   return np.sort( ret )
+
+def getLogClassIndices( info ):
+  #TODO: read the actual distribution of output Log values
+  return getClassIndices( info )
 
 def getOutputs( inpfile ):
   info = getInfo( inpfile )
