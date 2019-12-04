@@ -64,8 +64,6 @@ def isSqueezeNet( mltype ):
 def isMobilNetV2( mltype ):
   return mltype == mltypes[3][0] or mltype == mltypes[3][1]
 
-firstconvlayernm = 'conv_layer1'
-lastlayernm = 'pre-softmax_layer'
 keras_dict = {
   dgbkeys.decimkeystr: False,
   'nbchunk': 10,
@@ -130,30 +128,30 @@ def _to_tensor(x, dtype):
     x = tf.cast(x, dtype)
   return x
 
-def getLayer( model, name ):
-  for lay in model.layers:
-    if lay.get_config()['name'] == name:
-      return lay
+def getDataFormat( model ):
+  layers = model.layers
+  for i in range(len(layers)):
+    laycfg = layers[i].get_config()
+    if 'data_format' in laycfg:
+      return laycfg['data_format']
   return None
 
-def getDataFormat( model ):
-  convlay1_config = getLayer(model,firstconvlayernm).get_config()
-  return convlay1_config['data_format']
-
 def getCubeletStepout( model ):
-  convlay1_config = getLayer(model,firstconvlayernm).get_config()
   data_format = getDataFormat( model )
   if data_format == 'channels_first':
-    cubeszs = convlay1_config['batch_input_shape'][2:]
+    cubeszs = model.input_shape[2:]
   elif data_format == 'channels_last':
-    cubeszs = convlay1_config['batch_input_shape'][1:-1]
+    cubeszs = model.input_shape[1:-1]
   stepout = tuple()
   for cubesz in cubeszs:
-    stepout += (int((cubesz-1)/2),)
+    if cubesz%2 == 1 :
+      stepout += (int((cubesz-1)/2),)
+    else:
+      stepout += (int(cubesz/2),)
   return (stepout,cubeszs)
 
 def getNrClasses( model ):
-  return getLayer(model,lastlayernm).get_config()['units']
+  return model.output_shape[-1]
 
 def getLogDir( basedir, args ):
   logdir = basedir
@@ -173,58 +171,142 @@ def getLogDir( basedir, args ):
   logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
   return logdir
 
+def get_model_shape( step, nrattribs, attribfirst=True, allowodd=True ):
+  ret = ()
+  extraidx = 0
+  if allowodd:
+    extraidx = 1
+  if attribfirst:
+    ret += (nrattribs,)
+  if isinstance( step, int ) and step > 0:
+    ret += (2*step+allowodd,)
+    if not attribfirst:
+      ret += (nrattribs,)
+    return ret
+  for i in step:
+    if i > 0:
+      ret += (2*i+allowodd,)
+  if attribfirst:
+    if len(ret) == 1:
+      ret += (1,)
+  else:
+    if len(ret) == 0:
+      ret += (1,)
+  if not attribfirst:
+    ret += (nrattribs,)
+  return ret
+
 def getDefaultModel(setup,type=keras_dict['type'],
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
-  nrinputs = dgbhdf5.get_nr_attribs(setup)
   isclassification = setup[dgbhdf5.classdictstr]
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
     nroutputs = 1
-  stepout = setup[dgbkeys.stepoutdictstr]
-  try: 
-    steps = (nrinputs,2*stepout[0]+1,2*stepout[1]+1,2*stepout[2]+1)
-  except TypeError:
-    steps = (nrinputs,1,1,2*stepout+1)
-
+  nrattribs = dgbhdf5.get_nr_attribs(setup)
+  if isUnet(type):
+    nrattribs = 1 #TODO: how >1 ?
+  model_shape = get_model_shape( setup[dgbkeys.stepoutdictstr], nrattribs,
+                                 attribfirst=True, \
+                                 allowodd=(not isUnet(type)) )
   if isLeNet( type ):
-    return getDefaultLeNet(setup,isclassification,steps,nroutputs,
+    return getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
                            learnrate=learnrate,data_format=data_format)
-  elif ifUnet( type ):
-    return getDefaultUnet(setup,isclassification,steps,nroutputs,
+  elif isUnet( type ):
+    return getDefaultUnet(setup,isclassification,model_shape,nroutputs,
                           learnrate=learnrate,data_format=data_format)
   else:
     return None
 
-def getDefaultLeNet(setup,isclassification,steps,nroutputs,
+def getDefaultLeNet1D( model, shape, format ):
+  from keras.layers import (Activation,Conv1D,Dropout)
+  from keras.layers.normalization import BatchNormalization
+  model.add(Conv1D(50, 5, strides=4, padding='same', \
+            name='conv_layer1',input_shape=shape,data_format=format))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer2', data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer3',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer4',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer5',data_format=format))
+  return model
+
+def getDefaultLeNet2D( model, shape, format ):
+  from keras.layers import (Activation,Conv2D,Dropout)
+  from keras.layers.normalization import BatchNormalization
+  model.add(Conv2D(50, (5, 5), strides=(4, 4), padding='same', \
+            name='conv_layer1',input_shape=shape,data_format=format))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer2', data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer3',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer4',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer5',data_format=format))
+  return model
+
+def getDefaultLeNet3D( model, shape, format ):
+  from keras.layers import (Activation,Conv3D,Dropout)
+  from keras.layers.normalization import BatchNormalization
+  model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
+            name='conv_layer1',input_shape=shape,data_format=format))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2', data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer3',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer4',data_format=format))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer5',data_format=format))
+  return model
+
+def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
+  
   redirect_stdout()
   import keras
   restore_stdout()
-  from keras.layers import (Activation,Conv3D,Dense,Dropout,Flatten)
+  from keras.layers import (Activation,Dense,Flatten)
   from keras.layers.normalization import BatchNormalization
   from keras.models import Sequential
 
+  nrdims = len(model_shape)-1
   model = Sequential()
-  model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
-            name=firstconvlayernm,input_shape=steps,data_format=data_format))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2', data_format=data_format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer3',data_format=data_format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer4',data_format=data_format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer5',data_format=data_format))
+  if nrdims == 3:
+    model = getDefaultLeNet3D( model, model_shape, data_format )
+  elif nrdims == 2:
+    model = getDefaultLeNet2D( model, model_shape, data_format )
+  elif nrdims == 1 or nrdims == 0:
+    model = getDefaultLeNet1D( model, model_shape, data_format )
+  else:
+    return None
+
   model.add(Flatten())
   model.add(Dense(50,name = 'dense_layer1'))
   model.add(BatchNormalization())
@@ -232,7 +314,7 @@ def getDefaultLeNet(setup,isclassification,steps,nroutputs,
   model.add(Dense(10,name = 'attribute_layer'))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Dense(nroutputs, name=lastlayernm))
+  model.add(Dense(nroutputs, name='pre-softmax_layer'))
   model.add(BatchNormalization())
   model.add(Activation('softmax'))
 
@@ -256,22 +338,34 @@ def getDefaultLeNet(setup,isclassification,steps,nroutputs,
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
-def getDefaultUnet(setup,isclassification,steps,nroutputs,
+def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
   redirect_stdout()
   import keras
   restore_stdout()
-  from keras.layers import (concatenate,Conv3D,Input,MaxPooling3D,UpSampling3D)
-  from keras.models import Model
   from keras.optimizers import Adam
 
-  if data_format == 'channels_first':
-    stepout = (steps[1],steps[2],steps[3],1)
+  #TODO: support of more than the first attribute
+  #TODO: support channels_first format
+  #TODO: support of odd numbers??
+  nrdims = len(model_shape)-1
+  if nrdims == 3:
+    model = getDefaultUnet3D( model_shape )
+  elif nrdims == 2:
+    model = getDefaultUnet2D( model_shape )
   else:
-    stepout = steps
+    return None
 
-  inputs = Input(stepout)
+  model.compile(optimizer = Adam(lr = learnrate), \
+                loss = cross_entropy_balanced, metrics = ['accuracy'])
+  return model
+
+def getDefaultUnet3D( shape ):
+  from keras.layers import (concatenate,Conv3D,Input,MaxPooling3D,UpSampling3D)
+  from keras.models import Model
+
+  inputs = Input(shape)
 
   conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
   conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv1)
@@ -301,29 +395,14 @@ def getDefaultUnet(setup,isclassification,steps,nroutputs,
   conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv7)
 
   conv8 = Conv3D(1, (1,1,1), activation='sigmoid')(conv7)
+  return Model(inputs=[inputs], outputs=[conv8])
 
-  model = Model(inputs=[inputs], outputs=[conv8])
-  model.compile(optimizer = Adam(lr = learnrate), \
-                loss = cross_entropy_balanced, metrics = ['accuracy'])
 
-  return model
-
-def getDefaultUnet2D(setup,isclassification,steps,nroutputs,
-                    learnrate=keras_dict['learnrate'],
-                    data_format='channels_first'):
-  redirect_stdout()
-  import keras
-  restore_stdout()
+def getDefaultUnet2D( shape ):
   from keras.layers import (concatenate,Conv2D,Input,MaxPooling2D,UpSampling2D)
   from keras.models import Model
-  from keras.optimizers import Adam
 
-  if data_format == 'channels_first':
-    stepout = (steps[1],steps[2],1)
-  else:
-    stepout = steps
-
-  inputs = Input(stepout)
+  inputs = Input(shape)
 
   conv1 = Conv2D(2, (3,3), activation='relu', padding='same')(inputs)
   conv1 = Conv2D(2, (3,3), activation='relu', padding='same')(conv1)
@@ -353,12 +432,7 @@ def getDefaultUnet2D(setup,isclassification,steps,nroutputs,
   conv7 = Conv2D(2, (3,3), activation='relu', padding='same')(conv7)
 
   conv8 = Conv2D(1, (1,1), activation='sigmoid')(conv7)
-
-  model = Model(inputs=[inputs], outputs=[conv8])
-  model.compile(optimizer = Adam(lr = learnrate), \
-                loss = cross_entropy_balanced, metrics = ['accuracy'])
-
-  return model
+  return Model(inputs=[inputs], outputs=[conv8])
 
 def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   redirect_stdout()
@@ -409,12 +483,15 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     log_msg('Finished creating',len(x_train),'examples!')
     log_msg('Validation done on', len(x_validate), 'examples.' )
     while len(x_train.shape) < 5:
+      log_msg( 'pErr: Should not be required' )
       x_train = np.expand_dims(x_train,axis=len(x_train.shape)-1)
     if classification:
       nrclasses = getNrClasses(model)
       y_train = keras.utils.to_categorical(y_train,nrclasses)
       y_validate = keras.utils.to_categorical(y_validate,nrclasses)
     redirect_stdout()
+    x_train = adaptToModel( model, x_train )
+    x_validate = adaptToModel( model, x_validate )
     hist = model.fit(x=x_train,y=y_train,callbacks=callbacks,\
                   shuffle=doshuffle, validation_data=(x_validate,y_validate),\
                   batch_size=batchsize, \
@@ -441,8 +518,7 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
   restore_stdout()
   ret = {}
   res = None
-  if getDataFormat(model) == 'channels_last':
-    samples = transform( samples )
+  samples = adaptToModel( model, samples )
     
   if withpred:
     if isclassification:
@@ -468,23 +544,29 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
 
   return ret
 
-def transform( samples ):
+def adaptToModel( model, samples, sample_data_format='channels_first' ):
+  nrdims = len( samples.shape ) - 2
   nrsamples = samples.shape[0]
-  nrattribs = samples.shape[1]
-  cube_shape = samples.shape[2:]
-  ret = np.empty( (nrsamples, cube_shape[0], cube_shape[1], cube_shape[2], nrattribs ), dtype = samples.dtype )
-  for iattr in range(nrattribs):
-    ret[:,:,:,:,iattr] = samples[:,iattr]
-  return ret
-
-def transformBack( samples ):
-  nrsamples = samples.shape[0]
-  cube_shape = samples.shape[1:-1]
-  nrattribs = samples.shape[-1]
-  ret = np.empty( (nrsamples, nrattribs, cube_shape[0], cube_shape[1], cube_shape[2] ), dtype = samples.dtype )
-  for iattr in range(nrattribs):
-    ret[:,iattr] = samples[:,:,:,:,iattr]
-  return ret
+  model_data_format = getDataFormat( model )
+  (modelstepout,modelcubeszs) = getCubeletStepout( model )
+  #TODO: odd numbers and nrdims<3
+  if sample_data_format == 'channels_first':
+    nrattribs = samples.shape[1]
+    cube_shape = samples.shape[1:-1]
+  else:
+    nrattribs = samples.shape[-1]
+    cube_shape = samples.shape[2:]
+  if model_data_format != sample_data_format:
+    if model_data_format == 'channels_last':
+      ret = np.empty( (nrsamples,cube_shape[0],cube_shape[1],cube_shape[2],nrattribs), dtype=samples.dtype )
+      for iattr in range(nrattribs):
+        ret[:,:,:,:,iattr] = samples[:,iattr]
+    else:
+      ret = np.empty( (nrsamples,nrattribs,cube_shape[0],cube_shape[1],cube_shape[2]), dtype=samples.dtype )
+      for iattr in range(nrattribs):
+        ret[:,iattr] = samples[:,:,:,:,iattr]
+      return ret
+  return samples
 
 def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):
   try:
