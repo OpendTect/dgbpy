@@ -19,6 +19,7 @@ from bokeh.models.widgets import Select, PreText, TextInput
 from bokeh.plotting import curdoc
 from bokeh.palettes import Viridis
 import crossplot_logs
+import odpy.wellman as wellman
 
 run_dict = {
      "dir_path" : "/tmp/",
@@ -35,7 +36,7 @@ wellname = run_dict['wellname']
 
 file_name = path.join( dir_path, file_name )
 
-def prepareData(inputlogfile, inputwellname, undefvalue, 
+def prepareData(inputlogfile, inputwellname, undefvalue,
                 nrlogplots):
     data = pd.read_csv(file_name, delimiter='\t')
     data = data.replace(to_replace = undef, value = float('NaN'))
@@ -48,6 +49,7 @@ def prepareData(inputlogfile, inputwellname, undefvalue,
         undefvalue = undef, 
         nrlogplots = 1)
 headers = ['None'] + headers
+wells = wellman.getNames()
 mindepth = data.iloc[0][0]
 maxdepth = data.iloc[-1][0]
 SIZES = list(range(6, 25, 1))
@@ -66,13 +68,24 @@ def minDepthChangeCB(attr, old, new):
     else:
         alldata['mindepth'] = float(new)
     update(attr, old, alldata['mindepth'])
-    
+
 def maxDepthChangeCB(attr, old, new):
     if (float(new) >= data.iloc[-1][0]):
         alldata['maxdepth'] = data.iloc[-1][0]
     else:
         alldata['maxdepth'] = float(new)
     update(attr, old, alldata['maxdepth'])
+
+def updateLogsCB(attr, old, new):
+    headers = ['None'] + wellman.getLogNames(new)
+    x.options = headers[1:]
+    y.options = headers[1:]
+    size.options = headers
+    color.options = headers
+
+
+w = Select(title='Well', value=wells[0], options=wells)
+w.on_change('value', updateLogsCB)
 
 x = Select(title='X-Axis', value= headers[2], options= headers[1:])
 x.on_change('value', update)
@@ -86,7 +99,7 @@ size.on_change('value', update)
 color = Select(title='Color', value= headers[0], options=headers)
 color.on_change('value', update)
 
-plottype = Select(title='Cross plot type:', value='Bubbles', 
+plottype = Select(title='Cross plot type:', value='Bubbles',
                  options=['Bubbles', 'Scatter + Regression'])
 plottype.on_change('value', update)
 
@@ -96,7 +109,7 @@ inputmindepth.on_change('value', minDepthChangeCB)
 inputmaxdepth = TextInput(title='Maximum depth', value=str(maxdepth))
 inputmaxdepth.on_change('value', maxDepthChangeCB)
 
-controls = column([x, y, color, size, plottype, 
+controls = column([w, x, y, color, size, plottype,
                    inputmindepth, inputmaxdepth], width=250)
 
 stats = PreText(text='', width=800)
