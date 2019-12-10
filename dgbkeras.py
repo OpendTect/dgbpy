@@ -543,6 +543,10 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     log_msg('Validation done on', len(x_validate), 'examples.' )
     x_train = adaptToModel( model, x_train )
     x_validate = adaptToModel( model, x_validate )
+    if len(y_train.shape) > 2:
+      y_train = adaptToModel( model, y_train )
+    if len(y_validate.shape) > 2:
+      y_validate = adaptToModel( model, y_validate )
     if classification:
       nrclasses = getNrClasses(model)
       y_train = keras.utils.to_categorical(y_train,nrclasses)
@@ -603,50 +607,144 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
 def adaptToModel( model, samples, sample_data_format='channels_first' ):
   nrdims = len( model.input_shape ) - 2
   nrsamples = samples.shape[0]
+  samples_nrdims = len(samples.shape)
   model_data_format = getDataFormat( model )
   (modelstepout,modelcubeszs) = getCubeletStepout( model )
-  #TODO: odd numbers and nrdims<3
   if sample_data_format == 'channels_first':
     nrattribs = samples.shape[1]
     cube_shape = samples.shape[2:]
   else:
     nrattribs = samples.shape[-1]
     cube_shape = samples.shape[1:-1]
+  shapelims = ()
+  idx = 0
+  shrinked = False
+  for i in cube_shape:
+    if i == 1:
+      dimsz = 1
+    else:
+      dimsz = min(i,modelcubeszs[idx])
+      if dimsz < i:
+        shrinked = True
+      idx += 1
+    shapelims += (dimsz,)
+  cube_shape = np.squeeze( np.empty( shapelims, dtype='uint8' ) ).shape
   datadims = len(cube_shape)
   out_shape = (nrsamples,)
   if model_data_format == 'channels_first':
     out_shape += (nrattribs,)
   for i in cube_shape:
-    if i > 1 or nrdims >= datadims: #TODO: may need to be expanded
-      out_shape += (i,)
+    out_shape += (i,)
+  if len(cube_shape) < 1:
+    out_shape += (1,)
   if model_data_format == 'channels_last':
     out_shape += (nrattribs,)
-  if model_data_format != sample_data_format or len(model.input_shape) != len(out_shape):
+  switchedattribs = model_data_format != sample_data_format
+  if switchedattribs or nrdims != datadims or shrinked or len(cube_shape) < len(shapelims):
     ret = np.empty( out_shape, dtype=samples.dtype )
-    print( ret.shape )
     if model_data_format == 'channels_last':
       if nrdims == 3:
-        for iattr in range(nrattribs):
-          ret[:,:,:,:,iattr] = samples[:,iattr]
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            ret[:,:,:,:,iattr] = samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]]
+        else:
+          for iattr in range(nrattribs):
+            ret[:,:,:,:,iattr] = samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr]
       elif nrdims == 2:
-        for iattr in range(nrattribs):
-          ret[:,:,:,iattr] = np.squeeze( samples[:,iattr] )
+        if switchedattribs:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1]] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0]] )
+        else:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],iattr] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,:,:,iattr] = np.squeeze( samples[:,:shapelims[0],iattr] )
       elif nrdims == 1:
-        for iattr in range(nrattribs):
-          ret[:,:,iattr] = np.squeeze( samples[:,iattr] )
+        if switchedattribs:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1]] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = samples[:,iattr,:shapelims[0]] 
+        else:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],iattr] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,:,iattr] = samples[:,:shapelims[0],iattr] 
       else:
         return samples
       return ret
     else:
       if nrdims == 3:
-        for iattr in range(nrattribs):
-          ret[:,iattr] = samples[:,:,:,:,iattr]
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            ret[:,iattr] = samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr]
+        else:
+          for iattr in range(nrattribs):
+            ret[:,iattr] = samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]]
       elif nrdims == 2:
-        for iattr in range(nrattribs):
-          ret[:,iattr] = np.squeeze( samples[:,:,:,iattr] )
+        if switchedattribs:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],iattr] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,:shapelims[0],iattr] )
+        else:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1]] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0]] )
       elif nrdims == 1:
-        for iattr in range(nrattribs):
-          ret[:,iattr] = np.squeeze( samples[:,:,iattr] )
+        if switchedattribs:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,:shapelims[0],:shapelims[1],iattr] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = samples[:,:shapelims[0],iattr]
+        else:
+          if samples_nrdims == 5:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]] )
+          elif samples_nrdims == 4:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = np.squeeze( samples[:,iattr,:shapelims[0],:shapelims[1]] )
+          elif samples_nrdims == 3:
+            for iattr in range(nrattribs):
+              ret[:,iattr] = samples[:,iattr,:shapelims[0]]
       else:
         return samples
       return ret
