@@ -17,7 +17,6 @@ import pickle
 
 import sklearn
 from sklearn.preprocessing import StandardScaler
-import xgboost
 from sklearn import preprocessing
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
@@ -52,8 +51,13 @@ ensembletypes = [\
                   ('randfor','Random Forests'),\
                   ('gbc','Gradient Boosting'),\
                   ('ada','Adaboost'),\
-                  ('xgb','XGBoost: (Random Forests)')\
                 ]
+try:
+  import xgboost
+  ensembletypes.append( ('xgb','XGBoost: (Random Forests)') )
+except Exception as e:
+  pass
+
 nntypes = [ ('mlp','Multi-Layer Perceptron') ]
 svmtypes = [ ('svm','Support Vector Machine') ]
 
@@ -303,6 +307,7 @@ def getDefaultModel( setup, params=scikit_dict ):
       else:
         model = AdaBoostRegressor(None, n_estimators, learning_rate)
     elif modelname == 'XGBoost: (Random Forests)':
+      import xgboost
       max_depth = params['maxdep']
       n_estimators = params['est']
       learning_rate = params['lr']
