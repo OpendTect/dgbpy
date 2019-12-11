@@ -77,21 +77,28 @@ class ModelApplier:
             inp = self.info_[dgbkeys.inputdictstr][survdirnm]
             if dgbkeys.scaledictstr in inp:
                 inpscale = inp[dgbkeys.scaledictstr]
-                attribs = inp[dgbkeys.attribdictstr]
-                for scl in scales:
-                    applykey = scl[dgbkeys.dbkeydictstr]
-                    applynm = scl[dgbkeys.namedictstr]
-                    iattr = 0
-                    for attrib in attribs:
-                        if attrib[dgbkeys.dbkeydictstr] == applykey or \
-                           attrib[dgbkeys.namedictstr] == applynm:
-                           idx = attrib[dgbkeys.iddictstr]
-                           self.scaler_.scale_[idx] = inpscale.scale_[idx]
-                           self.scaler_.mean_[idx] = inpscale.mean_[idx]
-                           break
-                        else:
-                          self.scaler_.scale_[iattr] *= scaleratios[iattr]
-                        iattr += 1
+                if dgbkeys.attribdictstr in inp:
+                  attribs = inp[dgbkeys.attribdictstr]
+                  for scl in scales:
+                      applykey = scl[dgbkeys.dbkeydictstr]
+                      applynm = scl[dgbkeys.namedictstr]
+                      iattr = 0
+                      for attrib in attribs:
+                          if attrib[dgbkeys.dbkeydictstr] == applykey or \
+                             attrib[dgbkeys.namedictstr] == applynm:
+                             idx = attrib[dgbkeys.iddictstr]
+                             self.scaler_.scale_[idx] = inpscale.scale_[idx]
+                             self.scaler_.mean_[idx] = inpscale.mean_[idx]
+                             break
+                          else:
+                            self.scaler_.scale_[iattr] *= scaleratios[iattr]
+                          iattr += 1
+                else:
+                  for i in range(len(inpscale.scale_)):
+                    means.append( inpscale.mean_[i] )
+                    stddevs.append( inpscale.scale_[i] )
+                  if len(means) > 0:
+                    self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
         return self.scaler_
 
     def doWork(self,inp):

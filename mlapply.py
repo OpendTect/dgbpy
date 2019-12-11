@@ -203,7 +203,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
-      params = dgbkeras.getUiParams()
+      params = dgbkeras.getParams()
     validation_split = 0.2 #Params?
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scale=True, force=False,
@@ -221,7 +221,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
-      params = dgbscikit.getUiParams()
+      params = dgbscikit.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
                                         scale=True, force=False )
     if type == TrainType.New:
