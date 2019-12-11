@@ -32,8 +32,8 @@ platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
             ('lenet','LeNet - Malenov'),\
             ('unet','U-Net'),\
-#            ('squeezenet','SqueezeNet'),\
-#            ('other','MobilNet V2'),\
+            ('squeezenet','SqueezeNet'),\
+            ('other','MobilNet V2'),\
           )
 
 cudacores = [ '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
@@ -49,20 +49,32 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-def getUiModelTypes():
-  return dgbkeys.getNames( mltypes )
-
+letnetidx = 0
 def isLeNet( mltype ):
-  return mltype == mltypes[0][0] or mltype == mltypes[0][1]
+  return mltype == mltypes[letnetidx][0] or mltype == mltypes[letnetidx][1]
 
+unetidx = 1
 def isUnet( mltype ):
-  return mltype == mltypes[1][0] or mltype == mltypes[1][1]
+  return mltype == mltypes[unetidx][0] or mltype == mltypes[unetidx][1]
 
+squeezenetidx = 2
 def isSqueezeNet( mltype ):
-  return mltype == mltypes[2][0] or mltype == mltypes[2][1]
+  return mltype == mltypes[squeezenetidx][0] or mltype == mltypes[squeezenetidx][1]
 
+mobilnetv2idx = 3
 def isMobilNetV2( mltype ):
-  return mltype == mltypes[3][0] or mltype == mltypes[3][1]
+  return mltype == mltypes[mobilnetv2idx][0] or mltype == mltypes[mobilnetv2idx][1]
+
+def getUiModelTypes( shapetype ):
+  ret = ()
+  if shapetype == dgbkeys.seisimgtoimgtypestr:
+    ret += (mltypes[unetidx],)
+  else:
+    ret += (mltypes[letnetidx],)
+#    ret += (mltypes[squeezenetidx],)
+#    ret += (mltypes[mobilnetv2idx],)
+
+  return dgbkeys.getNames( ret )
 
 keras_dict = {
   dgbkeys.decimkeystr: False,
@@ -72,7 +84,7 @@ keras_dict = {
   'patience': 5,
   'learnrate': 0.01,
   'epochdrop': 5,
-  'type': mltypes[0][0],
+  'type': mltypes[letnetidx][0],
 }
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],

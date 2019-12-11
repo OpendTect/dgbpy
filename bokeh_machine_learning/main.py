@@ -89,8 +89,9 @@ platformparsbut = uibokeh.getButton(paramtabnm,\
 outputnmfld = TextInput(title='Output model:')
 
 info = dgbmlio.getInfo( examplefilenm )
-keraspars = uikeras.getUiPars( info['estimatedsize'] )
-sklearnpars = uisklearn.getUiPars( info['classification'] )
+keraspars = uikeras.getUiPars( info[dgbkeys.shapedictstr],
+                              estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
+sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
 parsgroups = (keraspars,sklearnpars)
 parsbackbut = uibokeh.getButton('Back',\
     callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
@@ -213,7 +214,12 @@ buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainM
 trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
 
 def initWin():
-  platformfld.value = ML_PLFS[0][0]
+  mllearntype = info[dgbkeys.typedictstr]
+  if mllearntype == dgbkeys.loglogtypestr or \
+     mllearntype == dgbkeys.seisproptypestr:
+    platformfld.value = uisklearn.getPlatformNm(True)[0]
+  else:
+     platformfld.value = uikeras.getPlatformNm(True)[0]
   mlchgCB( 'value', 0, platformfld.value )
   nameChgCB( 'value', 0, dgbkeys.modelnm )
   curdoc().title = 'Machine Learning'

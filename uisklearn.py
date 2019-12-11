@@ -266,14 +266,17 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
 
 def getUiPars(isclassification):
   models = getUiModelTypes(isclassification)
-  modeltyp = Select(title='Type',value = models[0],options=models)
+  if isclassification:
+    modeltyp = Select(title='Type',value = models[0],options=models)
+  else:
+    modeltyp = Select(title='Type',value = models[1],options=models)
   if isclassification:
     lineargrp = getLogGrp()
     deftype = classmltypes[0][1]
     linearkey = 'loggrp'
   else:
     lineargrp = getLinearGrp()
-    deftype = regmltypes[0][1]
+    deftype = regmltypes[1][1]
     linearkey = 'lineargrp'
   ensemblegrp = getEnsembleGrp()
   nngrp = getNNGrp()

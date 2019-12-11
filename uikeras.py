@@ -28,10 +28,11 @@ def getSizeStr( sizeinbytes ):
     ret += str(int(sizeinbytes)) + ' bytes'
   return ret
 
-def getUiPars(estimatedszgb=None):
+def getUiPars(shapetype,estimatedszgb=None):
   dict = keras_dict
-  modeltypfld = Select(title='Type',value=getUiModelTypes()[0],
-                       options=getUiModelTypes() )
+  modeltypes = getUiModelTypes( shapetype )
+  modeltypfld = Select(title='Type',value=modeltypes[0],
+                       options=modeltypes )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],
               title='Epochs')
   batchfld = Select(title='Batch Size',value=cudacores[2],
