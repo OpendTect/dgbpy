@@ -340,14 +340,20 @@ def getInfo( filenm ):
         exstruct.update({locationdictstr: location})
       example = {extype: [{exyname: exstruct}] }
 
-    if exname == logstr and odhdf5.hasAttr( info, survstr ):
-      surveyfp = path.split( odhdf5.getText(info, survstr ) )
-      surveynm = odhdf5.getText(info, "Examples."+str(idx)+".Name" )
-      grouplbl = surveynm
-      example.update({
-        targetdictstr: odhdf5.getText( info, exname ),
-        pathdictstr: surveyfp[0]
-      })
+    if odhdf5.hasAttr( info, survstr ):
+      if exname == logstr:
+        surveyfp = path.split( odhdf5.getText(info, survstr ) )
+        surveynm = odhdf5.getText(info, 'Examples.'+str(idx)+'.Name' )
+        grouplbl = surveynm
+        example.update({
+          targetdictstr: odhdf5.getText( info, exname ),
+          pathdictstr: surveyfp[0]
+        })
+      elif exname == survstr:
+        example.update({
+          targetdictstr: odhdf5.getText( info, 'Examples.0.Name' ),
+          pathdictstr: odhdf5.getText( info, exname )
+        })
 
     examples.update({grouplbl: example})
     idx += 1
@@ -541,7 +547,8 @@ def getOutputs( inpfile ):
     if type == seisclasstypestr:
       ret.extend( getGroupNames(inpfile) )
     ret.append( confvalstr )
-  elif type == loglogtypestr or type == seisproptypestr:
+  elif type == loglogtypestr or type == seisproptypestr \
+    or type==seispredtypestr:
     firsttarget = next(iter(info[exampledictstr]))
     targets = info[exampledictstr][firsttarget][targetdictstr]
     if isinstance(targets,list):
