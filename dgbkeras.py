@@ -565,12 +565,33 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
 def save( model, outfnm ):
   model.save( outfnm )
 
-def load( modelfnm ):
+def load( modelfnm, fortrain ):
   redirect_stdout()
   from keras.models import load_model
-  ret = load_model( modelfnm, compile=False )
+  ret = load_model( modelfnm, compile=fortrain )
   restore_stdout()
   return ret
+
+def transfer( model ):
+  from keras.layers import (Conv1D,Conv2D,Conv3D,Dense)
+  layers = model.layers
+  for layer in layers:
+    layer.trainable = False
+
+  ilaystart = 0
+  for ilay in range(len(layers)):
+    layers[ilay].trainable = True
+    laytype = type( layers[ilay] )
+    if laytype == Conv3D or laytype == Conv2D or laytype == Conv1D:
+       break
+
+  for ilay in range(len(layers)-1,0,-1):
+    layers[ilay].trainable = True
+    laytype = type( layers[ilay] )
+    if laytype == Conv3D or laytype == Conv2D or laytype == Conv1D or laytype == Dense:
+      break
+
+  return model
 
 def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, scaler=None, batch_size=keras_dict['batch'] ):
   redirect_stdout()

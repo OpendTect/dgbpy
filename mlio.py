@@ -193,12 +193,12 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   dgbhdf5.addInfo( inpfnm, platform, outfnm, infos )
   log_msg( 'Model saved.' )
 
-def getModel( modelfnm ):
+def getModel( modelfnm, fortrain=False ):
   infos = dgbhdf5.getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    model = dgbkeras.load( modelfnm )
+    model = dgbkeras.load( modelfnm, fortrain )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     model = dgbscikit.load( modelfnm )

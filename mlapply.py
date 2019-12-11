@@ -197,7 +197,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   if type == None:
     type = TrainType.New
   if type != TrainType.New:
-    (model,infos) = dgbmlio.getModel( modelin )
+    (model,infos) = dgbmlio.getModel( modelin, fortrain=True )
 
   trainingdp = None
   if platform == dgbkeys.kerasplfnm:
@@ -214,6 +214,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
                                        learnrate=params['learnrate'])
+    elif type == TrainType.Transfer:
+      model = dgbkeras.transfer( model )
     model = dgbkeras.train( model, trainingdp, params,
                             trainfile=examplefilenm, logdir=logdir )
   elif platform == dgbkeys.scikitplfnm:
@@ -245,7 +247,7 @@ def reformat( res, applyinfo ):
   return res
 
 def doApplyFromFile( modelfnm, samples, outsubsel=None ):
-  (model,info) = dgbmlio.getModel( modelfnm )
+  (model,info) = dgbmlio.getModel( modelfnm, fortrain=False )
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
   return doApply( model, info, samples, applyinfo=applyinfo )
 
