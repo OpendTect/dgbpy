@@ -42,6 +42,9 @@ traingrp = parser.add_argument_group( 'Training' )
 traingrp.add_argument( '--modelfnm',
             dest='model', nargs=1,
             help='Input model file name' )
+traingrp.add_argument( '--transfer', dest='transfer',
+            action='store_true', default=False,
+            help='Do transfer training' )
 traingrp.add_argument( '--mldir',
             dest='mldir', nargs=1,
             help='Machine Learning Logging Base Directory' )
@@ -154,7 +157,10 @@ def getProcArgs( platfmnm, pars, outnm ):
     model = args['model']
     if model != None and len(model)>0:
       dict.update({'model': model[0]})
-      traintype = dgbmlapply.TrainType.Resume #TODO: from GUI
+      if args['transfer']:
+        traintype = dgbmlapply.TrainType.Transfer
+      else:
+        traintype = dgbmlapply.TrainType.Resume
   if 'mldir' in args:
     mldir = args['mldir']
     if mldir != None and len(mldir)>0:
