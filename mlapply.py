@@ -233,7 +233,11 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     raise AttributeError
 
   infos = trainingdp[dgbkeys.infodictstr]
-  outfnm = dgbmlio.getSaveLoc( outnm, infos[dgbkeys.typedictstr], args )
+  if infos[dgbkeys.shapedictstr] == dgbkeys.seisimgtoimgtypestr:
+    modtype = dgbkeys.seisimgtoimgtypestr
+  else:
+    modtype = infos[dgbkeys.typedictstr]
+  outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
   dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
   return (outfnm != None and os.path.isfile( outfnm ))
 

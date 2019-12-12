@@ -103,11 +103,16 @@ def nameChgCB( attrnm, old, new):
   if len(new) < 1:
     return
 
+  if info[dgbkeys.shapedictstr] == dgbkeys.seisimgtoimgtypestr:
+    modtype = dgbkeys.seisimgtoimgtypestr
+  else:
+    modtype = info[dgbkeys.typedictstr]
+
   curbg = outputnmfld.background
   (exists,sametrl,sameformat,sametyp) = \
-                  dgbmlio.modelNameExists( new,info['type'], \
+                  dgbmlio.modelNameExists( new,modtype, \
                   args=args,reload=False)
-  if dgbmlio.modelNameIsFree(new,info['type'],args=args,reload=False):
+  if dgbmlio.modelNameIsFree(new,modtype,args=args,reload=False):
     if exists and sametrl and sameformat and sametyp != None and sametyp:
       outputnmfld.background = '#FFFF00'
     else:
