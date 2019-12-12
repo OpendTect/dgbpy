@@ -103,11 +103,7 @@ def nameChgCB( attrnm, old, new):
   if len(new) < 1:
     return
 
-  if info[dgbkeys.shapedictstr] == dgbkeys.seisimgtoimgtypestr:
-    modtype = dgbkeys.seisimgtoimgtypestr
-  else:
-    modtype = info[dgbkeys.typedictstr]
-
+  modtype = dgbmlio.getModelType( info ) 
   curbg = outputnmfld.background
   (exists,sametrl,sameformat,sametyp) = \
                   dgbmlio.modelNameExists( new,modtype, \
@@ -176,7 +172,8 @@ def getProcArgs( platfmnm, pars, outnm ):
 
 def doRun( cb = None ):
   modelnm = outputnmfld.value
-  canwrite = dgbmlio.modelNameIsFree(modelnm,info['type'],args=args,reload=True)
+  modtype = dgbmlio.getModelType( info ) 
+  canwrite = dgbmlio.modelNameIsFree(modelnm,modtype,args=args,reload=True)
   if not canwrite:
     odcommon.log_msg( 'Output model is not writable, please provide another name' )
     #TODO: replace with netpacket
