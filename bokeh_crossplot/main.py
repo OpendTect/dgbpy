@@ -47,7 +47,6 @@ def readLogs( inputwellname, undefvalue ):
         return (lognames,logdata)
 
     for nm in lognames:
-        print(nm)
         ld = wellman.getLog( inputwellname, nm )
         lddf = pd.DataFrame( ld ).transpose()
         lddf.columns = ['MD',nm]
@@ -82,8 +81,6 @@ def prepareForPlot( wellnm ):
     else:
         mindepth = data.iloc[0][0]
         maxdepth = data.iloc[-1][0]
-
-    print(logx,logy,mindepth,maxdepth)
 
 wells = getWellNames()
 prepareForPlot( wells[0] )
