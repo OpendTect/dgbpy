@@ -61,8 +61,8 @@ if __name__ == '__main__':
   odcommon.log_msg( '\n' )
   dict = json.loads( args['dict'][0] )
   traintype = None
-  if dgbkeys.typedictstr in dict:
-    traintype = dgbmlapply.TrainType[ dict[dgbkeys.typedictstr] ]
+  if dgbkeys.learntypedictstr in dict:
+    traintype = dgbmlapply.TrainType[ dict[dgbkeys.learntypedictstr] ]
   model = None
   if 'model' in dict:
     model = dict['model']

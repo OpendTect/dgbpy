@@ -89,7 +89,7 @@ platformparsbut = uibokeh.getButton(paramtabnm,\
 outputnmfld = TextInput(title='Output model:')
 
 info = dgbmlio.getInfo( examplefilenm )
-keraspars = uikeras.getUiPars( info[dgbkeys.shapedictstr],
+keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
                               estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
 sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
 parsgroups = (keraspars,sklearnpars)
@@ -167,7 +167,7 @@ def getProcArgs( platfmnm, pars, outnm ):
     mldir = args['mldir']
     if mldir != None and len(mldir)>0:
       dict.update({'logdir': mldir[0]})
-  dict.update({dgbkeys.typedictstr: traintype.name})
+  dict.update({dgbkeys.learntypedictstr: traintype.name})
   return ret
 
 def doRun( cb = None ):
@@ -216,7 +216,7 @@ buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainM
 trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
 
 def initWin():
-  mllearntype = info[dgbkeys.typedictstr]
+  mllearntype = info[dgbkeys.learntypedictstr]
   if mllearntype == dgbkeys.loglogtypestr or \
      mllearntype == dgbkeys.seisproptypestr:
     platformfld.value = uisklearn.getPlatformNm(True)[0]

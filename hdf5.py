@@ -116,6 +116,17 @@ def get_np_shape( step, nrpts=None, nrattribs=None ):
     ret += (i*2+1,)
   return ret
 
+def getNrOutputs( info ):
+  outshape = info[outshapedictstr]
+  if isinstance(outshape,int):
+    return outshape
+  return outshape[0]
+
+def isImg2Img( info ):
+  if isinstance(info,dict):
+    return info[learntypedictstr] == seisimgtoimgtypestr
+  return info == seisimgtoimgtypestr
+
 def getCubeLets( infos, datasets, groupnm ):
   survnm = groupnm.replace( ' ', '_' )
   fromwells = survnm in infos[inputdictstr]
@@ -124,8 +135,9 @@ def getCubeLets( infos, datasets, groupnm ):
     attribsel = survnm
   inpnrattribs = get_nr_attribs( infos, attribsel )
   stepout = infos[stepoutdictstr]
+  nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
-  img2img = infos[shapedictstr] == seisimgtoimgtypestr
+  img2img = isImg2Img( infos )
   if img2img:
     outnrattribs = 1
   outdtype = np.float32
@@ -151,13 +163,13 @@ def getCubeLets( infos, datasets, groupnm ):
         if img2img:
           output = np.resize( y_data, outshape ).astype( outdtype )
         else:
-          output = np.resize( y_data, (nrpts,infos[nroutdictstr]) ).astype( outdtype )
+          output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
       else:
         cubelets = np.empty( inpshape, np.float32 )
         if img2img:
           output = np.empty( outshape, outdtype )
         else:
-          output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+          output = np.empty( (nrpts,nroutputs), outdtype )
         for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
           dset = x_data[dsetnm]
           odset = y_data[dsetnm]
@@ -186,7 +198,7 @@ def getCubeLets( infos, datasets, groupnm ):
         outshape = get_np_shape(stepout,nrpts,outnrattribs)
         output = np.empty( outshape, outdtype )
       else:
-        output = np.empty( (nrpts,infos[nroutdictstr]), outdtype )
+        output = np.empty( (nrpts,nroutputs), outdtype )
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = group[dsetnm]
         if img2img:
@@ -262,7 +274,7 @@ def getDatasets( infos, dsetsel=None, train=True, validation=True ):
 
 def validInfo( info ):
   try:
-    type = odhdf5.getText(info,typestr)
+    learntype = odhdf5.getText(info,typestr)
   except KeyError:
     std_msg("No type found. Probably wrong type of hdf5 file")
     return False
@@ -275,14 +287,14 @@ def getInfo( filenm ):
     h5file.close()
     return {}
 
-  isclassification = True
-  type = odhdf5.getText(info,typestr)
-  img2img = False
-  shapeval = cubeletvalstr
-  if odhdf5.hasAttr(info,shapestr):
-    shapeval = odhdf5.getText(info,shapestr)
-    img2img = shapeval == seisimgtoimgtypestr
-    isclassification = type == classvalstr
+  learntype = odhdf5.getText(info,typestr)
+  isclassification = learntype == seisclasstypestr
+  if odhdf5.hasAttr(info,contentvalstr):
+    isclassification = odhdf5.getText(info,contentvalstr) == classdatavalstr
+  shapeval = 'Cubelets'
+  img2img = isImg2Img(learntype)
+  if img2img:
+    shapeval = 'Images'
 
   if odhdf5.hasAttr(info,"Trace.Stepout"):
     stepout = odhdf5.getIStepInterval(info,"Trace.Stepout") 
@@ -302,7 +314,7 @@ def getInfo( filenm ):
       extype = 'Logs'
     elif odhdf5.hasAttr( info, namestr ):
       if img2img:
-        extype = imagevalstr
+        extype = 'Images'
         exname = survstr
       else:
         extype = 'Point-Sets'
@@ -393,7 +405,7 @@ def getInfo( filenm ):
         if odhdf5.hasAttr( info, dbkeystr ):
           attribinp.update({ dbkeydictstr: odhdf5.getText(info,dbkeystr) })
         if len(attribinp.keys()) > 0:
-          attribinp.update({ iddictstr: idy })
+          attribinp.update({ iddictstr: idy-idystart })
         if len(attribinp.keys()) > 0:
           attriblist.append( attribinp )
         scalekey = "Input."+str(idx)+".Stats."+str(idy)
@@ -411,12 +423,22 @@ def getInfo( filenm ):
     input.update({surveyfp[1]: inp})
     idx += 1
 
+  if learntype == loglogtypestr:
+    attribkey = logdictstr
+  else:
+    attribkey = attribdictstr
+  nrattribs = len( input[list(input.keys())[0]][attribkey] )
+  inpshape = get_np_shape( stepout, None, nrattribs )
+  outshape = nroutputs
+  if img2img:
+    outshape = get_np_shape( stepout, None, nroutputs )
+
   retinfo = {
-    typedictstr: type,
-    shapedictstr: shapeval,
+    learntypedictstr: learntype,
     stepoutdictstr: stepout,
+    inpshapedictstr: inpshape,
+    outshapedictstr: outshape,
     classdictstr: isclassification,
-    nroutdictstr: nroutputs,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
     inputdictstr: input,
@@ -432,12 +454,12 @@ def getInfo( filenm ):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   h5file.close()
 
-  if type == loglogtypestr or type == seisproptypestr:
+  if learntype == loglogtypestr or learntype == seisproptypestr:
     return getWellInfo( retinfo, filenm )
-  elif type == seisclasstypestr or type == seispredtypestr:
+  elif learntype == seisclasstypestr or isImg2Img(learntype):
     return getAttribInfo( retinfo, filenm )
 
-  std_msg( "Unrecognized dataset type: ", type )
+  std_msg( "Unrecognized learn type: ", learntype )
   raise KeyError
 
 def getAttribInfo( info, filenm ):
@@ -462,11 +484,11 @@ def getTotalSize(info):
       nrpts += len(alldata[inp])
   examplesshape = get_np_shape( step, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
-  img2img = info[shapedictstr] == seisimgtoimgtypestr
+  img2img = isImg2Img( info )
   if info[classdictstr]:
     nroutvals = len(info[classesdictstr])
   else:
-    nroutvals = info[nroutdictstr]
+    nroutvals = getNrOutputs( info )
   if img2img:
     outshape = get_np_shape( step, nrpts, nroutvals )
   else:
@@ -540,15 +562,15 @@ def getLogClassIndices( info ):
 def getOutputs( inpfile ):
   info = getInfo( inpfile )
   ret = list()
-  type = info[typedictstr]
+  learntype = info[learntypedictstr]
   isclassification = info[classdictstr]
   if isclassification:
     ret.append( classvalstr )
-    if type == seisclasstypestr:
+    if learntype == seisclasstypestr:
       ret.extend( getGroupNames(inpfile) )
     ret.append( confvalstr )
-  elif type == loglogtypestr or type == seisproptypestr \
-    or type==seispredtypestr:
+  elif learntype == loglogtypestr or learntype == seisproptypestr \
+    or learntype == seisimgtoimgtypestr:
     firsttarget = next(iter(info[exampledictstr]))
     targets = info[exampledictstr][firsttarget][targetdictstr]
     if isinstance(targets,list):

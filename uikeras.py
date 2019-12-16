@@ -28,9 +28,9 @@ def getSizeStr( sizeinbytes ):
     ret += str(int(sizeinbytes)) + ' bytes'
   return ret
 
-def getUiPars(shapetype,estimatedszgb=None):
+def getUiPars(learntype,estimatedszgb=None):
   dict = keras_dict
-  modeltypes = getUiModelTypes( shapetype )
+  modeltypes = getUiModelTypes( learntype )
   modeltypfld = Select(title='Type',value=modeltypes[0],
                        options=modeltypes )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],

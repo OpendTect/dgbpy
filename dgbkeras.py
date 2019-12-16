@@ -65,9 +65,9 @@ mobilnetv2idx = 3
 def isMobilNetV2( mltype ):
   return mltype == mltypes[mobilnetv2idx][0] or mltype == mltypes[mobilnetv2idx][1]
 
-def getUiModelTypes( shapetype ):
+def getUiModelTypes( learntype ):
   ret = ()
-  if shapetype == dgbkeys.seisimgtoimgtypestr:
+  if dgbhdf5.isImg2Img(learntype):
     ret += (mltypes[unetidx],)
   else:
     ret += (mltypes[letnetidx],)
@@ -225,7 +225,7 @@ def getDefaultModel(setup,type=keras_dict['type'],
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
-    nroutputs = setup[dgbkeys.nroutdictstr]
+    nroutputs = dgbhdf5.getNrOutputs( setup )
 
   nrattribs = dgbhdf5.get_nr_attribs(setup)
   allowodd = True

@@ -287,9 +287,7 @@ def dbInfoForModel( modnm, args, reload=True ):
   return oddbman.getInfoFromDBListByNameOrKey( modnm, dblistall )
 
 def getModelType( infos ):
-  if infos[dgbkeys.shapedictstr] == dgbkeys.seisimgtoimgtypestr:
-    return dgbkeys.seisimgtoimgtypestr
-  return infos[dgbkeys.typedictstr]
+  return infos[dgbkeys.learntypedictstr]
 
 def getSaveLoc( outnm, ftype, args ):
   dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)

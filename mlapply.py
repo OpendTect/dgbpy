@@ -74,7 +74,7 @@ def computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib):
 def computeScaler( infos, scalebyattrib, force=False ):
   datasets = infos[dgbkeys.trainseldicstr]
   inp = infos[dgbkeys.inputdictstr]
-  if infos[dgbkeys.typedictstr] == dgbkeys.loglogtypestr:
+  if infos[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
     if not dgbmlio.hasScaler(infos) or force:
       scaler = computeScaler_( datasets[0], infos, scalebyattrib )
       for inputnm in inp:
