@@ -464,7 +464,10 @@ def getInfo( filenm ):
 
 def getAttribInfo( info, filenm ):
   if info[classdictstr]:
-    info.update( {classesdictstr: getClassIndices(info)} )
+    if info[learntypedictstr] == seisclasstypestr:
+      info.update( {classesdictstr: getClassIndices(info)} )
+    else:
+      info.update( {classesdictstr: getClassIndicesFromData(info)} )
 
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
@@ -501,7 +504,7 @@ def getWellInfo( info, filenm ):
   infods = odhdf5.getInfoDataSet( h5file )
   info[classdictstr] = odhdf5.hasAttr(infods,'Target Value Type') and odhdf5.getText(infods,'Target Value Type') == "ID"
   if info[classdictstr]:
-    info.update( {classesdictstr: getLogClassIndices(info)} )
+    info.update( {classesdictstr: getClassIndicesFromData(info)} )
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
@@ -555,10 +558,30 @@ def getClassIndices( info, filternms=None ):
       ret.append( info[exampledictstr][groupnm][iddictstr] )
   return np.sort( ret )
 
-def getLogClassIndices( info ):
-  #TODO: read the actual distribution of output Log values
-  return getClassIndices( info )
-
+def getClassIndicesFromData( info ):
+  filenm = info[filedictstr]
+  groups = getGroupNames( filenm )
+  h5file = h5py.File( filenm, 'r' )
+  isimg2img =  isImg2Img( info )
+  ret = list()
+  for groupnm in groups:
+    grp = h5file[groupnm]
+    if isimg2img:
+      for inpnm in grp:
+        sublist = list(set(grp[inpnm][0].astype('uint8').ravel()))
+        sublist.extend( ret )
+        ret = list(set(sublist))
+    else:
+      nrvals = len(grp)
+      vals = np.empty( nrvals, dtype='uint8' )
+      for ival,dsetnm in zip(range(nrvals),grp):
+        dset = grp[dsetnm]
+        vals[ival] = odhdf5.getIntValue( dset, valuestr )
+      sublist = list(set(vals.ravel()))
+      sublist.extend( ret )
+      ret = list(set(sublist))
+  return np.sort( ret )
+  
 def getOutputs( inpfile ):
   info = getInfo( inpfile )
   ret = list()
