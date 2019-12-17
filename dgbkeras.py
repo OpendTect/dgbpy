@@ -612,19 +612,21 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
   restore_stdout()
   ret = {}
   res = None
-  samples = adaptToModel( model, samples, sample_data_format='channels_first' )
+  inp_shape = samples.shape
+  data_format = 'channels_first'
+  samples = adaptToModel( model, samples, sample_data_format=data_format )
     
   if withpred:
     if isclassification:
       res = model.predict_classes( samples, batch_size=batch_size )
     else:
       res = model.predict( samples, batch_size=batch_size )
-      res = res.transpose()
-      #TODO: make one output array for each column
+    res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
     ret.update({dgbkeys.preddictstr: res})
  
   if isclassification and (doprobabilities or withconfidence):
     allprobs = model.predict( samples, batch_size=batch_size )
+    allprobs = adaptFromModel(model,False,allprobs,inp_shape,ret_data_format=data_format)
     if doprobabilities:
       res = np.copy(allprobs[:,withprobs],allprobs.dtype)
       ret.update({dgbkeys.probadictstr: res})
@@ -637,6 +639,7 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
       ret.update({dgbkeys.confdictstr: res})
 
   return ret
+
 
 def adaptToModel( model, samples, sample_data_format='channels_first' ):
   nrdims = len( model.input_shape ) - 2
@@ -783,6 +786,81 @@ def adaptToModel( model, samples, sample_data_format='channels_first' ):
         return samples
       return ret
   return samples
+
+def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format ):
+  nrdims = len( model.output_shape )
+  if nrdims == 2:
+    if classification:
+      return res
+    else:
+      return res.transpose()
+
+  nrpts = inp_shape[0]
+  cube_shape = (nrpts,)
+  model_data_format = getDataFormat( model )
+  switchedattribs = model_data_format != ret_data_format
+  shapelims = ()
+  if model_data_format == 'channels_first':
+    nrattribs = model.output_shape[1]
+    for i in range(2,nrdims):
+      shapelims += (model.output_shape[i],)
+  else:
+    nrattribs = model.output_shape[-1]
+    for i in range(1,nrdims-1):
+      shapelims += (model.output_shape[i],)
+
+  if ret_data_format == 'channels_first':
+    cube_shape += (nrattribs,)
+  if ret_data_format == 'channels_first':
+    for i in range(2,nrdims):
+      cube_shape += (inp_shape[i],)
+  else:
+    for i in range(1,nrdims-1):
+      cube_shape += (inp_shape[i],)
+  if ret_data_format == 'channels_last':
+    cube_shape += (nrattribs,)
+
+  res = np.zeros( cube_shape, samples.dtype )
+  if model_data_format == 'channels_last':
+    if nrdims == 5:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,iattr,:shapelims[0],:shapelims[1],:shapelims[2]] = samples[:,:,:,:,iattr]
+      else:
+        res[:,:shapelims[0],:shapelims[1],:shapelims[2]] = samples
+    if nrdims == 4:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,iattr,:shapelims[0],:shapelims[1]] = samples[:,:,:,iattr]
+      else:
+        res[:,:shapelims[0],:shapelims[1]] = samples
+    if nrdims == 3:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,iattr,:shapelims[0]] = samples[:,:,iattr]
+      else:
+        res[:,:shapelims[0]] = samples
+  else:
+    if nrdims == 5:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,:shapelims[0],:shapelims[1],:shapelims[2],iattr] = samples[:,iattr]
+      else:
+        res[:,:,:shapelims[0],:shapelims[1],:shapelims[2]] = samples
+    if nrdims == 4:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,:shapelims[0],:shapelims[1],iattr] = samples[:,iattr]
+      else:
+        res[:,:,:shapelims[0],:shapelims[1]] = samples
+    if nrdims == 3:
+      if switchedattribs:
+        for iattr in range(nrattribs):
+          res[:,:shapelims[0],iattr] = samples[:,iattr]
+      else:
+        res[:,:,:shapelims[0]] = samples
+
+  return res
 
 def plot( model, outfnm, showshapes=True, withlaynames=False, vertical=True ):
   try:
