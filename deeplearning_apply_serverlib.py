@@ -106,7 +106,6 @@ class ModelApplier:
         stepout = self.info_['stepout']
         nrzin = inp.shape[-1]
         vertical =  isinstance(stepout,int)
-#        log_msg( inp.shape, nrattribs, stepout, nrzin, vertical )
         if vertical:
             chunksz = 1
             nrzoutsamps = nrzin - 2*stepout
@@ -114,12 +113,10 @@ class ModelApplier:
             chunksz = inp.shape[2] - 2*stepout[1]
             nrzoutsamps = nrzin - 2*stepout[2]
         nroutsamps = nrzoutsamps * chunksz
-#        log_msg( chunksz, nrzoutsamps )
         samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
                                               nrpts=nrzoutsamps )
         nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
-#        log_msg( samples_shape, nrtrcs, nrz )
         allsamples = list()
         for i in range(chunksz):
           if nrz == 1:
