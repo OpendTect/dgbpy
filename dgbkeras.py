@@ -790,10 +790,10 @@ def adaptToModel( model, samples, sample_data_format='channels_first' ):
 def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format ):
   nrdims = len( model.output_shape )
   if nrdims == 2:
-    if classification:
-      return res
+    if isclassification:
+      return samples
     else:
-      return res.transpose()
+      return samples.transpose()
 
   nrpts = inp_shape[0]
   cube_shape = (nrpts,)
