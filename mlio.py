@@ -274,10 +274,11 @@ def modelNameExists( modnm, type, args, reload=True ):
   modinfo = dbInfoForModel( modnm, args, reload )
   exists = modinfo != None
   if exists:
-    sametrl =  modinfo['TranslatorGroup'] == mltrlgrp
     sameformat = modinfo['Format'] == dgbtrl
     if 'Type' in modinfo:
       sametyp = type == modinfo['Type']
+    if 'TranslatorGroup' in modinfo:
+      sametrl = modinfo['TranslatorGroup'] == mltrlgrp
   return (exists,sametrl,sameformat,sametyp)
 
 def dbInfoForModel( modnm, args, reload=True ):
