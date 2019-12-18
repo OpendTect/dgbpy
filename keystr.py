@@ -59,6 +59,7 @@ zstepdictstr = 'zstep'
 
 # Value keys
 
+classvalstr = 'Classes'
 classdatavalstr = 'Classification Data'
 classvalstr = 'Classification'
 continuousvalstr = 'Continuous Data'

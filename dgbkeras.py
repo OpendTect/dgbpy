@@ -620,7 +620,10 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
     
   if withpred:
     if isclassification:
-      res = model.predict_classes( samples, batch_size=batch_size )
+      try:
+        res = model.predict_classes( samples, batch_size=batch_size )
+      except AttributeError:
+        res = model.predict( samples, batch_size=batch_size )
     else:
       res = model.predict( samples, batch_size=batch_size )
     res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
@@ -811,13 +814,14 @@ def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format
     for i in range(1,nrdims-1):
       shapelims += (model.output_shape[i],)
 
+  data_dims = len(inp_shape)
   if ret_data_format == 'channels_first':
     cube_shape += (nrattribs,)
   if ret_data_format == 'channels_first':
-    for i in range(2,nrdims):
+    for i in range(2,data_dims):
       cube_shape += (inp_shape[i],)
   else:
-    for i in range(1,nrdims-1):
+    for i in range(1,data_dims-1):
       cube_shape += (inp_shape[i],)
   if ret_data_format == 'channels_last':
     cube_shape += (nrattribs,)
@@ -831,17 +835,37 @@ def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format
       else:
         res[:,:shapelims[0],:shapelims[1],:shapelims[2]] = samples
     if nrdims == 4:
-      if switchedattribs:
-        for iattr in range(nrattribs):
-          res[:,iattr,:shapelims[0],:shapelims[1]] = samples[:,:,:,iattr]
-      else:
-        res[:,:shapelims[0],:shapelims[1]] = samples
+      if data_dims == 5:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,iattr,:,:shapelims[0],:shapelims[1]] = samples[:,:,:,iattr]
+        else:
+          res[:,:,:shapelims[0],:shapelims[1]] = samples
+      elif data_dims == 4:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,iattr,:shapelims[0],:shapelims[1]] = samples[:,:,:,iattr]
+        else:
+          res[:,:shapelims[0],:shapelims[1]] = samples
     if nrdims == 3:
-      if switchedattribs:
-        for iattr in range(nrattribs):
-          res[:,iattr,:shapelims[0]] = samples[:,:,iattr]
-      else:
-        res[:,:shapelims[0]] = samples
+      if data_dims == 5:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,iattr,:,:,:shapelims[0]] = samples[:,:,iattr]
+        else:
+          res[:,:,:,:shapelims[0]] = samples
+      elif data_dims == 4:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,iattr,:,:shapelims[0]] = samples[:,:,iattr]
+        else:
+          res[:,:,:shapelims[0]] = samples
+      elif data_dims == 3:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,iattr,:shapelims[0]] = samples[:,:,iattr]
+        else:
+          res[:,:shapelims[0]] = samples
   else:
     if nrdims == 5:
       if switchedattribs:
@@ -850,17 +874,37 @@ def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format
       else:
         res[:,:,:shapelims[0],:shapelims[1],:shapelims[2]] = samples
     if nrdims == 4:
-      if switchedattribs:
-        for iattr in range(nrattribs):
-          res[:,:shapelims[0],:shapelims[1],iattr] = samples[:,iattr]
-      else:
-        res[:,:,:shapelims[0],:shapelims[1]] = samples
+      if data_dims == 5:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,:,:shapelims[0],:shapelims[1],iattr] = samples[:,iattr]
+        else:
+          res[:,:,:,:shapelims[0],:shapelims[1]] = samples
+      elif data_dims == 4:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,:shapelims[0],:shapelims[1],iattr] = samples[:,iattr]
+        else:
+          res[:,:,:shapelims[0],:shapelims[1]] = samples
     if nrdims == 3:
-      if switchedattribs:
-        for iattr in range(nrattribs):
-          res[:,:shapelims[0],iattr] = samples[:,iattr]
-      else:
-        res[:,:,:shapelims[0]] = samples
+      if data_dims == 5:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,:,:,:shapelims[0],iattr] = samples[:,iattr]
+        else:
+          res[:,:,:,:,:shapelims[0]] = samples
+      elif data_dims == 4:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,:,:shapelims[0],iattr] = samples[:,iattr]
+        else:
+          res[:,:,:,:shapelims[0]] = samples
+      elif data_dims == 3:
+        if switchedattribs:
+          for iattr in range(nrattribs):
+            res[:,:shapelims[0],iattr] = samples[:,iattr]
+        else:
+          res[:,:,:shapelims[0]] = samples
 
   return res
 
