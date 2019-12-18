@@ -472,6 +472,9 @@ def getAttribInfo( info, filenm ):
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
 
+def getNrClasses(info):
+  return len(info[classesdictstr])
+
 def arroneitemsize( dtype ):
   arr = np.empty(1,dtype)
   return arr.itemsize
@@ -489,7 +492,7 @@ def getTotalSize(info):
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
   img2img = isImg2Img( info )
   if info[classdictstr]:
-    nroutvals = len(info[classesdictstr])
+    nroutvals = getNrClasses(info)
   else:
     nroutvals = getNrOutputs( info )
   if img2img:

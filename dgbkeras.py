@@ -162,9 +162,6 @@ def getCubeletStepout( model ):
       stepout += (int(cubesz/2),)
   return (stepout,cubeszs)
 
-def getNrClasses( model ):
-  return model.output_shape[-1]
-
 def getLogDir( basedir, args ):
   logdir = basedir
   if not withtensorboard or logdir == None or not os.path.exists(logdir):
@@ -319,6 +316,7 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
   from keras.layers import (Activation,Dense,Flatten)
   from keras.layers.normalization import BatchNormalization
   from keras.models import Sequential
+  from keras.optimizers import Adam
 
   nrdims = getModelDims( model_shape, data_format )
   model = Sequential()
@@ -345,18 +343,19 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
 # initiate the model compiler options
   metrics = ['accuracy']
   if isclassification:
-    opt = keras.optimizers.adam(lr=learnrate)
+    opt = Adam(lr = learnrate)
     if nroutputs > 2:
       loss = 'categorical_crossentropy'
     else:
       loss = 'binary_crossentropy'
   else:
     opt = keras.optimizers.RMSprop(lr=learnrate)
+    loss = cross_entropy_balanced
 #    set_epsilon( 1 )
-    from keras import backend as K
-    def root_mean_squared_error(y_true, y_pred):
-      return K.sqrt(K.mean(K.square(y_pred - y_true)))
-    loss = root_mean_squared_error
+#    from keras import backend as K
+#    def root_mean_squared_error(y_true, y_pred):
+#      return K.sqrt(K.mean(K.square(y_pred - y_true)))
+#    loss = root_mean_squared_error
 
 # Compile the model with the desired optimizer, loss, and metric
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
@@ -368,32 +367,49 @@ def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
   redirect_stdout()
   import keras
   restore_stdout()
+  from keras.layers import Input
+  from keras.models import Model
   from keras.optimizers import Adam
+
+  inputs = Input(model_shape)
+  if data_format == 'channels_first':
+    axis = 1
+  else:
+    axis = len(model_shape)
+  if isclassification:
+    nroutputs = 1
 
   #TODO: support of odd numbers??
   nrdims = getModelDims( model_shape, data_format )
   if nrdims == 3:
-    model = getDefaultUnet3D( model_shape, data_format )
+    lastconv = getDefaultUnet3D( inputs, data_format, axis, nroutputs )
   elif nrdims == 2:
-    model = getDefaultUnet2D( model_shape, data_format )
+    lastconv = getDefaultUnet2D( inputs, data_format, axis, nroutputs )
   elif nrdims == 1:
-    model = getDefaultUnet1D( model_shape, data_format )
+    lastconv = getDefaultUnet1D( inputs, data_format, axis, nroutputs )
   else:
     return None
+  
+  model = Model(inputs=[inputs], outputs=[lastconv])
 
-  model.compile(optimizer = Adam(lr = learnrate), \
-                loss = cross_entropy_balanced, metrics = ['accuracy'])
+  metrics = ['accuracy']
+  opt = Adam(lr = learnrate)
+#  if isclassification:
+#    if nroutputs > 2:
+#      loss = 'categorical_crossentropy'
+#    else:
+#      loss = 'binary_crossentropy'
+#      loss = 'sparse_categorical_crossentropy'
+#      metrics = ['sparse_categorical_accuracy']
+#  else:
+#    loss = 'cross_entropy_balanced'
+  loss = cross_entropy_balanced
+
+  model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
-def getDefaultUnet3D( shape, format ):
-  from keras.layers import (concatenate,Conv3D,Input,MaxPooling3D,UpSampling3D)
-  from keras.models import Model
-
-  inputs = Input(shape)
-  if format == 'channels_first':
-    axis = 1
-  else:
-    axis = len(shape)
+def getDefaultUnet3D( inputs, format, axis, nroutputs ):
+  from keras.layers import (concatenate,Conv3D,MaxPooling3D,UpSampling3D)
 
   conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(inputs)
   conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(conv1)
@@ -422,19 +438,12 @@ def getDefaultUnet3D( shape, format ):
   conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(up7)
   conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(conv7)
 
-  conv8 = Conv3D(1, (1,1,1), activation='sigmoid', data_format=format)(conv7)
-  return Model(inputs=[inputs], outputs=[conv8])
+  conv8 = Conv3D(nroutputs, (1,1,1), activation='sigmoid', data_format=format)(conv7)
+  return conv8
 
 
-def getDefaultUnet2D( shape, format ):
-  from keras.layers import (concatenate,Conv2D,Input,MaxPooling2D,UpSampling2D)
-  from keras.models import Model
-
-  inputs = Input(shape)
-  if format == 'channels_first':
-    axis = 1
-  else:
-    axis = len(shape)
+def getDefaultUnet2D( inputs, format, axis, nroutputs ):
+  from keras.layers import (concatenate,Conv2D,MaxPooling2D,UpSampling2D)
 
   conv1 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(inputs)
   conv1 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(conv1)
@@ -463,18 +472,11 @@ def getDefaultUnet2D( shape, format ):
   conv7 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(up7)
   conv7 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(conv7)
 
-  conv8 = Conv2D(1, (1,1), activation='sigmoid', data_format=format)(conv7)
-  return Model(inputs=[inputs], outputs=[conv8])
+  conv8 = Conv2D(nroutputs, (1,1), activation='sigmoid', data_format=format)(conv7)
+  return conv8
 
-def getDefaultUnet1D( shape, format ):
-  from keras.layers import (concatenate,Conv1D,Input,MaxPooling1D,UpSampling1D)
-  from keras.models import Model
-
-  inputs = Input(shape)
-  if format == 'channels_first':
-    axis = 1
-  else:
-    axis = len(shape)
+def getDefaultUnet1D( inputs, format, axis, nroutputs ):
+  from keras.layers import (concatenate,Conv1D,MaxPooling1D,UpSampling1D)
 
   conv1 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(inputs)
   conv1 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(conv1)
@@ -503,8 +505,8 @@ def getDefaultUnet1D( shape, format ):
   conv7 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(up7)
   conv7 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(conv7)
 
-  conv8 = Conv1D(1, 1, activation='sigmoid',data_format=format)(conv7)
-  return Model(inputs=[inputs], outputs=[conv8])
+  conv8 = Conv1D(nroutputs, 1, activation='sigmoid',data_format=format)(conv7)
+  return conv8
 
 def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   redirect_stdout()
@@ -560,8 +562,8 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
       y_train = adaptToModel( model, y_train )
     if len(y_validate.shape) > 2:
       y_validate = adaptToModel( model, y_validate )
-    if classification:
-      nrclasses = getNrClasses(model)
+    if classification and not dgbhdf5.isImg2Img(infos):
+      nrclasses = dgbhdf5.getNrClasses( infos )
       y_train = keras.utils.to_categorical(y_train,nrclasses)
       y_validate = keras.utils.to_categorical(y_validate,nrclasses)
     redirect_stdout()
