@@ -214,7 +214,7 @@ def getApplyInfoFromFile( modelfnm, outsubsel=None ):
 def getApplyInfo( infos, outsubsel=None ):
   isclassification = infos[dgbkeys.classdictstr]
   if isclassification:
-    names = [dgbkeys.classvalstr]
+    names = [dgbkeys.classificationvalstr]
     preddtype = 'uint8'
   else:
     names = []
@@ -232,7 +232,7 @@ def getApplyInfo( infos, outsubsel=None ):
     if dgbkeys.dtypeconf in outsubsel:
       confdtype = outsubsel[dgbkeys.dtypeconf]
 
-  withpred = (isclassification and dgbkeys.classvalstr in names) or \
+  withpred = (isclassification and dgbkeys.classificationvalstr in names) or \
              not isclassification
   if isclassification:
     withprobs = dgbhdf5.getClassIndices( infos, names )

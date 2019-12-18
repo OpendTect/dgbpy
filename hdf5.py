@@ -567,8 +567,8 @@ def getClassIndicesFromData( info ):
   filenm = info[filedictstr]
   h5file = h5py.File( filenm, 'r' )
   dsinfoin = odhdf5.ensureHasDataset( h5file )
-  if odhdf5.hasAttr( dsinfoin, classvalstr ):
-    return odhdf5.getIArray( dsinfoin, classvalstr )
+  if odhdf5.hasAttr( dsinfoin, classesvalstr ):
+    return odhdf5.getIArray( dsinfoin, classesvalstr )
   isimg2img =  isImg2Img( info )
   groups = getGroupNames( filenm )
   ret = list()
@@ -592,7 +592,7 @@ def getClassIndicesFromData( info ):
   h5file.close()
   h5fileout = h5py.File( filenm, 'r+' )
   dsinfoout = odhdf5.ensureHasDataset( h5fileout )
-  odhdf5.setArray( dsinfoout, classvalstr, ret )
+  odhdf5.setArray( dsinfoout, classesvalstr, ret )
   return ret
   
 def getOutputs( inpfile ):
@@ -601,7 +601,7 @@ def getOutputs( inpfile ):
   learntype = info[learntypedictstr]
   isclassification = info[classdictstr]
   if isclassification:
-    ret.append( classvalstr )
+    ret.append( classificationvalstr  )
     if learntype == seisclasstypestr:
       ret.extend( getGroupNames(inpfile) )
       ret.append( confvalstr )
