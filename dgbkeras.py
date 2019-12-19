@@ -583,7 +583,23 @@ def save( model, outfnm ):
 def load( modelfnm, fortrain ):
   redirect_stdout()
   from keras.models import load_model
-  ret = load_model( modelfnm, compile=fortrain )
+  try:
+    ret = load_model( modelfnm, compile=fortrain )
+  except ValueError:
+    configfile = os.path.splitext( modelfnm )[0] + '.json'
+    if not os.path.isfile(configfile):
+      return None
+    import json
+    with open(configfile,'r') as f:
+      model_json = json.load(f)
+    from keras.models import model_from_json
+    try:
+      ret = model_from_json(model_json)
+    except TypeError:
+      model_json_str = json.dumps( model_json )
+      ret = model_from_json( model_json_str )
+    ret.load_weights(modelfnm)
+      
   restore_stdout()
   return ret
 
