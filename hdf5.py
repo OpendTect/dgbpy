@@ -117,10 +117,7 @@ def get_np_shape( step, nrpts=None, nrattribs=None ):
   return ret
 
 def getNrOutputs( info ):
-  outshape = info[outshapedictstr]
-  if isinstance(outshape,int):
-    return outshape
-  return outshape[0]
+  return info[nroutdictstr]
 
 def isImg2Img( info ):
   if isinstance(info,dict):
@@ -428,16 +425,17 @@ def getInfo( filenm ):
   else:
     attribkey = attribdictstr
   nrattribs = len( input[list(input.keys())[0]][attribkey] )
-  inpshape = get_np_shape( stepout, None, nrattribs )
+  inpshape = get_np_shape( stepout, None, None )
   outshape = nroutputs
   if img2img:
-    outshape = get_np_shape( stepout, None, nroutputs )
+    outshape = get_np_shape( stepout, None, None )
 
   retinfo = {
     learntypedictstr: learntype,
     stepoutdictstr: stepout,
     inpshapedictstr: inpshape,
     outshapedictstr: outshape,
+    nroutdictstr: nroutputs,
     classdictstr: isclassification,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
@@ -536,6 +534,13 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
   h5filein.close()
   odhdf5.setAttr( dsinfoout, versionstr, str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
+  if plfnm == kerasplfnm:
+    odhdf5.setArray( dsinfoout, 'Input.Trace.Shape', infos[inpshapedictstr] )
+    if infos[learntypedictstr] == seisimgtoimgtypestr:
+      odhdf5.setArray( dsinfoout, 'Output.Trace.Shape', infos[outshapedictstr] )
+    else:
+      odhdf5.setAttr( dsinfoout, 'Output.Trace.Shape', str(getNrOutputs(infos)))
+
   outps = getOutputs( inpfile )
   nrout = len(outps)
   odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(nrout) )

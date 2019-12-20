@@ -350,12 +350,12 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
       loss = 'binary_crossentropy'
   else:
     opt = keras.optimizers.RMSprop(lr=learnrate)
-    loss = cross_entropy_balanced
-#    set_epsilon( 1 )
-#    from keras import backend as K
-#    def root_mean_squared_error(y_true, y_pred):
-#      return K.sqrt(K.mean(K.square(y_pred - y_true)))
-#    loss = root_mean_squared_error
+#    loss = cross_entropy_balanced
+    set_epsilon( 1 )
+    from keras import backend as K
+    def root_mean_squared_error(y_true, y_pred):
+      return K.sqrt(K.mean(K.square(y_pred - y_true)))
+    loss = root_mean_squared_error
 
 # Compile the model with the desired optimizer, loss, and metric
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
@@ -575,6 +575,13 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     restore_stdout()
 
   keras.utils.print_summary( model, print_fn=log_msg )
+  if getDataFormat(model) == 'channels_first':
+    infos[dgbkeys.inpshapedictstr] = model.input_shape[2:]
+    infos[dgbkeys.outshapedictstr] = model.output_shape[2:]
+  else:
+    infos[dgbkeys.inpshapedictstr] = model.input_shape[1:-1]
+    infos[dgbkeys.outshapedictstr] = model.output_shape[1:-1]
+
   return model
 
 def save( model, outfnm ):

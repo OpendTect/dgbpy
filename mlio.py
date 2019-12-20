@@ -8,6 +8,7 @@
 # various tools machine learning data handling
 #
 
+import os
 import numpy as np
 
 import odpy.dbman as oddbman
@@ -180,6 +181,10 @@ def unnormalize_class_vector( arr, classes ):
 
 def saveModel( model, inpfnm, platform, infos, outfnm ):
   from odpy.common import log_msg
+  try:
+    os.remove( outfnm )
+  except Exception as e:
+    log_msg( 'Cannot save model:', e )
   log_msg( 'Saving model.' )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
