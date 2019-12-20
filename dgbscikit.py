@@ -251,6 +251,11 @@ def transform( samples, mean, stddev ):
   samples /= stddev
   return samples
 
+def transformBack( samples, mean, stddev ):
+  samples *= stddev
+  samples += mean
+  return samples
+
 def scale( samples, scaler ):
   if scaler == None:
     return samples
@@ -259,6 +264,17 @@ def scale( samples, scaler ):
   else:
     for i in range(scaler.n_samples_seen_):
       samples[:,i] = transform( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
+  
+  return samples
+
+def unscale( samples, scaler ):
+  if scaler == None:
+    return samples
+  if scaler.n_samples_seen_ == 1:
+    samples = transformBack( samples, scaler.mean_[0], scaler.scale_[0] )
+  else:
+    for i in range(scaler.n_samples_seen_):
+      samples[:,i] = transformBack( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
   
   return samples
 

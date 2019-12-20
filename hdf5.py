@@ -371,7 +371,11 @@ def getInfo( filenm ):
   idx = 0
   input = {}
   while idx < inp_sz:
-    surveyfp = path.split( odhdf5.getText(info,"Input."+str(idx)+".Survey") )
+    survtxtstr = 'Input.'+str(idx)+'.Survey'
+    if odhdf5.hasAttr( info, survtxtstr ):
+      surveyfp = path.split( odhdf5.getText(info,survtxtstr) )
+    else:
+      surveyfp = [None,None]
     inp = {
       pathdictstr: surveyfp[0],
       iddictstr: idx
@@ -425,10 +429,16 @@ def getInfo( filenm ):
   else:
     attribkey = attribdictstr
   nrattribs = len( input[list(input.keys())[0]][attribkey] )
-  inpshape = get_np_shape( stepout, None, None )
-  outshape = nroutputs
-  if img2img:
-    outshape = get_np_shape( stepout, None, None )
+  if odhdf5.hasAttr(info,inttrcshapestr):
+    inpshape = odhdf5.getIArray( info, inttrcshapestr )
+  else:
+    inpshape = get_np_shape( stepout, None, None )
+  if odhdf5.hasAttr(info,outtrcshapestr):
+    outshape = odhdf5.getIArray( info, outtrcshapestr )
+  else:
+    outshape = nroutputs
+    if img2img:
+      outshape = get_np_shape( stepout, None, None )
 
   retinfo = {
     learntypedictstr: learntype,
@@ -535,11 +545,11 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
   odhdf5.setAttr( dsinfoout, versionstr, str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
   if plfnm == kerasplfnm:
-    odhdf5.setArray( dsinfoout, 'Input.Trace.Shape', infos[inpshapedictstr] )
+    odhdf5.setArray( dsinfoout, inttrcshapestr, infos[inpshapedictstr] )
     if infos[learntypedictstr] == seisimgtoimgtypestr:
-      odhdf5.setArray( dsinfoout, 'Output.Trace.Shape', infos[outshapedictstr] )
+      odhdf5.setArray( dsinfoout, outtrcshapestr, infos[outshapedictstr] )
     else:
-      odhdf5.setAttr( dsinfoout, 'Output.Trace.Shape', str(getNrOutputs(infos)))
+      odhdf5.setAttr( dsinfoout, outtrcshapestr, str(getNrOutputs(infos)))
 
   outps = getOutputs( inpfile )
   nrout = len(outps)

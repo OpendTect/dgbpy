@@ -31,6 +31,7 @@ class ModelApplier:
         self.pars_ = None
         self.fakeapply_ = isfake
         self.scaler_ = None
+        self.extscaler_ = None
         (self.model_,self.info_) = self._open()
         self.applyinfo_ = None
 
@@ -48,8 +49,7 @@ class ModelApplier:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
-        if dgbmlio.hasScaler(self.info_):
-            self.scaler_ = self.getScaler( outputs )
+        (self.scaler_,self.extscaler_) = self.getScaler( outputs )
 
     def _usePar(self, pars):
         self.pars_ = pars
@@ -57,9 +57,18 @@ class ModelApplier:
     def hasModel(self):
         return self.model_ != None
 
+    def getDefaultScaler(self):
+        means = list()
+        stddevs = list()
+        for i in range(dgbhdf5.get_nr_attribs(self.info_)):
+            stddevs.append( 50 )
+            means.append( 128 )
+        self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
+        return self.extscaler_
+
     def getScaler( self, outputs ):
         if not 'scales' in outputs:
-            return self.scaler_
+            return (self.scaler_,self.extscaler_)
 
         scales = outputs['scales']
         means = list()
@@ -72,9 +81,10 @@ class ModelApplier:
 
         if len(means) > 0:
             self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
-        if outputs[dgbkeys.surveydictstr] in self.info_[dgbkeys.inputdictstr]:
+        inputs = self.info_[dgbkeys.inputdictstr]
+        if outputs[dgbkeys.surveydictstr] in inputs:
             survdirnm = outputs[dgbkeys.surveydictstr]
-            inp = self.info_[dgbkeys.inputdictstr][survdirnm]
+            inp = inputs[survdirnm]
             if dgbkeys.scaledictstr in inp:
                 inpscale = inp[dgbkeys.scaledictstr]
                 if dgbkeys.attribdictstr in inp:
@@ -99,7 +109,22 @@ class ModelApplier:
                     stddevs.append( inpscale.scale_[i] )
                   if len(means) > 0:
                     self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
-        return self.scaler_
+        elif dgbkeys.mlsoftkey in inputs:
+            inp = inputs[dgbkeys.mlsoftkey]
+            means = list()
+            stddevs = list()
+            if dgbkeys.scaledictstr in inp:
+                inpscale = inp[dgbkeys.scaledictstr]
+                for (scale,mean) in zip(inpscale.scale_,inpscale.mean_):
+                    stddevs.append( scale )
+                    means.append( mean )
+                self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
+            else:
+                self.extscaler_ = self.getDefaultScaler()
+        else:
+            self.extscaler_ = self.getDefaultScaler()
+
+        return (self.scaler_,self.extscaler_)
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
@@ -135,6 +160,8 @@ class ModelApplier:
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
         samples = dgbscikit.scale( samples, self.scaler_ )
+        if self.extscaler_ != None:
+          samples = dgbscikit.unscale( samples, self.extscaler_ )
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
         res = list()
