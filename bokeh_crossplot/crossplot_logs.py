@@ -158,7 +158,7 @@ def create_bubblecrossplot(alldata, source, data):
 
     p = figure(plot_height=600, plot_width=800,
                background_fill_color="#f0f0f0",
-               tools='pan,box_zoom, lasso_select, box_select, hover, reset',
+               tools='pan,box_zoom,lasso_select,box_select,hover,reset',
                title = kw['title'])
     p.xaxis.axis_label = x_title
     p.yaxis.axis_label = y_title
@@ -307,7 +307,7 @@ def create_logplot(alldata, nr, source, data):
                   x_axis_label = x_axis_label,
                   x_axis_location = 'above',
                   background_fill_color="#f0f0f0",
-                  tools='pan,wheel_zoom,box_select,reset,hover,save',
+                  tools='ypan,ywheel_zoom,box_select,reset,hover',
                   y_axis_label=ylabel)
     ticker = []
     for i in range(0,-10000,-depthticks):
