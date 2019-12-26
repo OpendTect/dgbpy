@@ -36,8 +36,15 @@ logcol = nolog
 logsz = nolog
 
 def getWellNames():
+    wells = []
     wellnames = wellman.getNames()
-    return wellnames
+    for nm in wellnames:
+        lognames = wellman.getLogNames( nm )
+        if not lognames:
+            continue
+        wells.append( nm )
+
+    return wells
 
 
 def readLogs( inputwellname, undefvalue ):
