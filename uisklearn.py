@@ -13,7 +13,7 @@ from bokeh.layouts import row, column
 from bokeh.models import Spacer
 from bokeh.models.widgets import Button, Select, Slider
 
-from odpy import common as odcommon
+from odpy.common import log_msg
 from dgbpy.dgbscikit import *
 from dgbpy import uibokeh
 
@@ -77,30 +77,42 @@ def getEnsembleGrp():
 def getNNGrp():
   dict = scikit_dict
   nntyp = Select(title='Model',value = 'Multi-Layer Perception',options=getUiNNTypes() )
-  itrparfld = Slider(start=10,end=1000,value=dict['nnpars']['maxitr'],step=1,title='Max Iteration')
-  lay1parfld = Slider(start=1,end=200,step=1,value=50,value_throttled=50,
+  itrparfld = Slider(start=10,end=1000,value=dict['nnpars']['maxitr'],title='Max Iteration')
+  lay1parfld = Slider(start=1,end=200,value=50,
                       title='Layer 1', callback_policy='mouseup')
-  lay2parfld = Slider(start=1,end=50,value=dict['nnpars']['lay2'],value_throttled=dict['nnpars']['lay2'],
-                      step=1,title='Layer 2',callback_policy='mouseup')
-  lay3parfld = Slider(start=1,end=10,value=dict['nnpars']['lay3'],value_throttled=dict['nnpars']['lay3'],
-                      step=1,title='Layer 3',callback_policy='mouseup')
-  lay4parfld = Slider(start=1,end=5,value=dict['nnpars']['lay4'],value_throttled=dict['nnpars']['lay4'],
-                      step=1,title='Layer 4',callback_policy='mouseup')
-  lay5parfld = Slider(start=1,end=3,value=dict['nnpars']['lay5'],value_throttled=dict['nnpars']['lay5'],
-                      step=1,title='Layer 5',callback_policy='mouseup')
+  lay2parfld = Slider(start=1,end=50,value=dict['nnpars']['lay2'],
+                      title='Layer 2',callback_policy='mouseup')
+  lay3parfld = Slider(start=1,end=10,value=dict['nnpars']['lay3'],
+                      title='Layer 3',callback_policy='mouseup')
+  lay4parfld = Slider(start=1,end=5,value=dict['nnpars']['lay4'],
+                      title='Layer 4',callback_policy='mouseup')
+  lay5parfld = Slider(start=1,end=3,value=dict['nnpars']['lay5'],
+                      title='Layer 5',callback_policy='mouseup')
   lrparfld = Slider(start=1,end=100,value=dict['nnpars']['lr']*1000,
                     title='Initial Learning Rate '+ '('+u'\u2030'+')')
   # just need number, we treat like this in order to simplify further code
-  nb = Slider(start=1,end=5,value=3,step=1)
+  nb = Slider(start=1,end=5,value=3)
   addbutton = Button(label='Add',button_type=defaultbut,width=but_width,height=but_height)
   lessbutton = Button(label='Less',button_type=defaultbut,width=but_width,height=but_height)
   buttonparfld = row(addbutton,Spacer(width = 5),lessbutton,sizing_mode='stretch_width')
   layergrp = [nb,lay1parfld,lay2parfld,lay3parfld,lay4parfld,lay5parfld,
               addbutton,lessbutton]
-  lay1parfld.on_change('value_throttled',partial(layer1ChgCB,layergrp))
-  lay2parfld.on_change('value_throttled',partial(layer2ChgCB,layergrp))
-  lay3parfld.on_change('value_throttled',partial(layer3ChgCB,layergrp))
-  lay4parfld.on_change('value_throttled',partial(layer4ChgCB,layergrp))
+  lay1parfld.on_change('value',partial(layer1ChgCB,layergrp))
+  lay2parfld.on_change('value',partial(layer2ChgCB,layergrp))
+  lay3parfld.on_change('value',partial(layer3ChgCB,layergrp))
+  lay4parfld.on_change('value',partial(layer4ChgCB,layergrp))
+  try:
+    lay1parfld.value_throttled = lay1parfld.value
+    lay2parfld.value_throttled = lay2parfld.value
+    lay3parfld.value_throttled = lay3parfld.value
+    lay4parfld.value_throttled = lay4parfld.value
+    lay1parfld.on_change('value_throttled',partial(layer1ChgCB,layergrp))
+    lay2parfld.on_change('value_throttled',partial(layer2ChgCB,layergrp))
+    lay3parfld.on_change('value_throttled',partial(layer3ChgCB,layergrp))
+    lay4parfld.on_change('value_throttled',partial(layer4ChgCB,layergrp))
+  except AttributeError:
+    log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
+    pass
   addbutton.on_click(partial(buttonChgCB,addbutton,layergrp))
   lessbutton.on_click(partial(buttonChgCB,lessbutton,layergrp))
   return {
@@ -149,19 +161,19 @@ def layer1ChgCB(layergrp,attr,old,new):
   layergrp[2].end = new
   if new <= layergrp[2].value:
     layergrp[2].value = new
-    layer2ChgCB(layergrp,'value_throttled',layergrp[2].value,new)
+    layer2ChgCB(layergrp,attr,layergrp[2].value,new)
 
 def layer2ChgCB(layergrp,attr,old,new):
   layergrp[3].end = new
   if new <= layergrp[3].value:
     layergrp[3].value = new
-    layer3ChgCB(layergrp,'value_throttled',layergrp[2].value,new)
+    layer3ChgCB(layergrp,attr,layergrp[2].value,new)
   
 def layer3ChgCB(layergrp,attr,old,new):
   layergrp[4].end = new
   if new <= layergrp[4].value:
     layergrp[4].value = new
-    layer4ChgCB(layergrp,'value_throttled',layergrp[2].value,new)
+    layer4ChgCB(layergrp,attr,layergrp[2].value,new)
   
 def layer4ChgCB(layergrp,attr,old,new):
   layergrp[5].end = new

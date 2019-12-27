@@ -11,6 +11,7 @@ from functools import partial
 from bokeh.layouts import column
 from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
 
+from odpy.common import log_msg
 from dgbpy.dgbkeras import *
 from dgbpy import uibokeh
 
@@ -44,7 +45,7 @@ def getUiPars(learntype,estimatedszgb=None):
   patiencefld = Slider(start=1,end=100,value=dict['patience'],
                 title='Patience')
   dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
-  chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],value_throttled=dict['nbchunk'],
+  chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],
                     title='Number of Chunks',callback_policy='mouseup')
   sizefld = None
   if estimatedszgb != None:
@@ -52,7 +53,13 @@ def getUiPars(learntype,estimatedszgb=None):
   decimateCB( dodecimatefld.active,chunkfld,sizefld, estimatedszgb )
   dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld,
                                  estimatedszgb=estimatedszgb))
-  chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld, estimatedszgb))
+  chunkfld.on_change('value',partial(chunkfldCB, sizefld, estimatedszgb))
+  try:
+    chunkfld.value_throttlared = chunkfld.value
+    chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld, estimatedszgb))
+  except AttributeError:
+    log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
+    pass
   parsgrp = column(modeltypfld, \
                    batchfld,epochfld,patiencefld,lrfld,edfld,sizefld,dodecimatefld, \
                    chunkfld)
