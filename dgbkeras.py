@@ -351,7 +351,7 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
   else:
     opt = keras.optimizers.RMSprop(lr=learnrate)
 #    loss = cross_entropy_balanced
-    set_epsilon( 1 )
+#    set_epsilon( 1 )
     from keras import backend as K
     def root_mean_squared_error(y_true, y_pred):
       return K.sqrt(K.mean(K.square(y_pred - y_true)))
