@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 from bokeh.plotting import figure
 from bokeh.models.tickers import FixedTicker
-from bokeh.models import Range1d, LinearAxis, ColumnDataSource
+from bokeh.models import Range1d, LinearAxis, ColumnDataSource, ColorBar, LinearColorMapper
 from bokeh.layouts import gridplot
 from sklearn import linear_model
 
@@ -145,8 +145,9 @@ def create_histogramplots(alldata, source, data, p):
     return (ph, pv)
 
 def create_bubblecrossplot(alldata, source, data):
-    x= alldata['x']
+    x = alldata['x']
     y = alldata['y']
+    colorlog = alldata['color']
     stats = alldata['stats']
     stats.text = ' '
     x_title = x.value
@@ -166,15 +167,34 @@ def create_bubblecrossplot(alldata, source, data):
     if x.value in headers:
         p.xaxis.major_label_orientation = pd.np.pi / 4
 
+    minval = 0
+    maxval = 1
+    title = "Color bar"
+    if colorlog.value != 'None':
+        minval = min(data[colorlog.value].values)
+        maxval = max(data[colorlog.value].values)
+        title = colorlog.value
+
     p.circle('xsrc', 'ysrc', color='cols', size='sizes', line_color="white",
              source=source,
              alpha=0.6, hover_color='white', hover_alpha=0.5,
              selection_color="red", nonselection_alpha=0.1,
              selection_alpha=0.4)
     (ph,pv) = create_histogramplots(alldata, source, data, p)
-    xplot = gridplot([[p, pv], [ph, None], [stats, None]], merge_tools=False)
-
+    color_mapper = LinearColorMapper(palette=alldata['COLORS'],
+                                  low=minval, high=maxval)
+    color_bar = ColorBar(color_mapper=color_mapper,
+                     label_standoff=12, border_line_color=None,
+                     location=(0,0))
+    color_bar_plot = figure(title=title, title_location="right",
+                        height=200, width=160,
+                        toolbar_location=None, min_border=0,
+                        outline_line_color=None)
+    color_bar_plot.add_layout(color_bar, 'right')
+    xplot = gridplot([[p, pv], [ph, color_bar_plot], [stats, None]],
+                     merge_tools=False)
     return (xplot)
+
 
 def create_scattercrossplot(alldata, source, data):
     x= alldata['x']
