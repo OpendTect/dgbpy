@@ -13,6 +13,7 @@ Log crossplot GUI
 """
 
 from os import path
+import argparse
 import pandas as pd
 import numpy as np
 from bokeh.layouts import column, row
@@ -21,6 +22,25 @@ from bokeh.plotting import curdoc
 from bokeh.palettes import Viridis
 import crossplot_logs
 import odpy.wellman as wellman
+
+parser = argparse.ArgumentParser(
+            description='Select parameters for machine learning model training')
+parser.add_argument( '-v', '--version',
+            action='version', version='%(prog)s 1.0' )
+datagrp = parser.add_argument_group( 'Data' )
+datagrp.add_argument( '--dataroot',
+            dest='dtectdata', metavar='DIR', nargs=1,
+            help='Survey Data Root' )
+datagrp.add_argument( '--survey',
+            dest='survey', nargs=1,
+            help='Survey name' )
+datagrp.add_argument( '--well',
+            dest='wellnm', nargs=1,
+            help='Well name' )
+args = vars(parser.parse_args())
+reload = False
+
+wellnm = args['wellnm'][0]
 
 data = pd.DataFrame
 undef = 1e30
@@ -37,9 +57,9 @@ logsz = nolog
 
 def getWellNames():
     wells = []
-    wellnames = wellman.getNames()
+    wellnames = wellman.getNames( reload, args )
     for nm in wellnames:
-        lognames = wellman.getLogNames( nm )
+        lognames = wellman.getLogNames( nm, reload, args )
         if not lognames:
             continue
         wells.append( nm )
@@ -47,14 +67,14 @@ def getWellNames():
     return wells
 
 
-def readLogs( inputwellname, undefvalue ):
-    lognames = wellman.getLogNames( inputwellname )
+def readLogs( wellnm, undefvalue ):
+    lognames = wellman.getLogNames( wellnm, reload, args )
     logdata = pd.DataFrame()
     if not lognames:
         return (lognames,logdata)
 
     for nm in lognames:
-        ld = wellman.getLog( inputwellname, nm )
+        ld = wellman.getLog( wellnm, nm, reload, args )
         lddf = pd.DataFrame( ld ).transpose()
         lddf.columns = ['MD',nm]
         if ( logdata.empty ):
@@ -62,6 +82,7 @@ def readLogs( inputwellname, undefvalue ):
         else:
             logdata = pd.merge( logdata, lddf, on='MD', how='outer', sort=True )
 
+    logdata = logdata.replace(to_replace=undefvalue, value=float('NaN'))
     return (lognames,logdata)
 
 
@@ -89,8 +110,7 @@ def prepareForPlot( wellnm ):
         mindepth = data.iloc[0][0]
         maxdepth = data.iloc[-1][0]
 
-wells = getWellNames()
-prepareForPlot( wells[0] )
+prepareForPlot( wellnm )
 
 SIZES = list(range(6, 25, 1))
 COLORS = Viridis[10]
@@ -119,9 +139,16 @@ def maxDepthChangeCB(attr, old, new):
 def wellChangeCB(attr, old, new):
     prepareForPlot( new )
 
+    x.disabled = True
+    y.disabled = True
+    size.disabled = True
+    color.disabled = True
+    inputmindepth.disabled = True
+    inputmaxdepth.disabled = True
+
     x.options = xoptions
-    x.value = logx
     y.options = yoptions
+    x.value = logx
     y.value = logy
     size.options = headers
     size.value = nolog
@@ -134,10 +161,18 @@ def wellChangeCB(attr, old, new):
     alldata['headers'] = headers
     alldata['mindepth'] = mindepth
     alldata['maxdepth'] = maxdepth
+
+    x.disabled = False
+    y.disabled = False
+    size.disabled = False
+    color.disabled = False
+    inputmindepth.disabled = False
+    inputmaxdepth.disabled = False
+
     update(attr,old,alldata)
 
-w = Select(title='Well', value=wells[0], options=wells)
-w.on_change('value', wellChangeCB)
+w = TextInput(title='Well', value=wellnm )
+w.disabled = True
 
 x = Select(title='X-Axis', value=logx, options=xoptions )
 x.on_change('value', update)
