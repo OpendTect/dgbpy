@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 from bokeh.plotting import figure
 from bokeh.models.tickers import FixedTicker
-from bokeh.models import Range1d, LinearAxis, ColumnDataSource, ColorBar, LinearColorMapper
+from bokeh.models import Range1d, LinearAxis, ColumnDataSource, ColorBar, LinearColorMapper, HoverTool
 from bokeh.layouts import gridplot
 from sklearn import linear_model
 
@@ -157,9 +157,15 @@ def create_bubblecrossplot(alldata, source, data):
     kw = dict()
     kw['title'] = "%s vs %s" % (x_title, y_title)
 
+    TOOLTIPS = [
+      (x_title,"$x{0.000}"),
+      (y_title,"$y{0.000}")
+    ]
+
     p = figure(plot_height=600, plot_width=800,
                background_fill_color="#f0f0f0",
                tools='pan,box_zoom,lasso_select,box_select,hover,reset',
+               tooltips=TOOLTIPS,
                title = kw['title'])
     p.xaxis.axis_label = x_title
     p.yaxis.axis_label = y_title
@@ -206,11 +212,17 @@ def create_scattercrossplot(alldata, source, data):
     y_title = y.value
     stats = alldata['stats']
 
+    TOOLTIPS = [
+      (x_title,"$x{0.000}"),
+      (y_title,"$y{0.000}")
+    ]
+
     kw = dict()
     kw['title'] = "%s vs %s" % (x_title, y_title)
     p = figure(plot_height=600, plot_width=800,
                background_fill_color="#f0f0f0",
                tools='pan,box_zoom,lasso_select, box_select, hover, reset',
+               tooltips=TOOLTIPS,
                title = kw['title'])
     p.xaxis.axis_label = x_title
     p.yaxis.axis_label = y_title
@@ -322,13 +334,23 @@ def create_logplot(alldata, nr, source, data):
     else:
         x_axis_label = lognames[0]
 
+    TOOLTIPS = [
+      ("Name","$name"),
+      ("Value","$x{0.000}"),
+      ("MD","$y{0.00}")
+    ]
+
+    hover = HoverTool( tooltips=TOOLTIPS, mode="mouse" )
+
     plot = figure(plot_width=logwidth,
                   plot_height=logheight,
                   x_axis_label = x_axis_label,
                   x_axis_location = 'above',
                   background_fill_color="#f0f0f0",
-                  tools='ypan,ywheel_zoom,box_select,reset,hover',
+                  tools='ypan,ywheel_zoom,box_select,reset',
                   y_axis_label=ylabel)
+    plot.add_tools( hover )
+
     ticker = []
     for i in range(0,-10000,-depthticks):
         ticker.append(i)
@@ -346,12 +368,12 @@ def create_logplot(alldata, nr, source, data):
         plot.title.text = 'X-axis & Y-axis logs'
         plot.line(data[lognames[0]], depthdata[:], legend=lognames[0],
                   color= linecolor1,
-                  line_width=2)
+                  line_width=2, name=lognames[0])
         plot.x_range = Range1d(float(minvalues[0]), float(maxvalues[0]))
         plot.circle('xsrc', 'depthdata', color=linecolor1, size=2,
                  source=source, alpha=0.6,
-                 selection_color="red", nonselection_alpha=0.1,
-                 selection_alpha=0.4)
+                 selection_color="red", nonselection_alpha=0,
+                 selection_alpha=0.4, name=lognames[0])
         xrange2 = lognames[1]
         plot.add_layout(LinearAxis(x_range_name=xrange2,
                 axis_label=xrange2), 'above')
@@ -360,30 +382,30 @@ def create_logplot(alldata, nr, source, data):
         plot.line(data[lognames[1]], depthdata[:], legend=lognames[1],
                   x_range_name = xrange2,
                   color=linecolor2,
-                  line_width=2)
+                  line_width=2, name=lognames[1])
         plot.circle('ysrc', 'depthdata', color=linecolor2, size=2,
                  x_range_name = xrange2,
                  source=source, alpha=0.6,
-                 selection_color="red", nonselection_alpha=0.1,
-                 selection_alpha=0.4)
+                 selection_color="red", nonselection_alpha=0,
+                 selection_alpha=0.4, name=lognames[1])
 
     else:
         plot.title.text = 'Color & Size logs'
         if (len(lognames) >= 1):
                 plot.line(data[lognames[0]], depthdata[:], legend=lognames[0],
                           color= linecolor1,
-                          line_width=2)
+                          line_width=2, name=lognames[0])
                 plot.x_range = Range1d(float(minvalues[0]), float(maxvalues[0]))
                 if (color.value == lognames[0]):
                     plot.circle('csrc', 'depthdata', color=linecolor1, size=2,
                              source=source, alpha=0.6,
                              selection_color="orange", nonselection_alpha=0.1,
-                             selection_alpha=0.4)
+                             selection_alpha=0.4, name=lognames[0])
                 if (size.value == lognames[0]):
                     plot.circle('ssrc', 'depthdata', color=linecolor1, size=2,
                              source=source, alpha=0.6,
                              selection_color="red", nonselection_alpha=0.1,
-                             selection_alpha=0.4)
+                             selection_alpha=0.4, name=lognames[0])
         if (len(lognames) == 2):
             if (lognames[1] != 'None'):
                 xrange2 = lognames[1]
@@ -394,11 +416,11 @@ def create_logplot(alldata, nr, source, data):
                 plot.line(data[lognames[1]], depthdata[:], legend=lognames[1],
                           x_range_name = xrange2,
                           color=linecolor2,
-                          line_width=2)
+                          line_width=2, name=lognames[1])
                 plot.circle('ssrc', 'depthdata', color=linecolor2, size=2,
                          x_range_name = xrange2,
                          source=source, alpha=0.6,
                          selection_color="red", nonselection_alpha=0.1,
-                         selection_alpha=0.4)
+                         selection_alpha=0.4, name=lognames[1])
 
     return (plot)
