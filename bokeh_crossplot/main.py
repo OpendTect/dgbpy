@@ -35,12 +35,13 @@ datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
 datagrp.add_argument( '--well',
-            dest='wellnm', nargs=1,
-            help='Well name' )
+            dest='wellid', nargs=1,
+            help='Well ID' )
 args = vars(parser.parse_args())
 reload = False
 
-wellnm = args['wellnm'][0]
+wellid = args['wellid'][0]
+wellnm = wellman.getName( wellid, reload, args )
 
 data = pd.DataFrame
 undef = 1e30
@@ -54,18 +55,6 @@ xoptions = [nolog]
 yoptions = [nolog]
 logcol = nolog
 logsz = nolog
-
-def getWellNames():
-    wells = []
-    wellnames = wellman.getNames( reload, args )
-    for nm in wellnames:
-        lognames = wellman.getLogNames( nm, reload, args )
-        if not lognames:
-            continue
-        wells.append( nm )
-
-    return wells
-
 
 def readLogs( wellnm, undefvalue ):
     lognames = wellman.getLogNames( wellnm, reload, args )
