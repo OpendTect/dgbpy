@@ -10,10 +10,12 @@
 import io
 import json
 import numpy as np
+import os
 import psutil
 import selectors
 import struct
 import sys
+import traceback as tb
 
 from odpy.common import *
 import dgbpy.keystr as dgbkeys
@@ -34,6 +36,7 @@ class ModelApplier:
         self.extscaler_ = None
         (self.model_,self.info_) = self._open()
         self.applyinfo_ = None
+        self.debugstr = ''
 
     def _open(self):
         modelfnm = self.fnm_
@@ -128,17 +131,17 @@ class ModelApplier:
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
-        stepout = self.info_['stepout']
+        inpshape = self.info_[dgbkeys.inpshapedictstr]
         nrzin = inp.shape[-1]
-        vertical =  isinstance(stepout,int)
+        vertical =  isinstance(inpshape,int)
         if vertical:
             chunksz = 1
-            nrzoutsamps = nrzin - 2*stepout
+            nrzoutsamps = nrzin-inpshape+1
         else:
-            chunksz = inp.shape[2] - 2*stepout[1]
-            nrzoutsamps = nrzin - 2*stepout[2]
+            chunksz = inp.shape[2] - inpshape[1] + 1
+            nrzoutsamps = nrzin - inpshape[2] +1
         nroutsamps = nrzoutsamps * chunksz
-        samples_shape = dgbhdf5.get_np_shape( stepout, nrattribs=nrattribs,
+        samples_shape = dgbhdf5.get_np_shape( inpshape, nrattribs=nrattribs,
                                               nrpts=nrzoutsamps )
         nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
@@ -160,8 +163,12 @@ class ModelApplier:
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
         samples = dgbscikit.scale( samples, self.scaler_ )
-        if self.extscaler_ != None:
-          samples = dgbscikit.unscale( samples, self.extscaler_ )
+        samples = dgbscikit.unscale( samples, self.extscaler_ )
+#        min = np.min( samples ) 
+#        samples = samples-min
+#        max = np.max( samples )
+#        samples = samples/max
+#        samples = samples*255 
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   applyinfo=self.applyinfo_ )
         res = list()
@@ -176,6 +183,25 @@ class ModelApplier:
               ret[outkey] = np.resize( ret[outkey], (nrzoutsamps,chunksz,nrattrret))
             res.append( ret[outkey] )
         return res
+
+    def debug_msg(self,a,b=None,c=None,d=None,e=None,f=None,g=None,h=None):
+        ret = str(a)
+        if b != None:
+          ret += str(b)
+        if c != None:
+          ret += str(c)
+        if d != None:
+          ret += str(d)
+        if e != None:
+          ret += str(e)
+        if f != None:
+          ret += str(f)
+        if g != None:
+          ret += str(g)
+        if h != None:
+          ret += str(h)
+        self.debugstr += ret
+        return self.debugstr
 
 
 class Message:
@@ -308,31 +334,34 @@ class Message:
 
     def _create_response_array_content(self):
         action = self.request.get('action')
-        res = list()
-        if action == 'apply':
-            try:
+        try:
+            res = list()
+            if action == 'apply':
                 for arr in self.request.get('data'):
                     res = self.applier.doWork(arr)
-            except Exception as e:
-                content = {"result": f'Apply error exception: {repr(e)}.'}
-                content_encoding = 'utf-8'
-                response = {
-                    'content_bytes': self._json_encode(content, content_encoding),
-                    'content_type': 'text/json',
-                    'content_encoding': content_encoding,
-                    'arrsize': None,
-                }
-                return response
-        else:
-            content = {"result": f'Error: invalid action "{action}".'}
+            else:
+                content = {"result": f'Error: invalid action "{action}".'}
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
+            content = {'result': f'Apply error exception:\n{repr(e)+" on line "+str(exc_tb.tb_lineno)+" of script "+fname}\n{stackstr}\n\n{self.applier.debugstr}'}
+            content_encoding = 'utf-8'
+            response = {
+                'content_bytes': self._json_encode(content, content_encoding),
+                'content_type': 'text/json',
+                'content_encoding': content_encoding,
+                'arrsize': None,
+            }
+            return response
+
         ret = bytes()
         dtypes = list()
         shapes = list()
         for arr in res:
-          arrout = np.transpose( arr )
-          ret += arrout.tobytes()
-          shapes.append( arrout.shape )
-          dtypes.append( arrout.dtype.name )
+          ret += arr.tobytes()
+          shapes.append( arr.shape )
+          dtypes.append( arr.dtype.name )
         response = {
           'content_bytes': ret,
           'content_type': "binary/array",

@@ -148,19 +148,13 @@ def getDataFormat( model ):
       return laycfg['data_format']
   return None
 
-def getCubeletStepout( model ):
+def getCubeletShape( model ):
   data_format = getDataFormat( model )
   if data_format == 'channels_first':
     cubeszs = model.input_shape[2:]
   elif data_format == 'channels_last':
     cubeszs = model.input_shape[1:-1]
-  stepout = tuple()
-  for cubesz in cubeszs:
-    if cubesz%2 == 1 :
-      stepout += (int((cubesz-1)/2),)
-    else:
-      stepout += (int(cubesz/2),)
-  return (stepout,cubeszs)
+  return cubeszs
 
 def getLogDir( basedir, args ):
   logdir = basedir
@@ -180,22 +174,19 @@ def getLogDir( basedir, args ):
   logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
   return logdir
 
-def get_model_shape( step, nrattribs, attribfirst=True, allowodd=True ):
+def get_model_shape( shape, nrattribs, attribfirst=True ):
   ret = ()
-  extraidx = 0
-  if allowodd:
-    extraidx = 1
   if attribfirst:
     ret += (nrattribs,)
-  if isinstance( step, int ):
-    ret += (2*step+allowodd,)
+  if isinstance( shape, int ):
+    ret += (shape,)
     if not attribfirst:
       ret += (nrattribs,)
     return ret
   else:
-    for i in step:
-      if i > 0:
-        ret += (2*i+allowodd,)
+    for i in shape:
+      if i > 1:
+        ret += (i,)
   if attribfirst:
     if len(ret) == 1:
       ret += (1,)
@@ -225,12 +216,8 @@ def getDefaultModel(setup,type=keras_dict['type'],
     nroutputs = dgbhdf5.getNrOutputs( setup )
 
   nrattribs = dgbhdf5.get_nr_attribs(setup)
-  allowodd = True
-  if isUnet(type):
-    allowodd = False #TODO: support odd numbers?
-  model_shape = get_model_shape( setup[dgbkeys.stepoutdictstr], nrattribs,
-                                 attribfirst=data_format=='channels_first', \
-                                 allowodd=allowodd )
+  model_shape = get_model_shape( setup[dgbkeys.inpshapedictstr], nrattribs,
+                                 attribfirst=data_format=='channels_first' )
   if isLeNet( type ):
     return getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
                            learnrate=learnrate,data_format=data_format)
@@ -379,7 +366,6 @@ def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
   if isclassification:
     nroutputs = 1
 
-  #TODO: support of odd numbers??
   nrdims = getModelDims( model_shape, data_format )
   if nrdims == 3:
     lastconv = getDefaultUnet3D( inputs, data_format, axis, nroutputs )
@@ -645,6 +631,7 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
     if isclassification:
       try:
         res = model.predict_classes( samples, batch_size=batch_size )
+        res = np.transpose( res )
       except AttributeError:
         res = model.predict( samples, batch_size=batch_size )
     else:
@@ -664,6 +651,7 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
       x = len(allprobs)
       sortedprobs = allprobs[np.repeat(np.arange(x),N),indices.ravel()].reshape(x,N)
       res = np.diff(sortedprobs,axis=1)
+      res = np.transpose( res )
       ret.update({dgbkeys.confdictstr: res})
 
   return ret
@@ -674,7 +662,7 @@ def adaptToModel( model, samples, sample_data_format='channels_first' ):
   nrsamples = samples.shape[0]
   samples_nrdims = len(samples.shape)
   model_data_format = getDataFormat( model )
-  (modelstepout,modelcubeszs) = getCubeletStepout( model )
+  modelcubeszs = getCubeletShape( model )
   if sample_data_format == 'channels_first':
     nrattribs = samples.shape[1]
     cube_shape = samples.shape[2:]

@@ -425,7 +425,8 @@ def apply( model, samples, scaler, isclassification, withpred, withprobs, withco
     if isclassification:
       res = None  #TODO
     else:
-      res = model.predict( samples )
+      res = np.transpose( model.predict( samples ) )
+
     ret.update({dgbkeys.preddictstr: res})
 
   if isclassification and (doprobabilities or withconfidence):

@@ -103,17 +103,17 @@ def get_nr_attribs( info, subkey=None ):
       raise ValueError
   return ret
 
-def get_np_shape( step, nrpts=None, nrattribs=None ):
+def get_np_shape( shape, nrpts=None, nrattribs=None ):
   ret = ()
   if nrpts != None:
     ret += (nrpts,)
   if nrattribs != None:
     ret += (nrattribs,)
-  if isinstance( step, int ):
-    ret += ( 1,1,step*2+1, )
+  if isinstance( shape, int ):
+    ret += ( 1,1,shape, )
     return ret
-  for i in step:
-    ret += (i*2+1,)
+  for i in shape:
+    ret += (i,)
   return ret
 
 def getNrOutputs( info ):
@@ -131,7 +131,8 @@ def getCubeLets( infos, datasets, groupnm ):
   if fromwells:
     attribsel = survnm
   inpnrattribs = get_nr_attribs( infos, attribsel )
-  stepout = infos[stepoutdictstr]
+  inpshape = infos[inpshapedictstr]
+  outshape = infos[outshapedictstr]
   nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
   img2img = isImg2Img( infos )
@@ -152,9 +153,9 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      inpshape = get_np_shape(stepout,nrpts,inpnrattribs)
+      inpshape = get_np_shape(inpshape,nrpts,inpnrattribs)
       if img2img:
-        outshape = get_np_shape(stepout,nrpts,outnrattribs)
+        outshape = get_np_shape(outshape,nrpts,outnrattribs)
       if len(x_data) == nrpts and len(y_data) == nrpts:
         cubelets = np.resize( x_data, inpshape ).astype( np.float32 )
         if img2img:
@@ -189,10 +190,10 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      inpshape = get_np_shape(stepout,nrpts,inpnrattribs)
+      inpshape = get_np_shape(inpshape,nrpts,inpnrattribs)
       cubelets = np.empty( inpshape, np.float32 )
       if img2img:
-        outshape = get_np_shape(stepout,nrpts,outnrattribs)
+        outshape = get_np_shape(outshape,nrpts,outnrattribs)
         output = np.empty( outshape, outdtype )
       else:
         output = np.empty( (nrpts,nroutputs), outdtype )
@@ -293,10 +294,6 @@ def getInfo( filenm ):
   if img2img:
     shapeval = 'Images'
 
-  if odhdf5.hasAttr(info,"Trace.Stepout"):
-    stepout = odhdf5.getIStepInterval(info,"Trace.Stepout") 
-  elif odhdf5.hasAttr(info,"Depth.Stepout"):
-    stepout = odhdf5.getIStepInterval(info,"Depth.Stepout")
   ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
   idx = 0
   nroutputs = 1
@@ -429,20 +426,16 @@ def getInfo( filenm ):
   else:
     attribkey = attribdictstr
   nrattribs = len( input[list(input.keys())[0]][attribkey] )
-  if odhdf5.hasAttr(info,inttrcshapestr):
-    inpshape = odhdf5.getIArray( info, inttrcshapestr )
-  else:
-    inpshape = get_np_shape( stepout, None, None )
-  if odhdf5.hasAttr(info,outtrcshapestr):
-    outshape = odhdf5.getIArray( info, outtrcshapestr )
-  else:
-    outshape = nroutputs
-    if img2img:
-      outshape = get_np_shape( stepout, None, None )
+
+  if not odhdf5.hasAttr(info,inpshapestr) or \
+     not odhdf5.hasAttr(info,outshapestr):
+     raise KeyError
+
+  inpshape = odhdf5.getIArray( info, inpshapestr )
+  outshape = odhdf5.getIArray( info, outshapestr )
 
   retinfo = {
     learntypedictstr: learntype,
-    stepoutdictstr: stepout,
     inpshapedictstr: inpshape,
     outshapedictstr: outshape,
     nroutdictstr: nroutputs,
@@ -489,24 +482,21 @@ def arroneitemsize( dtype ):
 
 def getTotalSize(info):
   inpnrattribs = get_nr_attribs( info )
-  step = info[stepoutdictstr]
+  inpshape = info[inpshapedictstr]
+  outshape = info[outshapedictstr]
   datasets = info[datasetdictstr]
   nrpts = 0
   for groupnm in datasets:
     alldata = datasets[groupnm]
     for inp in alldata:
       nrpts += len(alldata[inp])
-  examplesshape = get_np_shape( step, nrpts, inpnrattribs )
+  examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
-  img2img = isImg2Img( info )
   if info[classdictstr]:
     nroutvals = getNrClasses(info)
   else:
     nroutvals = getNrOutputs( info )
-  if img2img:
-    outshape = get_np_shape( step, nrpts, nroutvals )
-  else:
-    outshape = get_np_shape( (0), nrpts, nroutvals )
+  outshape = get_np_shape( outshape, nrpts, nroutvals )
   y_size = np.prod( outshape ) * arroneitemsize( np.float32 )
   return x_size + y_size
 
@@ -545,11 +535,11 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
   odhdf5.setAttr( dsinfoout, versionstr, str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
   if plfnm == kerasplfnm:
-    odhdf5.setArray( dsinfoout, inttrcshapestr, infos[inpshapedictstr] )
+    odhdf5.setArray( dsinfoout, inpshapestr, infos[inpshapedictstr] )
     if infos[learntypedictstr] == seisimgtoimgtypestr:
-      odhdf5.setArray( dsinfoout, outtrcshapestr, infos[outshapedictstr] )
+      odhdf5.setArray( dsinfoout, outshapestr, infos[outshapedictstr] )
     else:
-      odhdf5.setAttr( dsinfoout, outtrcshapestr, str(getNrOutputs(infos)))
+      odhdf5.setAttr( dsinfoout, outshapestr, str(getNrOutputs(infos)))
 
   outps = getOutputs( inpfile )
   nrout = len(outps)

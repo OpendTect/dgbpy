@@ -96,12 +96,12 @@ time.sleep( 2 )
 
 def getApplyTrace( dict ):
   arr3d = dict['arr']
-  stepout = dict['stepout']
+  shape = dict['inp_shape']
   procstep = dict['step']-1
   idx = dict['idx']
   idy = dict['idy']
-  return arr3d[:,idx-stepout[0]:idx+stepout[0]+1,\
-                 idy-stepout[1]:idy+stepout[1]+procstep+1,:]
+  return arr3d[:,idx:idx+shape[0],\
+                 idy:idy+shape[1]+procstep+1,:]
 
 def create_request(action, value=None):
   if value == None:
@@ -151,7 +151,7 @@ def req_connection(host, port, request):
 def getApplyPars( args ):
   if args['examples'] == None:
     ret= {
-      'stepout': [16,16,16],
+      'inp_shape': [33,33,33],
       'nrattribs': 1,
       'outputnms': dgbhdf5.getOutputNames(modelfnm,[0]),
       'surveydirnm': 'None'
@@ -159,27 +159,27 @@ def getApplyPars( args ):
   else:
     exfnm = args['examples'].name
     info = dgbhdf5.getInfo( exfnm )
-    stepout = info['stepout']
-    if not isinstance(stepout,list):
-      stepout=[0,0,stepout]
+    shape = info['inp_shape']
+    if not isinstance(shape,list):
+      shape=[0,0,shape]
     ret = {
-      'stepout': stepout,
+      'inp_shape': shape,
       'nrattribs': dgbhdf5.get_nr_attribs( info ),
       'outputnms': dgbhdf5.getOutputs( exfnm )
     }
   return ret
 
 pars = getApplyPars( args )
-stepout = pars['stepout']
+shape = pars['inp_shape']
 
 nrattribs = pars['nrattribs']
 nrlines_out = 20
 nrtrcs_out = 800
 chunk_step = 50
-nrlines_in = nrlines_out + 2 * stepout[0]
-nrtrcs_in = nrtrcs_out + 2 * stepout[1]
+nrlines_in = nrlines_out + shape[0] - 1
+nrtrcs_in = nrtrcs_out + shape[1] - 1
 nrz_in = 378
-nrz_out = nrz_in - 2 * stepout[2]
+nrz_out = nrz_in - shape[2] + 1
 inpdata = np.random.random( nrattribs*nrlines_in*nrtrcs_in*nrz_in )
 inpdata = inpdata.reshape((nrattribs,nrlines_in,nrtrcs_in,nrz_in))
 inpdata = inpdata.astype('float32')
@@ -191,18 +191,18 @@ req_connection(host, port, create_request('status'))
 req_connection(host, port, create_request('outputs',pars['outputnms']))
 applydict = {
   'arr': inpdata,
-  'stepout': stepout,
-  'idx': stepout[0],
-  'idy': stepout[1],
+  'inp_shape': shape,
+  'idx': int(shape[0]/2-1),
+  'idy': int(shape[1]/2-1),
   'step': chunk_step,
 }
-lastidy = nrtrcs_in-stepout[1]
+lastidy = nrtrcs_in-int(shape[1]/2-1)
 nrrepeats = 1
-trcrg = range(stepout[1],nrtrcs_in-stepout[1])
+trcrg = range(0,nrtrcs_in-shape[1]+1)
 nrtrcs = (nrrepeats * len(trcrg))
 for i in range(nrrepeats):
   applydict['idx'] = i
-  for idy in range(stepout[1],nrtrcs_in-stepout[1],chunk_step):
+  for idy in range(0,nrtrcs_in-shape[1]+1,chunk_step):
     applydict['idy'] = idy
     req_connection(host, port, create_request('data',applydict))
 
