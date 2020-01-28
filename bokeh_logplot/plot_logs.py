@@ -6,7 +6,7 @@ Log plotting
 
  Author:    Paul de Groot <paul.degroot@dgbes.com>
  Copyright: dGB Beheer BV
- Date:      March 2019
+ Date:      January 2020
  License:   GPL v3
 
 
@@ -26,17 +26,12 @@ scaledlog = pd.DataFrame()
 def removeNone(lst):
     return [x for x in lst if x != 'None']
 
-def getShadingBounds(inputlog, option = 'left'):
+def getShadingBounds(inputlog):
     minbound = inputlog.min()
     maxbound = inputlog.max()
     extension = (maxbound - minbound) / 20
-    if (option == 'left'):
-        minbound = minbound - extension 
-    if (option == 'right'):
-        maxbound =  maxbound + extension 
-    if (option == 'full'):
-        minbound = minbound - extension 
-        maxbound =  maxbound + extension         
+    minbound = minbound - extension
+    maxbound =  maxbound + extension
     return(minbound, maxbound)
 
 def getScaledLog(nr, minval, maxval, minvalues, maxvalues, data, logname):
@@ -69,20 +64,124 @@ def create_gridplot(alldata):
     grid = gridplot([plotlist])
     return(grid)
 
+def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
+                shadingtype, shadinglogs, linestyles, mypalette,
+                colorfillpalette, colorfill, shadingcolor):
+    leftbound = pd.DataFrame()
+    rightbound = pd.DataFrame()
+    shadingdifferencelog1 = 'None'
+    shadingdifferencelog2 = 'None'
+    firstcurve = scaledlogs.loc[:, shadinglogs[0]]
+    (minbound, maxbound) = getShadingBounds(firstcurve)
+    leftbound = pd.DataFrame()
+    rightbound = pd.DataFrame()
+    shadingdifferencelog1 = 'None'
+    shadingdifferencelog2 = 'None'
+    if (shadingtype == 'Difference 2 logs shading color'):
+        if (len(shadinglogs) >= 2):
+            shadingdifferencelog1 = shadinglogs[0]
+            shadingdifferencelog2 = shadinglogs[1]
+            secondcurve = scaledlogs.loc[:, shadinglogs[1]]
+            print ("Warning: a difference plot cannot be combined with",
+                   "curve plots. Selected curves are ignored.",
+                   "Similarly, the shading is applied between the",
+                   "first and second log; additional selections are ignored.")
+        else:
+            print('error: select 2 logs for difference shading')
+    if ((shadingtype == 'Left palette') or
+            (shadingtype == 'Left shading color')):
+        leftbound = pd.Series(minbound for x in range(len(firstcurve)))
+        rightbound = firstcurve
+    if ((shadingtype == 'Right palette') or
+            (shadingtype == 'Right shading color')):
+        leftbound = firstcurve
+        rightbound = pd.Series(maxbound for x in range(len(firstcurve)))
+    if (shadingtype == 'Column wide palette'):
+        leftbound = pd.Series(minbound for x in range(len(firstcurve)))
+        rightbound = pd.Series(maxbound for x in range(len(firstcurve)))
+    if (shadingtype == 'Difference 2 logs shading color'):
+        leftbound = firstcurve
+        rightbound = secondcurve
+        plot.line(leftbound, depthdata[:],
+                  legend_label=shadingdifferencelog1,
+                  color=mypalette[-2],
+                   line_width=2,
+                  line_dash =  linestyles[-2])
+        plot.line(rightbound, depthdata[:],
+                  legend_label=shadingdifferencelog2,
+                  color=mypalette[-1],
+                  line_width=2,
+                  line_dash =  linestyles[-1])
+    minvalue = firstcurve.min()
+    maxvalue = firstcurve.max()
+    scalefactor = (float(255)/(float(maxvalue)-float(minvalue)))
+    color = [None for _ in range(len(firstcurve))]
+    if (colorfill == 'palette'):
+         for x in range(len(firstcurve)):
+            value = firstcurve[x] - minvalue
+            color[x] = all_palettes[
+                    colorfillpalette][256][int(value * scalefactor)]
+    else:
+         for x in range(len(firstcurve)):
+             color[x] = shadingcolor
+
+    if ((len(lognames) >= 2) and
+                (shadinglogs[0] == lognames[1])):
+        for x in range(len(firstcurve)):
+            plot.quad(top=depthdata[x],
+                      bottom=depthdata[x],
+                      left=leftbound[x],
+                      right=rightbound[x],
+                      line_width = 1,
+                      x_range_name = xrange2,
+                      fill_color = color[x],
+                      fill_alpha = 0.2,
+                      line_color = color[x],
+                      line_alpha = 0.2
+                      )
+    else:
+        for x in range(len(firstcurve)):
+            plot.quad(top=depthdata[x],
+                      bottom=depthdata[x],
+                      left=leftbound[x],
+                      right=rightbound[x],
+                      line_width = 1,
+                      fill_color = color[x],
+                      fill_alpha = 0.2,
+                      line_color = color[x],
+                      line_alpha = 0.2
+                      )
+    return(plot)
+
 #Make a Bokeh plot
 def create_plot(alldata, nr):
     data = alldata['data']
     xlogscales = alldata['xlogscales']
     nrcurves = alldata['nrcurves']
-    xaxistype = (alldata['rowofcolcurves'].children[nr].children[0].active)
-    selmullogs = (alldata['rowofcolcurves'].children[nr].children[1])
-    shadingleft = (alldata['rowofcolcurves'].children[nr].children[2].value)
-    shadingright = (alldata['rowofcolcurves'].children[nr].children[3].value)
-    shadingfull = (alldata['rowofcolcurves'].children[nr].children[4].value)
-    shadingbandleft = (alldata['rowofcolcurves'].children[nr].children[5].value)
-    shadingbandright = (alldata['rowofcolcurves'].children[nr].children[6].value)
+    xaxistype = (alldata['rowofcolcurves'].children[nr].
+                    children[0].active)
+    selmullogs = (alldata['rowofcolcurves'].children[nr].
+                    children[1])
+    shadingtype = (alldata['rowofcolcurves'].children[nr].
+                    children[2].value)
+    shadinglogs = list((alldata['rowofcolcurves'].children[nr].
+                    children[3]).value)
     shadingcolor =  alldata['shadingcolor'].value
-    fullwidthpalette = alldata['fullwidthpalette'].value
+    colorfillpalette = alldata['colorfillpalette'].value
+    colorfill = 'single'
+    xrange2 = 'dummy'
+    if (((shadingtype == 'Left palette') or
+         (shadingtype == 'Right palette') or
+         (shadingtype == 'Column wide palette'))):
+        colorfill = 'palette'
+    shadingdifferencelog1 = 'None'
+    shadingdifferencelog2 = 'None'
+    if (shadingtype == 'Difference 2 logs shading color'):
+        if (len(shadinglogs) >= 2):
+            shadingdifferencelog1 = shadinglogs[0]
+            shadingdifferencelog2 = shadinglogs[1]
+        else:
+            print('error: select 2 logs for difference shading')
     depthlogstr = alldata['seldepthlog'].value
     depthdata = -data.loc[:, depthlogstr] 
     logwidth = int(alldata['logwidth'].value)
@@ -102,14 +201,14 @@ def create_plot(alldata, nr):
     depthminorticks = int(alldata['depthminorticks'].value)
     ylabel = depthlogstr
     lognames = list(selmullogs.value) 
-    lognames.append(shadingleft)
-    lognames.append(shadingright)
-    lognames.append(shadingfull)
-    lognames.append(shadingbandleft)
-    lognames.append(shadingbandright)
+    if ((shadingtype != 'None') and
+            (shadinglogs[0] != 'None')):
+        lognames.append(shadinglogs[0])
+    if (shadingtype == 'Difference 2 logs shading color'):
+        lognames = shadinglogs # No other logs allowed for difference shading
     lognames = removeNone(lognames)
     lognames = list(OrderedDict.fromkeys(lognames)) # remove double entries
-    xaxistype = xlogscales[xaxistype]
+    xaxistype = xlogscales[0]
     mypalette = []
     scaledlogs = pd.DataFrame()
     counter = []
@@ -118,9 +217,12 @@ def create_plot(alldata, nr):
     linestyles = []
     for i in range(len(lognames)):
         for nm in range(nrcurves):
-            if (lognames[i] == (rowofcol.children[0].children[nm].value)):
-                minval = (rowofcol.children[1].children[nm].value)
-                maxval = (rowofcol.children[2].children[nm].value)
+            if (lognames[i] == (rowofcol.children[0].
+                                 children[nm].value)):
+                minval = (rowofcol.children[1].
+                                 children[nm].value)
+                maxval = (rowofcol.children[2].
+                                 children[nm].value)
                 minvalues.append(minval)
                 maxvalues.append(maxval)
                 (scaledlog, minvalues, maxvalues) = getScaledLog(i, 
@@ -128,8 +230,10 @@ def create_plot(alldata, nr):
                                         minvalues, maxvalues,
                                         data, lognames[i])
                 scaledlogs = pd.concat([scaledlogs, scaledlog], axis=1)
-                linestyles.append(rowofcol.children[3].children[nm].value)
-                mypalette.append((rowofcol.children[4].children[nm].value))
+                linestyles.append(rowofcol.children[3].
+                                 children[nm].value)
+                mypalette.append((rowofcol.children[4].
+                                 children[nm].value))
                 break
         counter.append(i)
     
@@ -164,8 +268,9 @@ def create_plot(alldata, nr):
                                   linestyles,
                                   mypalette):
         if (count == 0):
-            if ((name != shadingbandleft) and (name != shadingbandright)):            
-                plot.line(scaledlogs[name], depthdata[:], legend=name, 
+            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                plot.line(scaledlogs[name], depthdata[:],
+                          legend_label=name,
                           color=color, 
                           line_width=2,
                           line_dash = linestyle)
@@ -173,157 +278,35 @@ def create_plot(alldata, nr):
             xrange2 = name
             plot.extra_x_ranges={xrange2: Range1d(float(minvalues[1]), 
                                                float(maxvalues[1]))}
+            if (shadingtype == 'Difference 2 logs shading color'):
+                plot.extra_x_ranges={xrange2: Range1d(float(minvalues[0]),
+                                                   float(maxvalues[0]))}
             if (xaxistype == 'linear'):           
                  plot.add_layout(LinearAxis(x_range_name=xrange2, 
                         axis_label=name), 'above')
             if (xaxistype == 'log'):
                   plot.add_layout(LogAxis(x_range_name=xrange2, 
                         axis_label=name), 'above')
-            if ((name != shadingbandleft) and (name != shadingbandright)):            
-                plot.line(scaledlogs[name], depthdata[:], legend=name, 
+            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                plot.line(scaledlogs[name], depthdata[:],
+                          legend_label=name,
                           color=color, 
                           x_range_name = name,
                           line_width = 2,
                           line_dash =  linestyle)  
         if (count > 1):
-            if ((name != shadingbandleft) and (name != shadingbandright)):            
-                plot.line(scaledlogs[name], depthdata[:], legend=name, 
+            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                plot.line(scaledlogs[name], depthdata[:],
+                          legend_label=name,
                           color=color, 
                           line_width=2,
                           line_dash =  linestyle) 
                 print ("Warning: only two separate X-ranges supported.",
                        "Additional curves are scaled to the range of the first curve.")
-    
-    if (shadingleft != 'None'):
-        leftcurve = scaledlogs.loc[:, shadingleft]
-        (minbound, maxbound) = getShadingBounds(leftcurve, 'left')
-        leftbound = pd.Series(minbound for x in range(len(leftcurve)))
-        if (len(lognames) >= 2):
-            if (shadingleft == lognames[1]):
-                plot.quad(top=depthdata[:], 
-                          bottom=depthdata[:], 
-                          left=leftbound,
-                          right=scaledlogs.loc[:, shadingleft],
-                          line_width = 0, 
-                          x_range_name = xrange2,
-                          fill_color= shadingcolor,
-                          fill_alpha = 0.2,
-                          line_color = shadingcolor,
-                          line_alpha = 0.2
-                          )
-            else:
-                plot.quad(top=depthdata[:], 
-                      bottom=depthdata[:], 
-                      left=leftbound,
-                      right=scaledlogs.loc[:, shadingleft],
-                      line_width = 0, 
-                      fill_color= shadingcolor,
-                      fill_alpha = 0.2,
-                      line_color = shadingcolor,
-                      line_alpha = 0.2
-                      )
-        else:    
-            plot.quad(top=depthdata[:], 
-                      bottom=depthdata[:], 
-                      left=leftbound,
-                      right=scaledlogs.loc[:, shadingleft],
-                      line_width = 0, 
-                      fill_color= shadingcolor,
-                      fill_alpha = 0.2,
-                      line_color = shadingcolor,
-                      line_alpha = 0.2
-                      )
-        
-    if (shadingright != 'None'):
-        rightcurve = scaledlogs.loc[:, shadingright]
-        (minbound, maxbound) = getShadingBounds(rightcurve, 'right')
-        rightbound = pd.Series(maxbound for x in range(len(rightcurve)))
-        if (len(lognames) >= 2):
-            if (shadingright == lognames[1]):
-                plot.quad(top=depthdata[:], 
-                          bottom=depthdata[:], 
-                          left = scaledlogs.loc[:, shadingright],
-                          right = rightbound,
-                          line_width = 0, 
-                          x_range_name = xrange2,
-                          fill_color= shadingcolor,
-                          fill_alpha = 0.2,
-                          line_color = shadingcolor,
-                          line_alpha = 0.2
-                          )
-            else:
-                plot.quad(top=depthdata[:], 
-                          bottom=depthdata[:], 
-                          left = scaledlogs.loc[:, shadingright],
-                          right = rightbound,
-                          line_width = 0, 
-                          fill_color= shadingcolor,
-                          fill_alpha = 0.2,
-                          line_color = shadingcolor,
-                          line_alpha = 0.2
-                          )
-        else:
-            plot.quad(top=depthdata[:], 
-                      bottom=depthdata[:], 
-                      left = scaledlogs.loc[:, shadingright],
-                      right = rightbound,
-                      line_width = 0, 
-                      fill_color= shadingcolor,
-                      fill_alpha = 0.2,
-                      line_color = shadingcolor,
-                      line_alpha = 0.2
-                      )
-        
-    if (shadingfull != 'None'):
-        fullcurve = scaledlogs.loc[:, shadingfull]
-        (minbound, maxbound) = getShadingBounds(fullcurve, 'full')
-        leftbound = pd.Series(minbound for x in range(len(fullcurve)))
-        rightbound = pd.Series(maxbound for x in range(len(fullcurve)))
-        minvalue = fullcurve.min()
-        maxvalue = fullcurve.max()
-        scalefactor = (float(255)/(float(maxvalue)-float(minvalue)))
-        for x in range(len(fullcurve)):
-            value = fullcurve[x] - minvalue
-            color = all_palettes[
-                    fullwidthpalette][256][int(value * scalefactor)]
-            plot.quad(top=depthdata[x], 
-                      bottom=depthdata[x], 
-                      left = leftbound[x],
-                      right = rightbound[x],
-                      line_width = 0, 
-                      fill_color= color,
-                      fill_alpha = 0.2,
-                      line_color = color,
-                      line_alpha = 0.2
-                      )
-            
-    if ((shadingbandleft != 'None') and
-        (shadingbandright != 'None')
-        ): 
-        left = data.loc[:, shadingbandleft]
-        right = data.loc[:, shadingbandright]
-        plot.line(left, depthdata[:], 
-                  legend=shadingbandleft, 
-                  color=mypalette[-2], 
-                  x_range_name = xrange2,
-                  line_width=2,
-                  line_dash =  linestyles[-2]) 
-        plot.line(right, depthdata[:], 
-                  legend=shadingbandright, 
-                  color=mypalette[-1], 
-                  x_range_name = xrange2,
-                  line_width=2,
-                  line_dash =  linestyles[-1]) 
-        plot.quad(top=depthdata[:], 
-                  bottom=depthdata[:], 
-                  left=left,
-                  right=right,
-                  line_width = 0, 
-                  x_range_name = xrange2,
-                  fill_color= shadingcolor,
-                  fill_alpha = 0.2, 
-                  line_color = shadingcolor,
-                  line_alpha = 0.2
-                  )
-                       
+
+# shading plots
+    if (shadingtype != 'None'):
+        plot = add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
+                       shadingtype, shadinglogs, linestyles, mypalette,
+                       colorfillpalette, colorfill, shadingcolor)
     return (plot)

@@ -6,7 +6,7 @@ Log plotting GUI
 
  Author:    Paul de Groot <paul.degroot@dgbes.com>
  Copyright: dGB Beheer BV
- Date:      March 2019
+ Date:      January 2020
  License:   GPL v3
 
 
@@ -27,8 +27,7 @@ import itertools
 #import plot_logs as plot_logs
 
 run_dict = {
-#     "dir_path" : "c:/dev/Python_Scripts/Bokeh/", # directory path for in- and output
-     "dir_path" : "/dsk/d101/nanne/Python/Paul/Bokeh/",
+     "dir_path" : "c:/dev/Python_Scripts/Bokeh/", # directory path for in- and output
      "file_name" : "One_well_logs.dat",   # input file in pseudo-las format
      "undef" : 1e30, # undefined value in logs
      'wellname': 'Mywell'
@@ -49,11 +48,15 @@ logonlylist = [] # headers with depth removed
 plot = figure()
 logcol = 1 # default log for the first plot
 xlogscales = ['linear', 'log']
-logwidth = '200'
+shadingtypes = ['None', 'Left shading color', 'Left palette',
+                'Right shading color', 'Right palette',
+                'Column wide palette', 'Difference 2 logs shading color']
+logwidth = '300'
 logheight = '1000'
 depthname = []
 mindepth = str()
 maxdepth = str()
+columnwidth = 300
 colorlist = ['darkred', 'navy', 'orange', 'darkgreen', 'black',
              'cyan', 'darkslategrey', 'gold', 'lime', 'magenta']
 colors = itertools.cycle(colorlist)
@@ -124,7 +127,7 @@ seldepthlog = Select(title='Depth column:',
                  options=headers[:]
                  )
 seldepthlog.on_change('value', depthLogCB)
-textgeneral = Div(text="""<b>General</b>""")
+textgeneral = Div(text="""<b>General</b>""", width=columnwidth)
 plotbutton = Button(label='Update Plot',
                       button_type='success')
 plotbutton.on_click(update)
@@ -138,14 +141,14 @@ nrlogplots = Slider(start=1, end=maxnrplots, value=1, step=1,
 undefvalue = TextInput(title='Undefined value', value=str(undef))
 logheight = TextInput(title='log plot height', value= logheight)
 logwidth = TextInput(title='log plot width', value= logwidth)
-textplot1 = Div(text="""<b>Plot 1</b>""")
-textplot2 = Div(text="""<b>Plot 2</b>""")
-textplot3 = Div(text="""<b>Plot 3</b>""")
-textplot4 = Div(text="""<b>Plot 4</b>""")
-textplot5 = Div(text="""<b>Plot 5</b>""")
+textplot1 = Div(text="""<b>Plot 1</b>""", width=columnwidth)
+textplot2 = Div(text="""<b>Plot 2</b>""", width=columnwidth)
+textplot3 = Div(text="""<b>Plot 3</b>""", width=columnwidth)
+textplot4 = Div(text="""<b>Plot 4</b>""", width=columnwidth)
+textplot5 = Div(text="""<b>Plot 5</b>""", width=columnwidth)
 rowdict = {}
 coldict = {}
-for i in range(0,7):
+for i in range(0,9):
     r = 'r' + str(i)
     rowdict[r] = []
     
@@ -157,40 +160,27 @@ for i in range(0,5):
                 value=[loglist[1]],
                 options=loglist[:]
                 ))    
-    rowdict['r2'].append(Select(title='Shading left:',
-                value = loglist[0],
+    rowdict['r2'].append(Select(title='Shading type:',
+                value=shadingtypes[0],
+                options=shadingtypes[:]
+                ))
+    rowdict['r3'].append(MultiSelect(title='Shading log(s):',
+                value=[loglist[0]],
                 options=loglist[:]
                 ))
-    rowdict['r3'].append(Select(title='Shading right:',
-                 value = loglist[0],
-                 options=loglist[:]
-                 ))
-    rowdict['r4'].append(Select(title='Full width (litho-facies):',
-                 value = loglist[0],
-                 options=loglist[:]
-                 ))
-    rowdict['r5'].append(Select(title='Shading band left:',
-                 value = loglist[0],
-                 options=loglist[:]    
-                 ))
-    rowdict['r6'].append(Select(title='Shading band right:',
-                 value = loglist[0],
-                 options=loglist[:]
-                 ))
 
 for i in range(0,5):
     c = 'c' + str(i)
     coldict[c] = column([rowdict['r0'][i], rowdict['r1'][i],
-                          rowdict['r2'][i], rowdict['r3'][i],
-                          rowdict['r4'][i], rowdict['r5'][i],
-                          rowdict['r6'][i]
+                          rowdict['r2'][i], rowdict['r3'][i]
                           ])    
 rowofcolcurves = row(coldict['c0'], coldict['c1'], 
                coldict['c2'], coldict['c3'],
                coldict['c4'])
 
 #tab Parameters
-textparams = Div(text="""<b>Ranges, Scaling & Colors</b>""")
+textparams = Div(text="""<b>Ranges, Scaling & Colors</b>""",
+                 width=columnwidth)
 plotbutton1 = Button(label='Update Plot',
                       button_type='success')
 plotbutton1.on_click(update)
@@ -202,15 +192,15 @@ shadingcolor = Select(title='Shading color',
                  value = colorlist[0],
                  options=colorlist[:]
                  )
-fullwidthpalette = Select(title='Full width (litho-facies) palette:',
+colorfillpalette = Select(title='Color fill palette:',
                  value = palettelist[0],
                  options=palettelist[:]
                  )
-curvetext = (Div(text = """<b>Curve</b>"""))
-minscaletext = (Div(text = """<b>Min. scale</b>"""))
-maxscaletext = (Div(text = """<b>Max. scale</b>"""))
-linetypetext = (Div(text = """<b>Line style</b>"""))
-linecolortext = (Div(text = """<b>Line color</b>"""))
+curvetext = (Div(text = """<b>Curve</b>""", width=columnwidth))
+minscaletext = (Div(text = """<b>Min. scale</b>""", width=columnwidth))
+maxscaletext = (Div(text = """<b>Max. scale</b>""", width=columnwidth))
+linetypetext = (Div(text = """<b>Line style</b>""", width=columnwidth))
+linecolortext = (Div(text = """<b>Line color</b>""", width=columnwidth))
 nrcurves = len(logonlylist)
 
 lst0 = []
@@ -246,7 +236,7 @@ alldata = { 'data': data,
            'nrcurves' : nrcurves,
            'rowofcolcurves' : rowofcolcurves,
            'shadingcolor' : shadingcolor,
-           'fullwidthpalette' : fullwidthpalette,
+           'colorfillpalette' : colorfillpalette,
            'nrlogplots' : nrlogplots,
            'logwidth': logwidth,
            'logheight': logheight,
@@ -274,7 +264,7 @@ layoutcurves = layout( children = [ [textgeneral, plotbutton],
 layoutparams = layout( children = [ [textparams, plotbutton1],
                                     [mindepth, maxdepth, 
                                      depthticks, depthminorticks],
-                                    [shadingcolor, fullwidthpalette],
+                                    [shadingcolor, colorfillpalette],
                                     [curvetext, minscaletext, maxscaletext,
                                      linetypetext, linecolortext],
                                     [[rowofcol.children]]
