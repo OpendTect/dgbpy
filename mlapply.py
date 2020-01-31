@@ -125,13 +125,14 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   x_validate = list()
   y_validate = list()
   datasets = infos[dgbkeys.trainseldicstr][ichunk]
-  inp = infos[dgbkeys.inputdictstr]
-  for inputnm in inp:
-    input = inp[inputnm]
+  inputs = dgbhdf5.getExampleInputs( datasets )
+  for inp in inputs:
+    inputnm = inp[0]
+    groupnm = inp[1]
     dsets = dgbmlio.getDatasetsByInput( datasets, inputnm )
     ret = dgbmlio.getTrainingDataByInfo( infos, dsets )
-    if scale:
-      scaler = infos[dgbkeys.inputdictstr][inputnm][dgbkeys.scaledictstr]
+    if scale and groupnm in infos[dgbkeys.inputdictstr]:
+      scaler = infos[dgbkeys.inputdictstr][groupnm][dgbkeys.scaledictstr]
       if dgbkeys.xtraindictstr in ret:
         transform( ret[dgbkeys.xtraindictstr], scaler )
       if dgbkeys.xvaliddictstr in ret:

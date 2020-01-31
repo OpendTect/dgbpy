@@ -36,19 +36,44 @@ def getInputNames( filenm ):
   h5file.close()
   return ret
 
+def getWellNms( examples, groupnm ):
+  return examples[groupnm]['Wells'].keys()
+
 def getNrGroups( filenm ):
   return len(getGroupNames(filenm))
 
 def getNrInputs( filenm ):
   return len(getInputNames(filenm))
 
-def getInputID( info, inpnm ):
+def getExampleInputs( dsets ):
+  inps = list()
+  for dsetnm in dsets:
+    dset = dsets[dsetnm]
+    for groupnm in dset:
+      grp = dset[groupnm]
+      for inpnm in grp:
+        inps.append( (inpnm,groupnm) )
+  ret = []
+  for inp in inps:
+    if inp not in ret:
+      ret.append( inp )
+  return ret
+
+def getInputID( info, inpnm, groupnm ):
+  if isLogOutput( info ):
+    return info[exampledictstr][groupnm]['Wells'][inpnm]['id']
   return info[inputdictstr][inpnm]['id']
+
+def getSubGroupKeys( info, inputs, groupnm ):
+  if not isLogOutput( info ):
+    return inputs
+  return getWellNms( info[exampledictstr], groupnm )
 
 def getCubeLetNames( info, groupnms, inputs ):
   ret = {}
   for groupnm in groupnms:
-    ret.update({groupnm: getCubeLetNamesByGroup(info,inputs,groupnm)} )
+    inps = getSubGroupKeys( info, inputs, groupnm )
+    ret.update({groupnm: getCubeLetNamesByGroup(info,inps,groupnm)} )
   return ret
 
 def getCubeLetNamesByGroup( info, inputs, groupnm ):
@@ -66,7 +91,7 @@ def getCubeLetNamesByGroupByInput( info, groupnm, input ):
   if xdatadictstr in dsetnms:
     ret = np.arange(len(group[xdatadictstr]))
   else:
-    dsetwithinp = np.chararray.startswith( dsetnms, str(getInputID(info,input))+':' )
+    dsetwithinp = np.chararray.startswith( dsetnms, str(getInputID(info,input,groupnm))+':' )
     ret = np.extract( dsetwithinp, dsetnms )
   h5file.close()
   return np.ndarray.tolist(ret)
@@ -118,6 +143,16 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
 
 def getNrOutputs( info ):
   return info[nroutdictstr]
+
+def isSeisClass( info ):
+  if isinstance(info,dict):
+    return info[learntypedictstr] == seisclasstypestr
+  return info == seisclasstypestr
+
+def isLogOutput( info ):
+  if isinstance(info,dict):
+    return info[learntypedictstr] == loglogtypestr or info[learntypedictstr] == seisproptypestr
+  return info == loglogtypestr or info == seisproptypestr
 
 def isImg2Img( info ):
   if isinstance(info,dict):
@@ -286,146 +321,78 @@ def getInfo( filenm ):
     return {}
 
   learntype = odhdf5.getText(info,typestr)
-  isclassification = learntype == seisclasstypestr
+  isclassification = isSeisClass( learntype )
   if odhdf5.hasAttr(info,contentvalstr):
     isclassification = odhdf5.getText(info,contentvalstr) == classdatavalstr
-  shapeval = 'Cubelets'
   img2img = isImg2Img(learntype)
-  if img2img:
-    shapeval = 'Images'
+  logoutp = isLogOutput(learntype)
 
-  ex_sz = odhdf5.getIntValue(info,"Examples.Size") 
+  extxt = 'Examples.'
+  ex_sz = odhdf5.getIntValue(info, extxt+'Size') 
   idx = 0
-  nroutputs = 1
   examples = {}
   while idx < ex_sz:
-    logstr = 'Examples.'+str(idx)+'.Log'
-    namestr = 'Examples.'+str(idx)+'.Name'
-    idstr = 'Examples.'+str(idx)+'.ID'
-    survstr = 'Examples.'+str(idx)+'.Survey'
-    if odhdf5.hasAttr( info, logstr ):
-      exname = logstr
-      extype = 'Logs'
-    elif odhdf5.hasAttr( info, namestr ):
-      if img2img:
-        extype = 'Images'
-        exname = survstr
-      else:
-        extype = 'Point-Sets'
-        exname = namestr
-    else:
-      raise KeyError
-    grouplbl = odhdf5.getText( info, exname )
-    if idx == 0 and exname == logstr and isinstance( grouplbl, list ):
-      nroutputs = len(grouplbl)
-    example = {}
-    exampleszstr = 'Examples.' + str(idx) + '.Size'
-    if odhdf5.hasAttr( info, exampleszstr ):
-      example_sz = odhdf5.getIntValue(info,exampleszstr)
-      idy = 0
-      survexamples = list()
-      while idy < example_sz:
-        exyname = odhdf5.getText(info,"Examples."+str(idx)+'.Name.'+str(idy))
-        exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID.'+str(idy))
-        exstruct = {dbkeydictstr: exidstr, iddictstr: idy}
-        survidystr = 'Examples.'+str(idx)+'.Survey.'+str(idy)
-        if odhdf5.hasAttr( info, survidystr ):
-          exstruct.update({locationdictstr: odhdf5.getText(info,survidystr)})
-        survexamples.append( {exyname: exstruct } )
-        idy += 1
-      example = {extype: survexamples, iddictstr: idx}
-    else:
-      exyname = odhdf5.getText(info,'Examples.'+str(idx)+'.Name')
-      exidstr = odhdf5.getText(info,'Examples.'+str(idx)+'.ID')
-      location = None
-      if isinstance( exidstr, list ):
-        location = exidstr[1]
-        exidstr = exidstr[0]
-      exstruct = {dbkeydictstr: exidstr, iddictstr: 0}
-      if location != None:
-        exstruct.update({locationdictstr: location})
-      example = {extype: [{exyname: exstruct}] }
-
-    if odhdf5.hasAttr( info, survstr ):
-      if exname == logstr:
-        surveyfp = path.split( odhdf5.getText(info, survstr ) )
-        surveynm = odhdf5.getText(info, 'Examples.'+str(idx)+'.Name' )
-        grouplbl = surveynm
-        example.update({
-          targetdictstr: odhdf5.getText( info, exname ),
-          pathdictstr: surveyfp[0]
-        })
-      elif exname == survstr:
-        example.update({
-          targetdictstr: odhdf5.getText( info, 'Examples.0.Name' ),
-          pathdictstr: odhdf5.getText( info, exname )
-        })
-
-    examples.update({grouplbl: example})
+    exidxstr  = extxt+str(idx)+'.'
+    example_sz = odhdf5.getIntValue( info, exidxstr+'Size' )
+    example = list()
+    idy = 0
+    while idy < example_sz:
+      exidystr = exidxstr+str(idy)+'.'
+      exxyobj = {
+        namedictstr: odhdf5.getText(info, exidystr+'Name' ),
+        dbkeydictstr: odhdf5.getText(info, exidystr+'ID' ),
+        iddictstr: idy,
+      }
+      exysurv = odhdf5.getText(info, exidystr+'Survey' )
+      if len(exysurv) > 0:
+        exxyobj.update({ locationdictstr: exysurv})
+      example.append( exxyobj )
+      idy += 1
+    examples.update({ odhdf5.getText( info, exidxstr+'Name' ): {
+      odhdf5.getText( info, exidxstr+'Type' ): example,
+      targetdictstr: odhdf5.getText( info, exidxstr+'Target' ),
+      iddictstr: idx
+    }})
     idx += 1
 
-  inp_sz = odhdf5.getIntValue(info,"Input.Size")
+  inptxt = 'Input.'
+  inp_sz = odhdf5.getIntValue(info,inptxt+'Size')
   idx = 0
-  input = {}
+  inputs = {}
   while idx < inp_sz:
-    survtxtstr = 'Input.'+str(idx)+'.Survey'
-    if odhdf5.hasAttr( info, survtxtstr ):
-      surveyfp = path.split( odhdf5.getText(info,survtxtstr) )
-    else:
-      surveyfp = [None,None]
-    inp = {
-      pathdictstr: surveyfp[0],
+    inpidxstr = inptxt+str(idx)+'.'
+    input_sz = odhdf5.getIntValue( info, inpidxstr+'Size' )
+    input = list()
+    idy = 0
+    scales = list()
+    means = list()
+    while idy < input_sz:
+      inpidystr = inpidxstr+str(idy)+'.'
+      inpxyobj = {
+        namedictstr: odhdf5.getText(info, inpidystr+'Name' ),
+        dbkeydictstr: odhdf5.getText(info, inpidystr+'ID' ),
+        iddictstr: idy
+      }
+      scalekey = inpidystr+'Stats'
+      if odhdf5.hasAttr(info,scalekey):
+        scaletxt = odhdf5.getAttr(info,scalekey)
+        if scaletxt != '0`0':
+          scale = odhdf5.getDInterval(info,scalekey)
+          means.append( scale[0] )
+          scales.append( scale[1] )
+      input.append( inpxyobj )
+      idy += 1
+    inpobj = {
+      attribdictstr: input,
       iddictstr: idx
     }
-    logsstr = "Input."+str(idx)+".Logs"
-    inpp_sz = 0
-    if odhdf5.hasAttr( info, logsstr ):
-      inp.update({logdictstr: odhdf5.getText(info, logsstr )})
-      inpp_sz = len( inp[logdictstr] )
-    else:
-      inpsizestr = 'Input.'+str(idx)+'.Size'
-      if odhdf5.hasAttr( info, inpsizestr ):
-        inpp_sz = odhdf5.getIntValue(info,inpsizestr)
-    if inpp_sz > 0:
-      idy = 0
-      attriblist = list()
-      scales = list()
-      means = list()
-      idystart = 0
-      if img2img:
-        idystart = 1
-      for idy in range(idystart,inpp_sz):
-        attribinp = {}
-        dsnamestr = 'Input.'+str(idx)+'.Name.'+str(idy)
-        if odhdf5.hasAttr( info, dsnamestr ):
-          attribinp.update({ namedictstr: odhdf5.getText(info,dsnamestr) })
-        dbkeystr = 'Input.'+str(idx)+'.ID.'+str(idy)
-        if odhdf5.hasAttr( info, dbkeystr ):
-          attribinp.update({ dbkeydictstr: odhdf5.getText(info,dbkeystr) })
-        if len(attribinp.keys()) > 0:
-          attribinp.update({ iddictstr: idy-idystart })
-        if len(attribinp.keys()) > 0:
-          attriblist.append( attribinp )
-        scalekey = "Input."+str(idx)+".Stats."+str(idy)
-        if odhdf5.hasAttr(info,scalekey):
-          scaletxt = odhdf5.getAttr(info,scalekey)
-          if scaletxt != '0`0':
-            scale = odhdf5.getDInterval(info,scalekey)
-            means.append( scale[0] )
-            scales.append( scale[1] )
-      if len(attriblist) > 0:
-        inp.update({attribdictstr: attriblist} )
-      if len(scales) > 0:
-        inp.update({scaledictstr: dgbscikit.getNewScaler(means,scales) })
-
-    input.update({surveyfp[1]: inp})
+    inpsurv = odhdf5.getText(info, inpidxstr+'Survey' )
+    if len(inpsurv) > 0:
+      inpobj.update({ locationdictstr: inpsurv})
+    if len(scales) > 0:
+      inpobj.update({scaledictstr: dgbscikit.getNewScaler(means,scales) })
+    inputs.update({ odhdf5.getText( info, inpidxstr+'Name' ): inpobj})
     idx += 1
-
-  if learntype == loglogtypestr:
-    attribkey = logdictstr
-  else:
-    attribkey = attribdictstr
-  nrattribs = len( input[list(input.keys())[0]][attribkey] )
 
   if not odhdf5.hasAttr(info,inpshapestr) or \
      not odhdf5.hasAttr(info,outshapestr):
@@ -433,6 +400,10 @@ def getInfo( filenm ):
 
   inpshape = odhdf5.getIArray( info, inpshapestr )
   outshape = odhdf5.getIArray( info, outshapestr )
+  if logoutp:
+    nroutputs = outshape
+  else:
+    nroutputs = 1
 
   retinfo = {
     learntypedictstr: learntype,
@@ -442,12 +413,12 @@ def getInfo( filenm ):
     classdictstr: isclassification,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
-    inputdictstr: input,
+    inputdictstr: inputs,
     filedictstr: filenm
   }
 
   retinfo.update({
-    datasetdictstr: getCubeLetNames( retinfo, examples.keys(), input.keys() )
+    datasetdictstr: getCubeLetNames( retinfo, examples.keys(), inputs.keys() )
   })
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
@@ -455,9 +426,9 @@ def getInfo( filenm ):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   h5file.close()
 
-  if learntype == loglogtypestr or learntype == seisproptypestr:
+  if isLogOutput( learntype ):
     return getWellInfo( retinfo, filenm )
-  elif learntype == seisclasstypestr or isImg2Img(learntype):
+  elif isSeisClass(learntype) or isImg2Img(learntype):
     return getAttribInfo( retinfo, filenm )
 
   std_msg( "Unrecognized learn type: ", learntype )
@@ -465,7 +436,7 @@ def getInfo( filenm ):
 
 def getAttribInfo( info, filenm ):
   if info[classdictstr]:
-    if info[learntypedictstr] == seisclasstypestr:
+    if isSeisClass(info):
       info.update( {classesdictstr: getClassIndices(info)} )
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
@@ -607,11 +578,10 @@ def getOutputs( inpfile ):
   isclassification = info[classdictstr]
   if isclassification:
     ret.append( classificationvalstr  )
-    if learntype == seisclasstypestr:
+    if isSeisClass(learntype):
       ret.extend( getGroupNames(inpfile) )
       ret.append( confvalstr )
-  elif learntype == loglogtypestr or learntype == seisproptypestr \
-    or learntype == seisimgtoimgtypestr:
+  elif isLogOutput(learntype) or isImg2Img(learntype):
     firsttarget = next(iter(info[exampledictstr]))
     targets = info[exampledictstr][firsttarget][targetdictstr]
     if isinstance(targets,list):
