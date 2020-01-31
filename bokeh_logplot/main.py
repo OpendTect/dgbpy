@@ -14,6 +14,7 @@ Log plotting GUI
 """
 
 from os import path
+import argparse
 import pandas as pd
 from bokeh.layouts import layout, column, row
 from bokeh.models import Button
@@ -23,11 +24,34 @@ from bokeh.models.widgets import (MultiSelect, Panel, Tabs, Select,
 from bokeh.plotting import curdoc, figure
 import plot_logs
 import itertools  
+import odpy.wellman as wellman
+
+parser = argparse.ArgumentParser(
+            description='Select parameters for log plot')
+parser.add_argument( '-v', '--version',
+            action='version', version='%(prog)s 1.0' )
+datagrp = parser.add_argument_group( 'Data' )
+datagrp.add_argument( '--dataroot',
+            dest='dtectdata', metavar='DIR', nargs=1,
+            help='Survey Data Root' )
+datagrp.add_argument( '--survey',
+            dest='survey', nargs=1,
+            help='Survey name' )
+datagrp.add_argument( '--well',
+            dest='wellid', nargs=1,
+            help='Well ID' )
+args = vars(parser.parse_args())
+reload = False
+
+wellid = args['wellid'][0]
+wellnm = wellman.getName( wellid, reload, args )
+
 
 #import plot_logs as plot_logs
 
 run_dict = {
-     "dir_path" : "c:/dev/Python_Scripts/Bokeh/", # directory path for in- and output
+#     "dir_path" : "c:/dev/Python_Scripts/Bokeh/", # directory path for in- and output
+     "dir_path" : "/dsk/d101/nanne/Python/Paul/Bokeh", # directory path for in- and output
      "file_name" : "One_well_logs.dat",   # input file in pseudo-las format
      "undef" : 1e30, # undefined value in logs
      'wellname': 'Mywell'
@@ -71,6 +95,24 @@ wellnmfld = TextInput()
 wellnmfld.value = wellname
 rowofcolcurves = row()
 nrlogplots = Slider()
+
+def readLogs( wellnm, undefvalue ):
+    lognames = wellman.getLogNames( wellnm, reload, args )
+    logdata = pd.DataFrame()
+    if not lognames:
+        return (lognames,logdata)
+
+    for nm in lognames:
+        ld = wellman.getLog( wellnm, nm, reload, args )
+        lddf = pd.DataFrame( ld ).transpose()
+        lddf.columns = ['MD',nm]
+        if ( logdata.empty ):
+            logdata = lddf
+        else:
+            logdata = pd.merge( logdata, lddf, on='MD', how='outer', sort=True )
+
+    logdata = logdata.replace(to_replace=undefvalue, value=float('NaN'))
+    return (lognames,logdata)
 
 # create a callback that will add a number in a random location
 def update():
