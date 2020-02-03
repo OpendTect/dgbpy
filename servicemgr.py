@@ -44,7 +44,7 @@ class ServiceMgr:
       self._parentChkTimer.cancel()
     
   def _parentChkCB(self):
-    if self_parentproc != None and not self._parentproc.is_running():
+    if self._parentproc != None and not self._parentproc.is_running():
       odcommon.std_msg('Found dead parent, exiting')
       self.stop()
       os.kill(psutil.Process().pid, signal.SIGINT)

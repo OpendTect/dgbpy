@@ -11,20 +11,19 @@ Log crossplot GUI
 
 @author: paul
 """
-
-from os import path
+import sys
 import argparse
-import pandas as pd
+import pandas as pd 
 import numpy as np
 from bokeh.layouts import column, row
 from bokeh.models.widgets import Select, PreText, TextInput
-from bokeh.plotting import curdoc
 from bokeh.palettes import Viridis
 import crossplot_logs
 import odpy.wellman as wellman
+from dgbpy.bokehserver import StartBokehServer, DefineBokehArguments
 
 parser = argparse.ArgumentParser(
-            description='Select parameters for machine learning model training')
+            description='Dashboard for well log crossplotting')
 parser.add_argument( '-v', '--version',
             action='version', version='%(prog)s 1.0' )
 datagrp = parser.add_argument_group( 'Data' )
@@ -37,7 +36,11 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
+
+parser = DefineBokehArguments(parser)
+
 args = vars(parser.parse_args())
+
 reload = False
 
 wellid = args['wellid'][0]
@@ -99,33 +102,35 @@ def prepareForPlot( wellnm ):
         mindepth = data.iloc[0][0]
         maxdepth = data.iloc[-1][0]
 
+
 prepareForPlot( wellnm )
+  
+def crossplot_app(doc):
+  SIZES = list(range(6, 25, 1))
+  COLORS = Viridis[10]
+  N_SIZES = len(SIZES)
+  N_COLORS = len(COLORS)
+  columns = data.columns
 
-SIZES = list(range(6, 25, 1))
-COLORS = Viridis[10]
-N_SIZES = len(SIZES)
-N_COLORS = len(COLORS)
-columns = data.columns
-
-def update(attr, old, new):
+  def update(attr, old, new):
     (layout.children[1], layout.children[2]) = (
                     crossplot_logs.create_plots(alldata) )
 
-def minDepthChangeCB(attr, old, new):
+  def minDepthChangeCB(attr, old, new):
     if (float(new) <= data.iloc[0][0]):
         alldata['mindepth'] = data.iloc[0][0]
     else:
         alldata['mindepth'] = float(new)
     update(attr, old, alldata['mindepth'])
 
-def maxDepthChangeCB(attr, old, new):
+  def maxDepthChangeCB(attr, old, new):
     if (float(new) >= data.iloc[-1][0]):
         alldata['maxdepth'] = data.iloc[-1][0]
     else:
         alldata['maxdepth'] = float(new)
     update(attr, old, alldata['maxdepth'])
 
-def wellChangeCB(attr, old, new):
+  def wellChangeCB(attr, old, new):
     prepareForPlot( new )
 
     x.disabled = True
@@ -160,54 +165,57 @@ def wellChangeCB(attr, old, new):
 
     update(attr,old,alldata)
 
-w = TextInput(title='Well', value=wellnm )
-w.disabled = True
 
-x = Select(title='X-Axis', value=logx, options=xoptions )
-x.on_change('value', update)
+  w = TextInput(title='Well', value=wellnm )
+  w.disabled = True
 
-y = Select(title='Y-Axis', value=logy, options=yoptions )
-y.on_change('value', update)
+  x = Select(title='X-Axis', value=logx, options=xoptions )
+  x.on_change('value', update)
 
-size = Select(title='Size', value=logsz, options= headers)
-size.on_change('value', update)
+  y = Select(title='Y-Axis', value=logy, options=yoptions )
+  y.on_change('value', update)
 
-color = Select(title='Color', value=logcol, options=headers)
-color.on_change('value', update)
+  size = Select(title='Size', value=logsz, options= headers)
+  size.on_change('value', update)
 
-plottype = Select(title='Cross plot type:', value='Bubbles',
+  color = Select(title='Color', value=logcol, options=headers)
+  color.on_change('value', update)
+
+  plottype = Select(title='Cross plot type:', value='Bubbles',
                  options=['Bubbles', 'Scatter + Regression'])
-plottype.on_change('value', update)
+  plottype.on_change('value', update)
 
-inputmindepth = TextInput(title='Minimum depth', value=str(mindepth))
-inputmindepth.on_change('value', minDepthChangeCB)
+  inputmindepth = TextInput(title='Minimum depth', value=str(mindepth))
+  inputmindepth.on_change('value', minDepthChangeCB)
 
-inputmaxdepth = TextInput(title='Maximum depth', value=str(maxdepth))
-inputmaxdepth.on_change('value', maxDepthChangeCB)
+  inputmaxdepth = TextInput(title='Maximum depth', value=str(maxdepth))
+  inputmaxdepth.on_change('value', maxDepthChangeCB)
 
-controls = column([w, x, y, color, size, plottype,
+  controls = column([w, x, y, color, size, plottype,
                    inputmindepth, inputmaxdepth], width=250)
 
-stats = PreText(text='', width=800)
+  stats = PreText(text='', width=800)
 
-alldata = { 'data': data,
-           'headers': headers,
-           'x': x,
-           'y': y,
-           'size': size,
-           'color': color,
-           'plottype': plottype,
-           'stats' : stats,
-           'N_SIZES': N_SIZES,
-           'SIZES': SIZES,
-           'N_COLORS': N_COLORS,
-           'COLORS': COLORS,
-           'mindepth': mindepth,
-           'maxdepth': maxdepth,
+  alldata = { 'data': data,
+              'headers': headers,
+              'x': x,
+              'y': y,
+              'size': size,
+              'color': color,
+              'plottype': plottype,
+              'stats' : stats,
+              'N_SIZES': N_SIZES,
+              'SIZES': SIZES,
+              'N_COLORS': N_COLORS,
+              'COLORS': COLORS,
+              'mindepth': mindepth,
+              'maxdepth': maxdepth,
            }
+  (grid, xplot) = crossplot_logs.create_plots(alldata)
+  layout = row( controls, grid, xplot )
 
-(grid, xplot) = crossplot_logs.create_plots(alldata)
-layout = row( controls, grid, xplot )
+  doc.add_root(layout)
+  doc.title = "Crossplot well logs"
 
-curdoc().add_root(layout)
-curdoc().title = "Crossplot well logs"
+StartBokehServer({'/': crossplot_app}, args)
+
