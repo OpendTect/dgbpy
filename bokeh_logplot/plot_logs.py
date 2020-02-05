@@ -17,7 +17,8 @@ import pandas as pd
 from bokeh.plotting import figure
 from bokeh.palettes import all_palettes
 from bokeh.models.tickers import FixedTicker
-from bokeh.models import LinearAxis, Range1d, LogAxis
+from bokeh.models import (LinearAxis, Range1d, LogAxis,
+                              LabelSet, ColumnDataSource)
 from bokeh.layouts import gridplot
 from collections import OrderedDict
 
@@ -42,25 +43,31 @@ def getScaledLog(nr, minval, maxval, minvalues, maxvalues, data, logname):
         targetrange = float(maxvalues[0]) - float(minvalues[0])
         logrange = float(maxval) - float(minval)
         scalingfactor = targetrange / logrange
-        scalingintercept = (-targetrange * float(minval) / logrange 
+        scalingintercept = (-targetrange * float(minval) / logrange
                             + float(minvalues[0]))
         minvalues[nr] = minvalues[0]
         maxvalues[nr] = maxvalues[0]
     scaledlog = (data.loc[:, logname].copy() * scalingfactor + scalingintercept)
     return (scaledlog, minvalues, maxvalues)
-    
+
 def create_gridplot(alldata):
     nrlogplots = int(alldata['nrlogplots'].value)
+    plotmarkers = alldata['plotmarkers'].value
+    plotmarkersyesno = plotmarkers[0]
     a = {}
     plotlist = []
     for nr in range(nrlogplots):
         key = 'plot'+str(nr)
-        a[key] = create_plot(alldata, nr)
+        a[key] = create_plot(alldata, nr, plotmarkersyesno)
         plotlist.append(a[key])
         if (key == 'plot0'):
             y_range = a[key].y_range
         else:
             a[key].y_range = y_range
+    if (plotmarkersyesno != 'None'):
+        plotmarkersyesno = 'Last'
+        markerplot = create_plot(alldata, nr, plotmarkersyesno)
+        plotlist.append(markerplot)
     grid = gridplot([plotlist])
     return(grid)
 
@@ -153,9 +160,61 @@ def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
                       )
     return(plot)
 
+def add_markers(plot, markers, plotmarkers, plotmarkersyesno,
+                minbound, maxbound):
+    markerdepths = list(-markers['Depth'])
+    markernames = list(markers['Name'])
+    markercolors =  list(markers['Color'])
+    xseries = [minbound, maxbound]
+    xlabels = []
+    ylabels = []
+    textlabels = []
+    linecolors = []
+    if (plotmarkers[0] == 'All'):
+        plotmarkers = list(markers['Name'])
+    for j in range(len(plotmarkers)):
+        for i in range(len(markerdepths)):
+            if (plotmarkers[j] == markernames[i]):
+                yseries = [markerdepths[i], markerdepths[i]]
+                xlabels.append(minbound)
+                ylabels.append(markerdepths[i])
+                textlabels.append(markernames[i])
+                linecolors.append(markercolors[i])
+    if (plotmarkersyesno == 'Last'):
+        plot.outline_line_color = None
+        plot.xaxis.visible = False
+        plot.xgrid.visible = False
+        plot.ygrid.visible = False
+        plot.background_fill_color = None
+        plot.border_fill_color = None
+        plot.title.text = 'Markers'
+        source = ColumnDataSource(data=dict(xlabel=xlabels,
+                           ylabel = ylabels,
+                           textlabel = textlabels ))
+        labels = LabelSet(x='xlabel', y='ylabel',
+                          text='textlabel', level='glyph',
+                          x_offset=15, y_offset=5, source=source,
+                          render_mode='canvas')
+        plot.add_layout(labels)
+        for i in range(len(plotmarkers)):
+            yseries = [ylabels[i], ylabels[i]]
+            plot.line(xseries[:], yseries[:],
+                      color=linecolors[i],
+                      line_width=2)
+    if (plotmarkersyesno != 'None'):
+        for i in range(len(plotmarkers)):
+            yseries = [ylabels[i], ylabels[i]]
+            plot.line(xseries[:], yseries[:],
+                  color=linecolors[i],
+                  line_width=2)
+    return(plot)
+
 #Make a Bokeh plot
-def create_plot(alldata, nr):
+def create_plot(alldata, nr, plotmarkersyesno):
     data = alldata['data']
+    headers = alldata['headers']
+    markers = alldata['markers']
+    plotmarkers = alldata['plotmarkers'].value
     xlogscales = alldata['xlogscales']
     nrcurves = alldata['nrcurves']
     xaxistype = (alldata['rowofcolcurves'].children[nr].
@@ -170,6 +229,7 @@ def create_plot(alldata, nr):
     colorfillpalette = alldata['colorfillpalette'].value
     colorfill = 'single'
     xrange2 = 'dummy'
+    rowofcol = alldata['rowofcol']
     if (((shadingtype == 'Left palette') or
          (shadingtype == 'Right palette') or
          (shadingtype == 'Column wide palette'))):
@@ -182,25 +242,24 @@ def create_plot(alldata, nr):
             shadingdifferencelog2 = shadinglogs[1]
         else:
             print('error: select 2 logs for difference shading')
-    depthlogstr = alldata['seldepthlog'].value
-    depthdata = -data.loc[:, depthlogstr] 
+    depthlogstr = headers[0]
+    depthdata = -data.loc[:, depthlogstr]
     logwidth = int(alldata['logwidth'].value)
     logheight = int(alldata['logheight'].value)
-    mindepth = alldata['mindepth'].value
-    maxdepth = alldata['maxdepth'].value
-    if (mindepth == ""):
-        mindepth = depthdata.iloc[-1]
+    firstdepth = alldata['firstdepth']
+    lastdepth = alldata['lastdepth']
+    if (firstdepth == 0):
+        firstdepth = depthdata.iloc[0]
     else:
-        mindepth = -float(alldata['maxdepth'].value) # a bit weird: depth input is positive but plot is negative
-    if (maxdepth == ""):
-        maxdepth = depthdata.iloc[0]
+        firstdepth = -float(alldata['firstdepth'].value)
+    if (lastdepth == 0):
+        lastdepth = depthdata.iloc[-1]
     else:
-        maxdepth = -float(alldata['mindepth'].value)
+        lastdepth = -float(alldata['lastdepth'].value)
     depthticks = int(alldata['depthticks'].value)
-    rowofcol = alldata['rowofcol']
     depthminorticks = int(alldata['depthminorticks'].value)
     ylabel = depthlogstr
-    lognames = list(selmullogs.value) 
+    lognames = list(selmullogs.value)
     if ((shadingtype != 'None') and
             (shadinglogs[0] != 'None')):
         lognames.append(shadinglogs[0])
@@ -225,7 +284,7 @@ def create_plot(alldata, nr):
                                  children[nm].value)
                 minvalues.append(minval)
                 maxvalues.append(maxval)
-                (scaledlog, minvalues, maxvalues) = getScaledLog(i, 
+                (scaledlog, minvalues, maxvalues) = getScaledLog(i,
                                         minval, maxval,
                                         minvalues, maxvalues,
                                         data, lognames[i])
@@ -236,77 +295,101 @@ def create_plot(alldata, nr):
                                  children[nm].value))
                 break
         counter.append(i)
-    
-    plot = figure(plot_width=logwidth, plot_height=logheight,
-                 x_axis_type = xaxistype,
-                 x_axis_label = lognames[0],
-                 x_axis_location = 'above',
-                 background_fill_color="#f0f0f0",
-                 tools='pan,wheel_zoom,box_select,reset,hover,save',
-                 y_axis_label=ylabel)
 
+    if (len(lognames) <=2):
+        plot = figure(plot_width=logwidth, plot_height=logheight,
+                     x_axis_type = xaxistype,
+                     x_axis_label = lognames[0],
+                     x_axis_location = 'above',
+                     background_fill_color="#f0f0f0",
+                     tools='ypan,ywheel_zoom,reset,hover',
+                     y_axis_label=ylabel)
+    else:
+        xaxislabel = lognames[0]
+        for i in range(2, len(lognames)):
+            xaxislabel = xaxislabel + "," + lognames[i] + "(rescaled)"
+        plot = figure(plot_width=logwidth, plot_height=logheight,
+                     x_axis_type = xaxistype,
+                     x_axis_label = xaxislabel,
+                     x_axis_location = 'above',
+                     background_fill_color="#f0f0f0",
+                     tools='ypan,ywheel_zoom,reset,hover',
+                     y_axis_label=ylabel)
     ticker = []
     for i in range(0,-10000,-depthticks):
         ticker.append(i)
     minorticks = []
     for i in range(0,-10000,-depthminorticks):
         minorticks.append(i)
-    plot.yaxis.ticker = FixedTicker(ticks=ticker, 
+    plot.yaxis.ticker = FixedTicker(ticks=ticker,
                                     minor_ticks = minorticks)
     plot.ygrid.grid_line_color = 'navy'
     plot.ygrid.grid_line_alpha = 0.2
     plot.ygrid.minor_grid_line_color = 'navy'
     plot.ygrid.minor_grid_line_alpha = 0.1
     plot.title.text = 'Plot ' + str(nr+1)
-    plot.y_range = Range1d(mindepth , maxdepth) 
+    plot.y_range = Range1d(lastdepth , firstdepth)
     plot.x_range = Range1d(float(minvalues[0]), float(maxvalues[0]))
-    
-    for count, name, minvalue, maxvalue, linestyle, color in zip(counter,
-                                  lognames, 
-                                  minvalues, 
-                                  maxvalues, 
-                                  linestyles,
-                                  mypalette):
-        if (count == 0):
-            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                plot.line(scaledlogs[name], depthdata[:],
-                          legend_label=name,
-                          color=color, 
-                          line_width=2,
-                          line_dash = linestyle)
-        if (count == 1):
-            xrange2 = name
-            plot.extra_x_ranges={xrange2: Range1d(float(minvalues[1]), 
-                                               float(maxvalues[1]))}
-            if (shadingtype == 'Difference 2 logs shading color'):
-                plot.extra_x_ranges={xrange2: Range1d(float(minvalues[0]),
-                                                   float(maxvalues[0]))}
-            if (xaxistype == 'linear'):           
-                 plot.add_layout(LinearAxis(x_range_name=xrange2, 
-                        axis_label=name), 'above')
-            if (xaxistype == 'log'):
-                  plot.add_layout(LogAxis(x_range_name=xrange2, 
-                        axis_label=name), 'above')
-            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                plot.line(scaledlogs[name], depthdata[:],
-                          legend_label=name,
-                          color=color, 
-                          x_range_name = name,
-                          line_width = 2,
-                          line_dash =  linestyle)  
-        if (count > 1):
-            if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                plot.line(scaledlogs[name], depthdata[:],
-                          legend_label=name,
-                          color=color, 
-                          line_width=2,
-                          line_dash =  linestyle) 
-                print ("Warning: only two separate X-ranges supported.",
-                       "Additional curves are scaled to the range of the first curve.")
 
-# shading plots
-    if (shadingtype != 'None'):
-        plot = add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
-                       shadingtype, shadinglogs, linestyles, mypalette,
-                       colorfillpalette, colorfill, shadingcolor)
+    if (plotmarkersyesno != 'Last'):
+        for count, name, minvalue, maxvalue, linestyle, color in zip(counter,
+                                      lognames,
+                                      minvalues,
+                                      maxvalues,
+                                      linestyles,
+                                      mypalette):
+            if (count == 0):
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                    plot.line(scaledlogs[name], depthdata[:],
+                              legend_label=name,
+                              color=color,
+                              line_width=2,
+                              line_dash = linestyle)
+            if (count == 1):
+                xrange2 = name
+                plot.extra_x_ranges={xrange2: Range1d(float(minvalues[1]),
+                                                   float(maxvalues[1]))}
+                if (shadingtype == 'Difference 2 logs shading color'):
+                    plot.extra_x_ranges={xrange2: Range1d(float(minvalues[0]),
+                                                       float(maxvalues[0]))}
+                if (xaxistype == 'linear'):
+                     plot.add_layout(LinearAxis(x_range_name=xrange2,
+                            axis_label=name), 'above')
+                if (xaxistype == 'log'):
+                      plot.add_layout(LogAxis(x_range_name=xrange2,
+                            axis_label=name), 'above')
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                    plot.line(scaledlogs[name], depthdata[:],
+                              legend_label=name,
+                              color=color,
+                              x_range_name = name,
+                              line_width = 2,
+                              line_dash =  linestyle)
+            if (count > 1):
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
+                    plot.line(scaledlogs[name], depthdata[:],
+                              legend_label=name,
+                              color=color,
+                              line_width=2,
+                              line_dash =  linestyle)
+                    print ("Warning: only two separate X-ranges supported.",
+                           "Additional curves are scaled to the range of the first curve.")
+
+    # shading plots
+        if ((shadingtype != 'None') and
+            (shadinglogs[0] != 'None')):
+            plot = add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
+                           shadingtype, shadinglogs, linestyles, mypalette,
+                           colorfillpalette, colorfill, shadingcolor)
+# marker plots
+    minval = float(minvalues[0])
+    maxval = float(maxvalues[0])
+    extension = (maxval - minval) / 20
+    minbound = minval - extension
+    maxbound =  maxval + extension
+    if not markers:
+      return plot
+
+    plot = add_markers(plot, markers, plotmarkers, plotmarkersyesno,
+                       minbound, maxbound)
     return (plot)
