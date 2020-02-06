@@ -23,6 +23,26 @@ dgbtrl = 'dGB'
 def getInfo( filenm ):
   return dgbhdf5.getInfo( filenm )
 
+def datasetCount( dsets ):
+  if dgbkeys.datasetdictstr in dsets:
+    dsets = infos[dgbkeys.datasetdictstr]
+  ret = {}
+  totsz = 0
+  for groupnm in dsets:
+    collection = dsets[groupnm]
+    collcounts = {}
+    groupsz = 0
+    for collnm in collection:
+      collitm = collection[collnm]
+      collsz = len(collitm)
+      groupsz += collsz
+      collcounts.update({ collnm: collsz })
+    collcounts.update({ 'size': groupsz })
+    totsz += groupsz
+    ret.update({groupnm: collcounts})
+  ret.update({ 'size': totsz })
+  return ret
+
 def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
   train = {}
   valid = {}
@@ -93,18 +113,12 @@ def hasScaler( infos, inputsel=None ):
       return False
   return True
 
-def getDatasetsByInput( dslist, inp ):
+def getDatasetsByGroup( dslist, groupnm ):
   ret = {}
-  for dslistnm in dslist:
-    retdset = {}
-    dsets = dslist[dslistnm]
-    for groupnm in dsets:
-      group = dsets[groupnm]
-      retgrp = {}
-      if inp in group:
-        retgrp.update({inp: group[inp]})
-      retdset.update({groupnm: retgrp})
-    ret.update({dslistnm: retdset})
+  for keynm in dslist:
+    dp = dslist[keynm]
+    if groupnm in dp:
+      ret.update({keynm:{groupnm: dp[groupnm]}})
   return ret
 
 def getSomeDatasets( dslist, decim=None ):
@@ -181,10 +195,11 @@ def unnormalize_class_vector( arr, classes ):
 
 def saveModel( model, inpfnm, platform, infos, outfnm ):
   from odpy.common import log_msg
-  try:
-    os.remove( outfnm )
-  except Exception as e:
-    log_msg( 'Cannot save model:', e )
+  if os.path.exists(outfnm):
+    try:
+      os.remove( outfnm )
+    except Exception as e:
+      log_msg( 'Cannot save model:', e )
   log_msg( 'Saving model.' )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
@@ -240,7 +255,7 @@ def getApplyInfo( infos, outsubsel=None ):
   withpred = (isclassification and dgbkeys.classificationvalstr in names) or \
              not isclassification
   if isclassification:
-    withprobs = dgbhdf5.getClassIndices( infos, names )
+    (withprobs,classnms) = dgbhdf5.getClassIndices( infos, names )
   else:
     withprobs = []
   ret = {

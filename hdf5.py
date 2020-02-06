@@ -20,69 +20,29 @@ from dgbpy.keystr import *
 
 hdf5ext = 'h5'
 
-def getGroupNames( filenm ):
-  h5file = h5py.File( filenm, 'r' )
-  ret = list()
-  for groupnm in h5file.keys():
-    if isinstance( h5file[groupnm], h5py.Group ):
-      ret.append( groupnm )
-  h5file.close()
+def dictAddIfNew( newset, toadd ):
+  ret = toadd
+  for itmnm in newset:
+    toadd.update({itmnm: newset[itmnm]})
   return ret
 
-def getInputNames( filenm ):
-  h5file = h5py.File( filenm, 'r' )
-  info = getInfo( filenm )
-  ret = list(info[inputdictstr].keys())
-  h5file.close()
-  return ret
-
-def getWellNms( examples, groupnm ):
-  return examples[groupnm]['Wells'].keys()
-
-def getNrGroups( filenm ):
-  return len(getGroupNames(filenm))
-
-def getNrInputs( filenm ):
-  return len(getInputNames(filenm))
-
-def getExampleInputs( dsets ):
-  inps = list()
-  for dsetnm in dsets:
-    dset = dsets[dsetnm]
-    for groupnm in dset:
-      grp = dset[groupnm]
-      for inpnm in grp:
-        inps.append( (inpnm,groupnm) )
-  ret = []
-  for inp in inps:
-    if inp not in ret:
-      ret.append( inp )
-  return ret
-
-def getInputID( info, inpnm, groupnm ):
-  if isLogOutput( info ):
-    return info[exampledictstr][groupnm]['Wells'][inpnm]['id']
-  return info[inputdictstr][inpnm]['id']
-
-def getSubGroupKeys( info, inputs, groupnm ):
-  if not isLogOutput( info ):
-    return inputs
-  return getWellNms( info[exampledictstr], groupnm )
-
-def getCubeLetNames( info, groupnms, inputs ):
+def getCubeLetNames( info ):
+  examples = info[exampledictstr]
   ret = {}
-  for groupnm in groupnms:
-    inps = getSubGroupKeys( info, inputs, groupnm )
-    ret.update({groupnm: getCubeLetNamesByGroup(info,inps,groupnm)} )
+  for groupnm in examples:
+    example = examples[groupnm]
+    ret.update({groupnm: getCubeLetNamesByGroup(info,groupnm,example)} )
   return ret
 
-def getCubeLetNamesByGroup( info, inputs, groupnm ):
+def getCubeLetNamesByGroup( info, groupnm, example ):
+  collection = example[collectdictstr]
   ret = {}
-  for inp in inputs:
-    ret.update({inp: getCubeLetNamesByGroupByInput(info,groupnm,inp)})
+  for collnm in collection:
+    itmidx = collection[collnm][iddictstr]
+    ret.update({collnm: getCubeLetNamesByGroupByItem(info,groupnm,itmidx)})
   return ret
 
-def getCubeLetNamesByGroupByInput( info, groupnm, input ):
+def getCubeLetNamesByGroupByItem( info, groupnm, idx ):
   h5file = h5py.File( info[filedictstr], 'r' )
   if not groupnm in h5file:
     return {}
@@ -91,7 +51,7 @@ def getCubeLetNamesByGroupByInput( info, groupnm, input ):
   if xdatadictstr in dsetnms:
     ret = np.arange(len(group[xdatadictstr]))
   else:
-    dsetwithinp = np.chararray.startswith( dsetnms, str(getInputID(info,input,groupnm))+':' )
+    dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
     ret = np.extract( dsetwithinp, dsetnms )
   h5file.close()
   return np.ndarray.tolist(ret)
@@ -103,30 +63,13 @@ def getGroupSize( filenm, groupnm ):
   h5file.close()
   return size
 
-def get_nr_attribs( info, subkey=None ):
-  try:
-    inputinfo = info[inputdictstr]
-  except KeyError:
-    raise
-  ret = 0
-  for groupnm in inputinfo:
-    if subkey != None and groupnm != subkey:
-      continue
-    groupinfo = inputinfo[groupnm]
-    try:
-      nrattrib = len(groupinfo[attribdictstr])
-    except KeyError:
-      try:
-        nrattrib = len(groupinfo[logdictstr])
-      except KeyError:
-        return 0
-    if nrattrib == 0:
-      continue
-    if ret == 0:
-      ret = nrattrib
-    elif nrattrib != ret:
-      raise ValueError
-  return ret
+def getNrAttribs( info ):
+  input = info[inputdictstr]
+  collection = input[next(iter(input))][collectdictstr]
+  return len(collection)
+
+def getNrOutputs( info ):
+  return len( getMainOutputs(info) )
 
 def get_np_shape( shape, nrpts=None, nrattribs=None ):
   ret = ()
@@ -140,9 +83,6 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
   for i in shape:
     ret += (i,)
   return ret
-
-def getNrOutputs( info ):
-  return info[nroutdictstr]
 
 def isSeisClass( info ):
   if isinstance(info,dict):
@@ -160,12 +100,7 @@ def isImg2Img( info ):
   return info == seisimgtoimgtypestr
 
 def getCubeLets( infos, datasets, groupnm ):
-  survnm = groupnm.replace( ' ', '_' )
-  fromwells = survnm in infos[inputdictstr]
-  attribsel = None
-  if fromwells:
-    attribsel = survnm
-  inpnrattribs = get_nr_attribs( infos, attribsel )
+  inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
   outshape = infos[outshapedictstr]
   nroutputs = getNrOutputs( infos )
@@ -188,19 +123,19 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      inpshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+      inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
       if img2img:
-        outshape = get_np_shape(outshape,nrpts,outnrattribs)
+        outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
       if len(x_data) == nrpts and len(y_data) == nrpts:
-        cubelets = np.resize( x_data, inpshape ).astype( np.float32 )
+        cubelets = np.resize( x_data, inparrshape ).astype( np.float32 )
         if img2img:
-          output = np.resize( y_data, outshape ).astype( outdtype )
+          output = np.resize( y_data, outarrshape ).astype( outdtype )
         else:
           output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
       else:
-        cubelets = np.empty( inpshape, np.float32 )
+        cubelets = np.empty( inparrshape, np.float32 )
         if img2img:
-          output = np.empty( outshape, outdtype )
+          output = np.empty( outarrshape, outdtype )
         else:
           output = np.empty( (nrpts,nroutputs), outdtype )
         for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
@@ -225,18 +160,18 @@ def getCubeLets( infos, datasets, groupnm ):
     for inputnm in datasets:
       dsetnms = datasets[inputnm]
       nrpts = len(dsetnms)
-      inpshape = get_np_shape(inpshape,nrpts,inpnrattribs)
-      cubelets = np.empty( inpshape, np.float32 )
+      inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+      cubelets = np.empty( inparrshape, np.float32 )
       if img2img:
-        outshape = get_np_shape(outshape,nrpts,outnrattribs)
-        output = np.empty( outshape, outdtype )
+        outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
+        output = np.empty( outarrshape, outdtype )
       else:
         output = np.empty( (nrpts,nroutputs), outdtype )
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = group[dsetnm]
         if img2img:
-          cubelets[idx] = np.resize(dset[1:],cubelets[idx].shape)
-          output[idx] = np.resize(dset[0],output[idx].shape)
+          cubelets[idx] = np.resize(dset[:-1],cubelets[idx].shape)
+          output[idx] = np.resize(dset[-1],output[idx].shape)
         else:
           cubelets[idx] = np.resize(dset,cubelets[idx].shape)
           if isclass :
@@ -334,25 +269,39 @@ def getInfo( filenm ):
   while idx < ex_sz:
     exidxstr  = extxt+str(idx)+'.'
     example_sz = odhdf5.getIntValue( info, exidxstr+'Size' )
-    example = list()
+    exxobj = {
+      targetdictstr: odhdf5.getText( info, exidxstr+'Target' ),
+      iddictstr: idx
+    }
+    exsurv = odhdf5.getText(info, exidxstr+'Survey' )
+    if len(exsurv) > 0:
+      exxobj.update({ locationdictstr: exsurv})
+    excompnrstr = exidxstr+'Component'
+    if odhdf5.hasAttr(info,excompnrstr):
+      exxobj.update({componentdictstr: odhdf5.getIntValue(info,excompnrstr)})
+    collection = {}
     idy = 0
     while idy < example_sz:
       exidystr = exidxstr+str(idy)+'.'
+      collnm = odhdf5.getText(info,exidystr+'Name')
       exxyobj = {
-        namedictstr: odhdf5.getText(info, exidystr+'Name' ),
         dbkeydictstr: odhdf5.getText(info, exidystr+'ID' ),
-        iddictstr: idy,
+        iddictstr: idy, 
       }
-      exysurv = odhdf5.getText(info, exidystr+'Survey' )
-      if len(exysurv) > 0:
-        exxyobj.update({ locationdictstr: exysurv})
-      example.append( exxyobj )
+      classnmstr = exidystr+'Class Name'
+      if odhdf5.hasAttr(info,classnmstr):
+        exxyobj.update({classnmdictstr: odhdf5.getText(info,classnmstr)})
+      gidstr = exidystr+'GeomID'
+      if odhdf5.hasAttr(info,gidstr):
+        exxyobj.update({geomiddictstr: odhdf5.getIntValue(info,gidstr)})
+      linenmstr = exidystr+'Line name'
+      if odhdf5.hasAttr(info,linenmstr):
+        collnm = odhdf5.getText(info,linenmstr)
+      collection.update({ collnm: exxyobj })
       idy += 1
-    examples.update({ odhdf5.getText( info, exidxstr+'Name' ): {
-      odhdf5.getText( info, exidxstr+'Type' ): example,
-      targetdictstr: odhdf5.getText( info, exidxstr+'Target' ),
-      iddictstr: idx
-    }})
+    if len(collection) > 0:
+      exxobj.update({collectdictstr: collection})
+    examples.update({ odhdf5.getText(info,exidxstr+'Name'): exxobj })
     idx += 1
 
   inptxt = 'Input.'
@@ -362,17 +311,19 @@ def getInfo( filenm ):
   while idx < inp_sz:
     inpidxstr = inptxt+str(idx)+'.'
     input_sz = odhdf5.getIntValue( info, inpidxstr+'Size' )
-    input = list()
+    collection = {}
     idy = 0
     scales = list()
     means = list()
     while idy < input_sz:
       inpidystr = inpidxstr+str(idy)+'.'
+      collnm = odhdf5.getText(info, inpidystr+'Name' )
       inpxyobj = {
-        namedictstr: odhdf5.getText(info, inpidystr+'Name' ),
-        dbkeydictstr: odhdf5.getText(info, inpidystr+'ID' ),
         iddictstr: idy
       }
+      idkey = inpidystr+'ID'
+      if odhdf5.hasAttr(info,idkey):
+        inpxyobj.update({dbkeydictstr: odhdf5.getText(info,idkey)})
       scalekey = inpidystr+'Stats'
       if odhdf5.hasAttr(info,scalekey):
         scaletxt = odhdf5.getAttr(info,scalekey)
@@ -380,10 +331,10 @@ def getInfo( filenm ):
           scale = odhdf5.getDInterval(info,scalekey)
           means.append( scale[0] )
           scales.append( scale[1] )
-      input.append( inpxyobj )
+      collection.update({ collnm: inpxyobj })
       idy += 1
     inpobj = {
-      attribdictstr: input,
+      collectdictstr: collection,
       iddictstr: idx
     }
     inpsurv = odhdf5.getText(info, inpidxstr+'Survey' )
@@ -400,16 +351,11 @@ def getInfo( filenm ):
 
   inpshape = odhdf5.getIArray( info, inpshapestr )
   outshape = odhdf5.getIArray( info, outshapestr )
-  if logoutp:
-    nroutputs = outshape
-  else:
-    nroutputs = 1
 
   retinfo = {
     learntypedictstr: learntype,
     inpshapedictstr: inpshape,
     outshapedictstr: outshape,
-    nroutdictstr: nroutputs,
     classdictstr: isclassification,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
     exampledictstr: examples,
@@ -418,7 +364,7 @@ def getInfo( filenm ):
   }
 
   retinfo.update({
-    datasetdictstr: getCubeLetNames( retinfo, examples.keys(), inputs.keys() )
+    datasetdictstr: getCubeLetNames( retinfo )
   })
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
@@ -437,7 +383,11 @@ def getInfo( filenm ):
 def getAttribInfo( info, filenm ):
   if info[classdictstr]:
     if isSeisClass(info):
-      info.update( {classesdictstr: getClassIndices(info)} )
+      (classidxs,classnms) = getClassIndices(info)
+      info.update( {
+        classesdictstr: classidxs,
+        classnmdictstr: classnms
+      })
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
 
@@ -452,7 +402,7 @@ def arroneitemsize( dtype ):
   return arr.itemsize
 
 def getTotalSize(info):
-  inpnrattribs = get_nr_attribs( info )
+  inpnrattribs = getNrAttribs( info )
   inpshape = info[inpshapedictstr]
   outshape = info[outshapedictstr]
   datasets = info[datasetdictstr]
@@ -472,12 +422,11 @@ def getTotalSize(info):
   return x_size + y_size
 
 def getWellInfo( info, filenm ):
-  h5file = h5py.File( filenm, 'r' )
-  infods = odhdf5.getInfoDataSet( h5file )
-  info[classdictstr] = odhdf5.hasAttr(infods,'Target Value Type') and odhdf5.getText(infods,'Target Value Type') == "ID"
   if info[classdictstr]:
     info.update( {classesdictstr: getClassIndicesFromData(info)} )
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
+  h5file = h5py.File( filenm, 'r' )
+  infods = odhdf5.getInfoDataSet( h5file )
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
@@ -506,17 +455,17 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
   odhdf5.setAttr( dsinfoout, versionstr, str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
   if plfnm == kerasplfnm:
+    #The model size may be smaller than from the example data
     odhdf5.setArray( dsinfoout, inpshapestr, infos[inpshapedictstr] )
-    if infos[learntypedictstr] == seisimgtoimgtypestr:
+    if isImg2Img( infos ):
       odhdf5.setArray( dsinfoout, outshapestr, infos[outshapedictstr] )
     else:
       odhdf5.setAttr( dsinfoout, outshapestr, str(getNrOutputs(infos)))
 
-  outps = getOutputs( inpfile )
-  nrout = len(outps)
-  odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(nrout) )
-  for idx in range(nrout):
-    odhdf5.setAttr( dsinfoout, modelIdxStr(idx), outps[idx] )
+  outps = getOutputs( infos )
+  odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(len(outps)) )
+  for idx,outp in zip(range(len(outps)),outps):
+    odhdf5.setAttr( dsinfoout, modelIdxStr(idx), outp )
 
   inp = infos[inputdictstr]
   for inputnm in inp:
@@ -524,18 +473,32 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
     if not scaledictstr in input:
       continue
     scale = input[scaledictstr]
-    keyval = 'Input.' + str(input[iddictstr]) + '.Stats.'
+    keyval = 'Input.' + str(input[iddictstr]) + '.'
     for i in range(len(scale.scale_)):
-      odhdf5.setAttr( dsinfoout, keyval+str(i), str(scale.mean_[i])+'`'+str(scale.scale_[i]) )
+      keyvali = keyval+str(i)+'.Stats'
+      odhdf5.setArray( dsinfoout, keyvali, [scale.mean_[i], scale.scale_[i]] )
 
   h5fileout.close()
 
 def getClassIndices( info, filternms=None ):
-  ret = []
-  for groupnm in info[exampledictstr]:
-    if filternms==None or groupnm in filternms:
-      ret.append( info[exampledictstr][groupnm][iddictstr] )
-  return np.sort( ret )
+  allclasses = {}
+  examples = info[exampledictstr]
+  for groupnm in examples:
+    collection = examples[groupnm][collectdictstr]
+    collclassnms = {}
+    for collnm in collection:
+      collitm = collection[collnm]
+      classnm = collitm[classnmdictstr]
+      if filternms==None or classnm in filternms:
+        collclassnms.update({classnm: collitm[iddictstr]})
+    dictAddIfNew( collclassnms, allclasses )
+  idxs = list()
+  classnms = list()
+  for classnm in allclasses:
+    classitm = allclasses[classnm]
+    idxs.append( classitm )
+    classnms.append( classnm )
+  return (idxs,classnms)
 
 def getClassIndicesFromData( info ):
   if classesdictstr in info:
@@ -545,8 +508,8 @@ def getClassIndicesFromData( info ):
   dsinfoin = odhdf5.ensureHasDataset( h5file )
   if odhdf5.hasAttr( dsinfoin, classesvalstr ):
     return odhdf5.getIArray( dsinfoin, classesvalstr )
-  isimg2img =  isImg2Img( info )
-  groups = getGroupNames( filenm )
+  isimg2img = isImg2Img( info )
+  groups = info[exampledictstr].keys()
   ret = list()
   for groupnm in groups:
     grp = h5file[groupnm]
@@ -569,26 +532,25 @@ def getClassIndicesFromData( info ):
   h5fileout = h5py.File( filenm, 'r+' )
   dsinfoout = odhdf5.ensureHasDataset( h5fileout )
   odhdf5.setArray( dsinfoout, classesvalstr, ret )
+  h5fileout.close()
+  return ret
+
+def getMainOutputs( info ):
+  examples = info[exampledictstr]
+  firstexamplenm = next(iter(examples))
+  targets = examples[firstexamplenm][targetdictstr]
+  ret = list()
+  if isinstance(targets,list):
+    ret.extend(targets)
+  else:
+    ret.append(targets)
   return ret
   
-def getOutputs( inpfile ):
-  info = getInfo( inpfile )
-  ret = list()
-  learntype = info[learntypedictstr]
-  isclassification = info[classdictstr]
-  if isclassification:
-    ret.append( classificationvalstr  )
-    if isSeisClass(learntype):
-      ret.extend( getGroupNames(inpfile) )
-      ret.append( confvalstr )
-  elif isLogOutput(learntype) or isImg2Img(learntype):
-    firsttarget = next(iter(info[exampledictstr]))
-    targets = info[exampledictstr][firsttarget][targetdictstr]
-    if isinstance(targets,list):
-      ret.extend(targets)
-    else:
-      ret.append(targets)
-
+def getOutputs( info ):
+  ret = getMainOutputs( info )
+  if isSeisClass(info):
+    ret.extend( info[classnmdictstr] )
+    ret.append( confvalstr )
   return ret
 
 def getOutputNames( filenm, indices ):

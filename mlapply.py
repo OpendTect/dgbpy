@@ -33,26 +33,35 @@ def computeScaler_( datasets, infos, scalebyattrib ):
     return getScaler( x_data, byattrib=scalebyattrib )
   return None
 
-def computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib):
+def computeChunkedScaler_(datasets,infos,groupnm,scalebyattrib):
   chunknb = len(datasets)
   chunkmean = list()
   chunkstd = list()
   chunklen = list()
   for dataset in datasets:
-    datasetchunk = dgbmlio.getDatasetsByInput( dataset, inputnm )
+    datasetchunk = dgbmlio.getDatasetsByGroup( dataset, groupnm )
     chunksize = 0
-    for dsetnm in datasetchunk:
-      data = datasetchunk[dsetnm]
-      for groupnm in data:
-        inp = data[groupnm]
-        chunksize += len(inp[inputnm])
+    for keynm in datasetchunk:
+      data = datasetchunk[keynm]
+      if groupnm in data:
+        dsets = data[groupnm]
+        for subgroupnm in dsets:
+          chunksize += len(dsets[subgroupnm])
     chunklen.append(chunksize)
     scaleronechunk = computeScaler_( datasetchunk, infos, scalebyattrib )
-    chunkmean.append(scaleronechunk.mean_)
-    chunkstd.append(scaleronechunk.scale_)
+    if scaleronechunk == None:
+      chunkmean.append(0)
+      chunkstd.append(0)
+    else:
+      chunkmean.append(scaleronechunk.mean_)
+      chunkstd.append(scaleronechunk.scale_)
+
   if chunknb < 2:
-    return getNewScaler( chunkmean[0], chunkstd[0] )
-  attrnb = len(chunkmean[0])
+    return getNewScaler( chunkmean, chunkstd )
+  if scalebyattrib:
+    attrnb = dgbhdf5.getNrAttribs(infos)
+  else:
+    attrnb = 1
   #Calculate Mean and Var
   totalmean = list()
   totalstd = list()
@@ -62,13 +71,15 @@ def computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib):
     attrsize = 0
     for ichunk in range(chunknb):
       attrchunksize = chunklen[ichunk]
-      attrmeansum += chunkmean[ichunk][attr] * attrchunksize
-      attrstdsum += chunkstd[ichunk][attr] * attrchunksize
+      if attrchunksize > 0:
+        attrmeansum += chunkmean[ichunk][attr] * attrchunksize
+        attrstdsum += chunkstd[ichunk][attr] * attrchunksize
       attrsize += attrchunksize
-    attrmeansum /= attrsize
-    attrstdsum /= attrsize
-    totalmean.append( attrmeansum )
-    totalstd.append( attrstdsum )
+    if attrsize > 0:
+      attrmeansum /= attrsize
+      attrstdsum /= attrsize
+      totalmean.append( attrmeansum )
+      totalstd.append( attrstdsum )
   return getNewScaler( totalmean, totalstd )
 
 def computeScaler( infos, scalebyattrib, force=False ):
@@ -77,14 +88,14 @@ def computeScaler( infos, scalebyattrib, force=False ):
   if infos[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
     if not dgbmlio.hasScaler(infos) or force:
       scaler = computeScaler_( datasets[0], infos, scalebyattrib )
-      for inputnm in inp:
-        inp[inputnm].update({dgbkeys.scaledictstr: scaler})
+      for groupnm in inp:
+        inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   else:
-    for inputnm in inp:
-      if dgbmlio.hasScaler( infos, inputnm ) and not force:
+    for groupnm in inp:
+      if dgbmlio.hasScaler( infos, groupnm ) and not force:
         continue
-      scaler = computeChunkedScaler_(datasets,infos,inputnm,scalebyattrib)
-      inp[inputnm].update({dgbkeys.scaledictstr: scaler})
+      scaler = computeChunkedScaler_(datasets,infos,groupnm,scalebyattrib)
+      inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
 def getScaledTrainingData( filenm, flatten=False, scale=True, force=False, 
@@ -104,20 +115,15 @@ def getScaledTrainingData( filenm, flatten=False, scale=True, force=False,
   infos.update({dgbkeys.trainseldicstr: datasets})
   if doscale:
     infos = computeScaler( infos, scalebyattrib, force )
-  decimate = nbchunks > 1
-  ret = {}
-  ret.update({dgbkeys.infodictstr: infos})
-  if decimate: #Decimate, only need to update output information
-    y_examples = list()
-    for dataset in datasets:
-      examples = dgbhdf5.getDatasets( infos, dataset )
-      if dgbkeys.ytraindictstr in examples:
-        y_examples.append( examples[dgbkeys.ytraindictstr] )
-      if dgbkeys.yvaliddictstr in examples:
-        y_examples.append( examples[dgbkeys.yvaliddictstr] )
-    ret.update({ dgbkeys.infodictstr: dgbmlio.getClasses(infos,y_examples) })
-    return ret
+  if nbchunks > 1: #Decimate, only need to return the updated info
+    return {dgbkeys.infodictstr: infos}
   return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=scale )
+
+def getInputList( datasets ):
+  ret = {}
+  for keynm in datasets:
+    dgbhdf5.dictAddIfNew( datasets[keynm], ret )
+  return ret.keys()
 
 def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   x_train = list()
@@ -125,11 +131,9 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   x_validate = list()
   y_validate = list()
   datasets = infos[dgbkeys.trainseldicstr][ichunk]
-  inputs = dgbhdf5.getExampleInputs( datasets )
-  for inp in inputs:
-    inputnm = inp[0]
-    groupnm = inp[1]
-    dsets = dgbmlio.getDatasetsByInput( datasets, inputnm )
+  groups = getInputList( datasets )
+  for groupnm in groups:
+    dsets = dgbmlio.getDatasetsByGroup( datasets, groupnm )
     ret = dgbmlio.getTrainingDataByInfo( infos, dsets )
     if scale and groupnm in infos[dgbkeys.inputdictstr]:
       scaler = infos[dgbkeys.inputdictstr][groupnm][dgbkeys.scaledictstr]
@@ -290,25 +294,32 @@ def numpyApply( samples ):
     dgbkeys.preddictstr: np.mean( samples, axis=(1,2,3,4) )
   }
 
-def inputCount( dsets, infos ):
-  inputnms = infos[dgbkeys.inputdictstr]
+def inputCount( infos, raw=False, dsets=None ):
+  if dsets == None:
+    if raw or not dgbkeys.trainseldicstr in infos:
+      return inputCount_( infos[dgbkeys.datasetdictstr] )
+    else:
+      dsets = infos[dgbkeys.trainseldicstr]
+  if isinstance(dsets,list):
+    return inputCountList(infos,dsets)
   ret = {}
-  for ex in dsets:
-    ret.update({ex: inputCount_({'key': dsets[ex]}, inputnms)})
+  for keynm in dsets:
+    ret.update({keynm: inputCount_(dsets[keynm])})
   return ret
 
-def inputCount_( dsets, inputnms ):
+def inputCountList( infos, dsetslist ):
+  ret = list()
+  for dsets in dsetslist:
+    ret.append( inputCount(infos,dsets=dsets) )
+  return ret
+
+def inputCount_( dsets ):
   ret = {}
-  for inputnm in inputnms:
-    alldsets = dgbmlio.getDatasetsByInput( dsets, inputnm )
-    nbbyinp = 0
-    for ex in alldsets:
-      dset = alldsets[ex]
-      for groupnm in dset:
-        for inp in dset[groupnm]:
-          nbbyinp += len(dset[groupnm][inp])
-    if nbbyinp>0:
-      ret.update({inputnm: nbbyinp})
+  dscounts = dgbmlio.datasetCount( dsets )
+  for groupnm in dscounts:
+    if groupnm == 'size':
+      continue
+    ret.update({groupnm: dscounts[groupnm]['size']})
   return ret
 
 def split( arrays, ratio ):

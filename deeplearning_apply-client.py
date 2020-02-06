@@ -164,7 +164,7 @@ def getApplyPars( args ):
       shape=[0,0,shape]
     ret = {
       'inp_shape': shape,
-      'nrattribs': dgbhdf5.get_nr_attribs( info ),
+      'nrattribs': dgbhdf5.getNrAttribs( info ),
       'outputnms': dgbhdf5.getOutputs( exfnm )
     }
   return ret

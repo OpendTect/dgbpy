@@ -63,7 +63,7 @@ class ModelApplier:
     def getDefaultScaler(self):
         means = list()
         stddevs = list()
-        for i in range(dgbhdf5.get_nr_attribs(self.info_)):
+        for i in range(dgbhdf5.getNrAttribs(self.info_)):
             stddevs.append( 50 )
             means.append( 128 )
         self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
@@ -90,8 +90,8 @@ class ModelApplier:
             inp = inputs[survdirnm]
             if dgbkeys.scaledictstr in inp:
                 inpscale = inp[dgbkeys.scaledictstr]
-                if dgbkeys.attribdictstr in inp:
-                  attribs = inp[dgbkeys.attribdictstr]
+                if dgbkeys.collectdictstr in inp:
+                  attribs = inp[dgbkeys.collectdictstr]
                   for scl in scales:
                       applykey = scl[dgbkeys.dbkeydictstr]
                       applynm = scl[dgbkeys.namedictstr]

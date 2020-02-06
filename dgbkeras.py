@@ -215,7 +215,7 @@ def getDefaultModel(setup,type=keras_dict['type'],
   else:
     nroutputs = dgbhdf5.getNrOutputs( setup )
 
-  nrattribs = dgbhdf5.get_nr_attribs(setup)
+  nrattribs = dgbhdf5.getNrAttribs(setup)
   model_shape = get_model_shape( setup[dgbkeys.inpshapedictstr], nrattribs,
                                  attribfirst=data_format=='channels_first' )
   if isLeNet( type ):

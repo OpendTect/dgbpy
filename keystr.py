@@ -11,9 +11,11 @@
 
 # Dictionary keys (lower case, mostly alphabetic only):
 
-attribdictstr = 'attribute'
 classdictstr = 'classification'
 classesdictstr = 'classes'
+classnmdictstr = 'classnm'
+collectdictstr = 'collection'
+componentdictstr = 'component'
 confdictstr = 'confidence'
 datasetdictstr = 'datasets'
 dbkeydictstr = 'dbkey'
@@ -24,6 +26,7 @@ dtypeprob = 'probdtype'
 estimatedsizedictstr = 'estimatedsize'
 exampledictstr = 'examples'
 filedictstr = 'filenm'
+geomiddictstr = 'geomid'
 iddictstr = 'id'
 infodictstr = 'info'
 inpshapedictstr = 'inp_shape'
