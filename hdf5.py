@@ -89,6 +89,11 @@ def isSeisClass( info ):
     return info[learntypedictstr] == seisclasstypestr
   return info == seisclasstypestr
 
+def isLogInput( info ):
+  if isinstance(info,dict):
+    return info[learntypedictstr] == loglogtypestr
+  return info == loglogtypestr
+
 def isLogOutput( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == loglogtypestr or info[learntypedictstr] == seisproptypestr

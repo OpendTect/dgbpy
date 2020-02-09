@@ -85,7 +85,14 @@ class ModelApplier:
         if len(means) > 0:
             self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
         inputs = self.info_[dgbkeys.inputdictstr]
-        if outputs[dgbkeys.surveydictstr] in inputs:
+        if dgbhdf5.isLogInput( self.info_ ):
+            inputs = self.info_[dgbkeys.inputdictstr]
+            firstinpnm = next(iter(inputs))
+            if firstinpnm in inputs:
+                inp = inputs[firstinpnm]
+                if dgbkeys.scaledictstr in inp:
+                    self.scaler_ = inp[dgbkeys.scaledictstr]
+        elif outputs[dgbkeys.surveydictstr] in inputs:
             survdirnm = outputs[dgbkeys.surveydictstr]
             inp = inputs[survdirnm]
             if dgbkeys.scaledictstr in inp:
@@ -148,6 +155,7 @@ class ModelApplier:
         allsamples = list()
         for i in range(chunksz):
           if nrz == 1:
+            inp = np.transpose( inp )
             if chunksz < 2:
               allsamples.append( np.resize( np.array(inp), samples_shape ) )
             else:
@@ -162,8 +170,11 @@ class ModelApplier:
                 loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
+#        self.debugstr = self.debug_msg( samples[0].squeeze() )
         samples = dgbscikit.scale( samples, self.scaler_ )
+#        self.debugstr = self.debug_msg( samples[0].squeeze() )
         samples = dgbscikit.unscale( samples, self.extscaler_ )
+        self.debugstr = self.debug_msg( samples[0].squeeze() )
 #        min = np.min( samples ) 
 #        samples = samples-min
 #        max = np.max( samples )
