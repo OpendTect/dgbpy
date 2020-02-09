@@ -187,19 +187,21 @@ class ModelApplier:
     def debug_msg(self,a,b=None,c=None,d=None,e=None,f=None,g=None,h=None):
         ret = str(a)
         if b != None:
-          ret += str(b)
+          ret += ' '+str(b)
         if c != None:
-          ret += str(c)
+          ret += ' '+str(c)
         if d != None:
-          ret += str(d)
+          ret += ' '+str(d)
         if e != None:
-          ret += str(e)
+          ret += ' '+str(e)
         if f != None:
-          ret += str(f)
+          ret += ' '+str(f)
         if g != None:
-          ret += str(g)
+          ret += ' '+str(g)
         if h != None:
-          ret += str(h)
+          ret += ' '+str(h)
+        if len(self.debugstr) > 0:
+          self.debugstr += '\n'
         self.debugstr += ret
         return self.debugstr
 
@@ -299,6 +301,7 @@ class Message:
         }
         if arrsize != None:
           jsonheader.update({ 'array-shape': arrsize })
+        jsonheader = self._add_debug_str( jsonheader )
         jsonheader_bytes = self._json_encode(jsonheader, 'utf-8')
         payload = jsonheader_bytes + content_bytes
         od_hdr =   struct.pack('=i',len(payload)) \
@@ -378,6 +381,14 @@ class Message:
             "content_encoding": "binary",
             'arrsize': None,
         }
+        return response
+
+    def _add_debug_str( self, response ):
+        if self.applier == None:
+            return response
+        debugstr = self.applier.debugstr
+        if len(debugstr) > 0:
+            response.update( {'debug-message': debugstr} )
         return response
 
     def process_events(self, mask):
