@@ -8,7 +8,7 @@
 # various tools machine learning using Sci-kit platform
 #
 
-from os.path import splitext
+import os.path
 import h5py
 import json
 import joblib
@@ -383,7 +383,7 @@ def save( model, inpfnm, outfnm, save_type=defsavetype ):
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if save_type == savetypes[0]:
-    joutfnm = splitext( outfnm )[0] + '.joblib'
+    joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
     joblib.dump( model, joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == savetypes[1]:
@@ -405,6 +405,11 @@ def load( modelfnm ):
   savetype = odhdf5.getText( modelgrp, 'type' )
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
+    modbasefnm = os.path.basename( modfnm )
+    moddir = os.path.dirname( modelfnm )
+    modlocfnm = os.path.join( moddir, modbasefnm )
+    if os.path.exists( modlocfnm ):
+      modfnm = modlocfnm
     model = joblib.load( modfnm )
   elif savetype == savetypes[1]:
     modeldata = modelgrp['object']
