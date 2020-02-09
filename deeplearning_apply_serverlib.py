@@ -131,8 +131,6 @@ class ModelApplier:
                 self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
             else:
                 self.extscaler_ = self.getDefaultScaler()
-        else:
-            self.extscaler_ = self.getDefaultScaler()
 
         return (self.scaler_,self.extscaler_)
 
@@ -170,11 +168,11 @@ class ModelApplier:
                 loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
-#        self.debugstr = self.debug_msg( samples[0].squeeze() )
+#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
         samples = dgbscikit.scale( samples, self.scaler_ )
-#        self.debugstr = self.debug_msg( samples[0].squeeze() )
+#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
         samples = dgbscikit.unscale( samples, self.extscaler_ )
-#        self.debugstr = self.debug_msg( samples[0].squeeze() )
+#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
 #        min = np.min( samples ) 
 #        samples = samples-min
 #        max = np.max( samples )
@@ -312,7 +310,7 @@ class Message:
         }
         if arrsize != None:
           jsonheader.update({ 'array-shape': arrsize })
-        jsonheader = self._add_debug_str( jsonheader )
+        (self,jsonheader) = self._add_debug_str( jsonheader )
         jsonheader_bytes = self._json_encode(jsonheader, 'utf-8')
         payload = jsonheader_bytes + content_bytes
         od_hdr =   struct.pack('=i',len(payload)) \
@@ -360,6 +358,7 @@ class Message:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
             content = {'result': f'Apply error exception:\n{repr(e)+" on line "+str(exc_tb.tb_lineno)+" of script "+fname}\n{stackstr}\n\n{self.applier.debugstr}'}
+            self.applier.debugstr = ''
             content_encoding = 'utf-8'
             response = {
                 'content_bytes': self._json_encode(content, content_encoding),
@@ -396,11 +395,12 @@ class Message:
 
     def _add_debug_str( self, response ):
         if self.applier == None:
-            return response
+            return (self,response)
         debugstr = self.applier.debugstr
         if len(debugstr) > 0:
             response.update( {'debug-message': debugstr} )
-        return response
+            self.applier.debugstr = ''
+        return (self,response)
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ:
