@@ -174,7 +174,7 @@ class ModelApplier:
         samples = dgbscikit.scale( samples, self.scaler_ )
 #        self.debugstr = self.debug_msg( samples[0].squeeze() )
         samples = dgbscikit.unscale( samples, self.extscaler_ )
-        self.debugstr = self.debug_msg( samples[0].squeeze() )
+#        self.debugstr = self.debug_msg( samples[0].squeeze() )
 #        min = np.min( samples ) 
 #        samples = samples-min
 #        max = np.max( samples )
