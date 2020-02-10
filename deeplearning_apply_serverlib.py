@@ -366,7 +366,7 @@ class Message:
                 'content_encoding': content_encoding,
                 'arrsize': None,
             }
-            return response
+            return (self,response)
 
         ret = bytes()
         dtypes = list()
@@ -381,7 +381,7 @@ class Message:
           'content_encoding': dtypes,
           'arrsize': shapes,
         }
-        return response
+        return (self,response)
 
     def _create_response_binary_content(self):
         response = {
@@ -500,7 +500,7 @@ class Message:
         if self.jsonheader["content-type"] == 'text/json':
             response = self._create_response_json_content()
         elif self.jsonheader["content-type"] == 'binary/array':
-            response = self._create_response_array_content()
+            (self,response) = self._create_response_array_content()
         else:
             # Binary or unknown content-type
             response = self._create_response_binary_content()
