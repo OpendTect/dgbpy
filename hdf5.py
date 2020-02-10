@@ -389,14 +389,31 @@ def getAttribInfo( info, filenm ):
   if info[classdictstr]:
     if isSeisClass(info):
       (classidxs,classnms) = getClassIndices(info)
+      classidxs = np.array(classidxs)+1
       info.update( {
-        classesdictstr: classidxs,
+        classesdictstr: classidxs.tolist(),
         classnmdictstr: classnms
       })
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
 
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
+  return info
+
+def getWellInfo( info, filenm ):
+  if info[classdictstr]:
+    info.update( {classesdictstr: getClassIndicesFromData(info)} )
+  info.update( {estimatedsizedictstr: getTotalSize(info)} )
+  h5file = h5py.File( filenm, 'r' )
+  infods = odhdf5.getInfoDataSet( h5file )
+  zstep = odhdf5.getDValue(infods,"Z step") 
+  marker = (odhdf5.getText(infods,"Top marker"),
+            odhdf5.getText(infods,"Bottom marker"))
+  h5file.close()
+  info.update({
+    zstepdictstr: zstep,
+    rangedictstr: marker,
+  })
   return info
 
 def getNrClasses(info):
@@ -425,22 +442,6 @@ def getTotalSize(info):
   outshape = get_np_shape( outshape, nrpts, nroutvals )
   y_size = np.prod( outshape ) * arroneitemsize( np.float32 )
   return x_size + y_size
-
-def getWellInfo( info, filenm ):
-  if info[classdictstr]:
-    info.update( {classesdictstr: getClassIndicesFromData(info)} )
-  info.update( {estimatedsizedictstr: getTotalSize(info)} )
-  h5file = h5py.File( filenm, 'r' )
-  infods = odhdf5.getInfoDataSet( h5file )
-  zstep = odhdf5.getDValue(infods,"Z step") 
-  marker = (odhdf5.getText(infods,"Top marker"),
-            odhdf5.getText(infods,"Bottom marker"))
-  h5file.close()
-  info.update({
-    zstepdictstr: zstep,
-    rangedictstr: marker,
-  })
-  return info
 
 modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):

@@ -286,6 +286,11 @@ def doApply( model, info, samples, scaler=None, applyinfo=None ):
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
 
+  if isclassification and withpred:
+    classarr = res[dgbkeys.preddictstr]
+    dgbmlio.unnormalize_class_vector( classarr, info[dgbkeys.classesdictstr] )
+    res.update({dgbkeys.preddictstr: classarr})
+
   return reformat( res, applyinfo )
 
 def numpyApply( samples ):
