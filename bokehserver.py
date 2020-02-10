@@ -51,12 +51,13 @@ def StartBokehServer(application, args, attempts=20):
   basicConfig(filename=args['bokehlogfnm'])
   address = args['address']
   port = args['port']
+  authstr = f"{address}:{port}"
   while attempts:
     attempts -= 1
     try:
       server = Server(application,address=address,
                       port=port,
-                      allow_websocket_origin=[f"{address}:{port}"])
+                      allow_websocket_origin=[authstr,authstr.lower()])
       server.start()
       with dgbservmgr.ServiceMgr( args['bsmserver'], args['ppid']) as servmgr:
         servmgr.sendObject('bokeh_started', {'bokehid': args['bokehid'],
