@@ -402,7 +402,10 @@ def getAttribInfo( info, filenm ):
 
 def getWellInfo( info, filenm ):
   if info[classdictstr]:
-    info.update( {classesdictstr: getClassIndicesFromData(info)} )
+    info.update( {
+      classesdictstr: getClassIndicesFromData(info),
+      classnmdictstr: getMainOutputs(info)[0]
+    })
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
   h5file = h5py.File( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
@@ -487,6 +490,8 @@ def addInfo( inpfile, plfnm, filenm, infos=None ):
   h5fileout.close()
 
 def getClassIndices( info, filternms=None ):
+  if isLogOutput( info ):
+    return ([],[]) #No support (yet?)
   allclasses = {}
   examples = info[exampledictstr]
   for groupnm in examples:

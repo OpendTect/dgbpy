@@ -180,7 +180,7 @@ class ModelApplier:
 #        samples = samples/max
 #        samples = samples*255 
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
-                                  applyinfo=self.applyinfo_ )
+                                  scaler=None, applyinfo=self.applyinfo_ )
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )

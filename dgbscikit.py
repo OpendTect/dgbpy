@@ -427,14 +427,11 @@ def apply( model, samples, scaler, isclassification, withpred, withprobs, withco
   ret = {}
   res = None
   if withpred:
-    if isclassification:
-      res = None  #TODO
-    else:
-      res = np.transpose( model.predict( samples ) )
-
+    res = np.transpose( model.predict( samples ) )
     ret.update({dgbkeys.preddictstr: res})
 
   if isclassification and (doprobabilities or withconfidence):
-    ret.update({dgbkeys.probadictstr: None}) #TODO
+    res = np.transpose( model.predict_proba( samples ) )
+    ret.update({dgbkeys.probadictstr: res})
 
   return ret
