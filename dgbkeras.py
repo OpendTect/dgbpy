@@ -626,32 +626,36 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
   inp_shape = samples.shape
   data_format = 'channels_first'
   samples = adaptToModel( model, samples, sample_data_format=data_format )
-    
+
   if withpred:
     if isclassification:
-      try:
-        res = model.predict_classes( samples, batch_size=batch_size )
-        res = np.transpose( res )
-      except AttributeError:
-        res = model.predict( samples, batch_size=batch_size )
+      if not (doprobabilities or withconfidence):
+        try:
+          res = model.predict_classes( samples, batch_size=batch_size )
+        except AttributeError:
+          res = model.predict( samples, batch_size=batch_size )
     else:
       res = model.predict( samples, batch_size=batch_size )
     res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
     ret.update({dgbkeys.preddictstr: res})
  
-  if isclassification and (doprobabilities or withconfidence):
+  if isclassification and (doprobabilities or withconfidence or (withpred and len(ret)<1)):
     allprobs = model.predict( samples, batch_size=batch_size )
     allprobs = adaptFromModel(model,False,allprobs,inp_shape,ret_data_format=data_format)
-    if doprobabilities:
-      res = np.copy(allprobs[:,withprobs],allprobs.dtype)
+    indices = None
+    if withpred or withconfidence:
+      N = 2
+      indices = np.argpartition(allprobs,-N,axis=0)[-N:]
+    if withpred:
+      res = indices[-1:]
+      ret.update({dgbkeys.preddictstr: res})
+    if doprobabilities and len(withprobs) > 0:
+      res = np.copy(allprobs[withprobs])
       ret.update({dgbkeys.probadictstr: res})
     if withconfidence:
-      N = 2
-      indices = np.argpartition(allprobs,-N,axis=1)[:,-N:]
-      x = len(allprobs)
-      sortedprobs = allprobs[np.repeat(np.arange(x),N),indices.ravel()].reshape(x,N)
-      res = np.diff(sortedprobs,axis=1)
-      res = np.transpose( res )
+      x = allprobs.shape[-1]
+      sortedprobs = allprobs[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
+      res = np.diff(sortedprobs,axis=0)
       ret.update({dgbkeys.confdictstr: res})
 
   return ret
