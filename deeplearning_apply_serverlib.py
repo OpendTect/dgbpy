@@ -103,9 +103,10 @@ class ModelApplier:
                       applykey = scl[dgbkeys.dbkeydictstr]
                       applynm = scl[dgbkeys.namedictstr]
                       iattr = 0
-                      for attrib in attribs:
+                      for attribnm in attribs:
+                          attrib = attribs[attribnm]
                           if attrib[dgbkeys.dbkeydictstr] == applykey or \
-                             attrib[dgbkeys.namedictstr] == applynm:
+                             attribnm == applynm:
                              idx = attrib[dgbkeys.iddictstr]
                              self.scaler_.scale_[idx] = inpscale.scale_[idx]
                              self.scaler_.mean_[idx] = inpscale.mean_[idx]
