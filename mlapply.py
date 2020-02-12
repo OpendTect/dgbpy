@@ -162,6 +162,11 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   if len(y_validate)>0:
     ret.update({dgbkeys.yvaliddictstr: np.concatenate(y_validate) })
 
+  import copy
+  decinfos = copy.deepcopy( infos )
+  decinfos[dgbkeys.trainseldicstr] = [datasets]
+  ret.update({dgbkeys.infodictstr: decinfos})
+
   if not flatten:
     return ret
 

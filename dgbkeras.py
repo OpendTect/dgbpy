@@ -516,7 +516,6 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   x_train = {}
   y_train = {}
-  doshuffle = False
   decimate = nbchunks > 1
   if not decimate:
     if not dgbkeys.xtraindictstr in training:
@@ -526,7 +525,6 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     y_train = training[dgbkeys.ytraindictstr]
     x_validate = training[dgbkeys.xvaliddictstr]
     y_validate = training[dgbkeys.yvaliddictstr]
-    doshuffle = True
   for ichunk in range(nbchunks):
     log_msg('Starting iteration',str(ichunk+1)+'/'+str(nbchunks))
     log_msg('Starting training data creation:')
@@ -554,7 +552,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
       y_validate = keras.utils.to_categorical(y_validate,nrclasses)
     redirect_stdout()
     hist = model.fit(x=x_train,y=y_train,callbacks=callbacks,\
-                  shuffle=doshuffle, validation_data=(x_validate,y_validate),\
+                  shuffle=True, validation_data=(x_validate,y_validate),\
                   batch_size=batchsize, \
                   epochs=params['epoch'])
     #log_msg( hist.history )
