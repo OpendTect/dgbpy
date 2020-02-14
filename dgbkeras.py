@@ -526,8 +526,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
     x_validate = training[dgbkeys.xvaliddictstr]
     y_validate = training[dgbkeys.yvaliddictstr]
   for ichunk in range(nbchunks):
-    log_msg('Starting iteration',str(ichunk+1)+'/'+str(nbchunks))
-    log_msg('Starting training data creation:')
+    log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
     if decimate and trainfile != None:
       import dgbpy.mlapply as dgbmlapply
       trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, flatten=False,
@@ -538,7 +537,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
       y_train = trainbatch[dgbkeys.ytraindictstr]
       x_validate = trainbatch[dgbkeys.xvaliddictstr]
       y_validate = trainbatch[dgbkeys.yvaliddictstr]
-    log_msg('Finished creating',len(x_train),'examples!')
+    log_msg('Training done on', len(x_train), 'examples.' )
     log_msg('Validation done on', len(x_validate), 'examples.' )
     x_train = adaptToModel( model, x_train )
     x_validate = adaptToModel( model, x_validate )

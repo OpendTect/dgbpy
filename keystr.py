@@ -91,3 +91,19 @@ def getNames( lst, uinames=True ):
   for itm in lst:
     ret.append( itm[idx] )
   return ret
+
+def getNameFromUiName( lst, itmnm ):
+  for lstitms in lst:
+    if lstitms[1] == itmnm:
+      return lstitms[0]
+  return None
+
+def getNameFromList( lst, itmnm, uiname ):
+  for lstitms in lst:
+    if lstitms[0] != itmnm and lstitms[1] != itmnm:
+      continue
+    if uiname:
+      return lstitms[1]
+    else:
+      return lstitms[0]
+  return None

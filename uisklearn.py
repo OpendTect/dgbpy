@@ -38,8 +38,8 @@ def getLinearGrp():
 
 def getLogGrp():
   logtyp = Select(title='Model',value='Logistic Regression Classifier',options=getUiLogTypes() )
-  solvertyp = Select(title='Solver',value='Liblinear',
-                     options=['Newton-CG','Lbfgs','Liblinear','Sag','Saga'])
+  solvertyp = Select(title='Solver',value=getDefaultSolver(),
+                     options=getUiSolverTypes() )
   return {
     'uiobjects': {
       'logtyp': logtyp,
@@ -135,12 +135,13 @@ def getNNGrp():
 
 def getSVMGrp():
   dict = scikit_dict
+  defkernelstr = getDefaultNNKernel()
   svmtyp = Select(title='Model',value='Support Vector Machine',options=getUiSVMTypes() )
-  kernel = Select(title='Kernel',value='Radial Basis Function',
-                  options=['Linear','Polynomial','Radial Basis Function','Sigmoid'])
+  kernel = Select(title='Kernel',value=defkernelstr,
+                  options=getUiNNKernelTypes())
   degree = Slider(start=1,end=5,value=dict['svmpars']['degree'],step=1,title='Degree')
   kernel.on_change('value',partial(kernelChgCB,deg=degree))
-  kernelChgCB( 'value', 'Radial Basis Function', 'Radial Basis Function',degree)
+  kernelChgCB( 'value', defkernelstr, defkernelstr,degree )
   return {
     'uiobjects': {
       'svmtyp': svmtyp,

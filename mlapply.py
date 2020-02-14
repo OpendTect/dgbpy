@@ -13,6 +13,7 @@ import numpy as np
 import os
 
 from odpy.common import log_msg
+from odpy.oscommand import printProcessTime
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
@@ -87,14 +88,18 @@ def computeScaler( infos, scalebyattrib, force=False ):
   inp = infos[dgbkeys.inputdictstr]
   if infos[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
     if not dgbmlio.hasScaler(infos) or force:
+      printProcessTime( 'Scaler computation', True, print_fn=log_msg )
       scaler = computeScaler_( datasets[0], infos, scalebyattrib )
+      printProcessTime( 'Scaler computation', False, print_fn=log_msg, withprocline=False )
       for groupnm in inp:
         inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   else:
     for groupnm in inp:
       if dgbmlio.hasScaler( infos, groupnm ) and not force:
         continue
+      printProcessTime( 'Scaler computation', True, print_fn=log_msg )
       scaler = computeChunkedScaler_(datasets,infos,groupnm,scalebyattrib)
+      printProcessTime( 'Scaler computation', False, print_fn=log_msg, withprocline=False )
       inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
@@ -126,6 +131,7 @@ def getInputList( datasets ):
   return ret.keys()
 
 def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
+  printProcessTime( 'Data pre-loading', True, print_fn=log_msg )
   x_train = list()
   y_train = list()
   x_validate = list()
@@ -153,14 +159,21 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
     if dgbkeys.yvaliddictstr in ret:
       if len(ret[dgbkeys.yvaliddictstr]) > 0:
         y_validate.append( ret[dgbkeys.yvaliddictstr] )
+  nrexamples = 0
   if len(x_train)>0:
-    ret.update({dgbkeys.xtraindictstr: np.concatenate(x_train) })
+    x_train = np.concatenate(x_train)
+    nrexamples += len(x_train)
+    ret.update({dgbkeys.xtraindictstr: x_train })
   if len(y_train)>0:
     ret.update({dgbkeys.ytraindictstr: np.concatenate(y_train) })
   if len(x_validate)>0:
-    ret.update({dgbkeys.xvaliddictstr: np.concatenate(x_validate) })
+    x_validate = np.concatenate(x_validate)
+    nrexamples += len(x_validate)
+    ret.update({dgbkeys.xvaliddictstr: x_validate })
   if len(y_validate)>0:
     ret.update({dgbkeys.yvaliddictstr: np.concatenate(y_validate) })
+
+  printProcessTime( 'Data pre-loading', False, print_fn=log_msg, withprocline=False )
 
   import copy
   decinfos = copy.deepcopy( infos )

@@ -57,7 +57,7 @@ if __name__ == '__main__':
   odcommon.log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
   odcommon.log_msg( 'Processing on:', platform.node() )
   odcommon.log_msg( 'Process ID:', os.getpid(), '\n' )
-  printProcessTime( 'Machine Learning Training', True, odcommon.log_msg )
+  printProcessTime( 'Machine Learning Training', True, print_fn=odcommon.log_msg )
   odcommon.log_msg( '\n' )
   dict = json.loads( args['dict'][0] )
   traintype = None
@@ -85,6 +85,6 @@ if __name__ == '__main__':
     sys.exit(1)
 
   odcommon.log_msg( '\n' )
-  printProcessTime( 'Machine Learning Training', False, odcommon.log_msg )
+  printProcessTime( 'Machine Learning Training', False, print_fn=odcommon.log_msg )
   odcommon.log_msg( "Finished batch processing.\n" )
   sys.exit(0)
