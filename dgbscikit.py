@@ -9,6 +9,7 @@
 #
 
 import os.path
+import sys
 import h5py
 import json
 import joblib
@@ -27,7 +28,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.svm import SVC, SVR
 
-from odpy.common import log_msg
+from odpy.common import log_msg, redirect_stdout, restore_stdout
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
@@ -381,11 +382,13 @@ def getDefaultModel( setup, params=scikit_dict ):
   return model
 
 def train(model, trainingdp):
-  model.verbose = 1 # TODO: Does not seem to help!
   x_train = trainingdp[dgbkeys.xtraindictstr]
   y_train = trainingdp[dgbkeys.ytraindictstr]
   printProcessTime( 'Training with scikit-learn', True, print_fn=log_msg )
-  ret = model.fit(x_train,y_train)
+  redirect_stdout()
+  model.verbose = 51
+  ret = model.fit(x_train,y_train.ravel())
+  restore_stdout()
   printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
   return ret
 
