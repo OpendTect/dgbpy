@@ -328,21 +328,20 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
   model.add(Activation('softmax'))
 
 # initiate the model compiler options
-  metrics = ['accuracy']
   if isclassification:
     opt = Adam(lr = learnrate)
     if nroutputs > 2:
       loss = 'categorical_crossentropy'
     else:
       loss = 'binary_crossentropy'
+    metrics = ['accuracy']
   else:
     opt = keras.optimizers.RMSprop(lr=learnrate)
-#    loss = cross_entropy_balanced
-#    set_epsilon( 1 )
     from keras import backend as K
     def root_mean_squared_error(y_true, y_pred):
       return K.sqrt(K.mean(K.square(y_pred - y_true)))
     loss = root_mean_squared_error
+    metrics = ['mean_squared_error']
 
 # Compile the model with the desired optimizer, loss, and metric
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
