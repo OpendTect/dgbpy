@@ -53,11 +53,8 @@ def getEnsembleGrp():
   rfgrp = getRFGrp()
   gbgrp = getGBGrp()
   adagrp = getAdaGrp()
-  xggrp = getXGGrp()
-  ensemblegrp = (rfgrp,gbgrp,adagrp,xggrp)
-  ensembletyp.on_change('value',partial(ensembleChgCB,cb=ensembletyp,
-                        ensemblegrp=ensemblegrp))
-  return {
+  ensemblegrp = (rfgrp,gbgrp,adagrp)
+  ret = {
     'uiobjects': {
       'ensembletyp': ensembletyp,
       'depparfldrf': rfgrp['uiobjects']['depparfldrf'],
@@ -67,12 +64,21 @@ def getEnsembleGrp():
       'lrparfldgb': gbgrp['uiobjects']['lrparfldgb'],
       'estparfldada': adagrp['uiobjects']['estparfldada'],
       'lrparfldada': adagrp['uiobjects']['lrparfldada'], 
-      'depparfldxg': xggrp['uiobjects']['depparfldxg'],
-      'estparfldxg': xggrp['uiobjects']['estparfldxg'],
-      'lrparfldxg': xggrp['uiobjects']['lrparfldxg']
     },
     'name': regmltypes[1][1],
   }
+  if hasXGBoost():
+    xggrp = getXGGrp()
+    ensemblegrp += (xggrp,)
+    xggrpuiobjs = xggrp['uiobjects']
+    ret['uiobjects'].update( {
+      'depparfldxg': xggrpuiobjs['depparfldxg'],
+      'estparfldxg': xggrpuiobjs['estparfldxg'],
+      'lrparfldxg': xggrpuiobjs['lrparfldxg']
+    })
+  ensembletyp.on_change('value',partial(ensembleChgCB,cb=ensembletyp,
+                        ensemblegrp=ensemblegrp))
+  return ret
 
 def getNNGrp():
   dict = scikit_dict
@@ -257,6 +263,8 @@ def getAdaGrp():
     }
 
 def getXGGrp():
+  if not hasXGBoost():
+    return None
   dict = scikit_dict['ensemblepars']['xg']
   depparfldxg = Slider(start=10,end=200,value=dict['maxdep'],step=10,title='Max Depth')
   estparfldxg = Slider(start=10,end=1000,value=dict['est'],step=10,title='Estimators')
@@ -298,60 +306,111 @@ def getUiPars(isclassification):
   modeltyp.on_change('value',partial(modelChgCB,cb=modeltyp,modelsgrp=modelsgrp))
   modelChgCB( 'value', deftype, deftype, modeltyp, modelsgrp )
   if isclassification:
-    parsgrp = column(modeltyp, \
-                     lineargrp['uiobjects']['logtyp'], \
-                     lineargrp['uiobjects']['solvertyp'], \
-                     ensemblegrp['uiobjects']['ensembletyp'], \
-                     ensemblegrp['uiobjects']['estparfldrf'], \
-                     ensemblegrp['uiobjects']['depparfldrf'], \
-                     ensemblegrp['uiobjects']['estparfldgb'], \
-                     ensemblegrp['uiobjects']['depparfldgb'], \
-                     ensemblegrp['uiobjects']['lrparfldgb'], \
-                     ensemblegrp['uiobjects']['estparfldada'], \
-                     ensemblegrp['uiobjects']['lrparfldada'], \
-                     ensemblegrp['uiobjects']['estparfldxg'], \
-                     ensemblegrp['uiobjects']['depparfldxg'], \
-                     ensemblegrp['uiobjects']['lrparfldxg'], \
-                     nngrp['uiobjects']['nntyp'], \
-                     nngrp['uiobjects']['itrparfld'], \
-                     nngrp['uiobjects']['lrparfld'], \
-                     nngrp['uiobjects']['lay1parfld'], \
-                     nngrp['uiobjects']['lay2parfld'], \
-                     nngrp['uiobjects']['lay3parfld'], \
-                     nngrp['uiobjects']['lay4parfld'], \
-                     nngrp['uiobjects']['lay5parfld'], \
-                     nngrp['uiobjects']['buttonparfld'], \
-                     svmgrp['uiobjects']['svmtyp'], \
-                     svmgrp['uiobjects']['kernel'], \
-                     svmgrp['uiobjects']['degree']
-                     )
+    if hasXGBoost():
+      parsgrp = column(modeltyp, \
+                       lineargrp['uiobjects']['logtyp'], \
+                       lineargrp['uiobjects']['solvertyp'], \
+                       ensemblegrp['uiobjects']['ensembletyp'], \
+                       ensemblegrp['uiobjects']['estparfldrf'], \
+                       ensemblegrp['uiobjects']['depparfldrf'], \
+                       ensemblegrp['uiobjects']['estparfldgb'], \
+                       ensemblegrp['uiobjects']['depparfldgb'], \
+                       ensemblegrp['uiobjects']['lrparfldgb'], \
+                       ensemblegrp['uiobjects']['estparfldada'], \
+                       ensemblegrp['uiobjects']['lrparfldada'], \
+                       ensemblegrp['uiobjects']['estparfldxg'], \
+                       ensemblegrp['uiobjects']['depparfldxg'], \
+                       ensemblegrp['uiobjects']['lrparfldxg'], \
+                       nngrp['uiobjects']['nntyp'], \
+                       nngrp['uiobjects']['itrparfld'], \
+                       nngrp['uiobjects']['lrparfld'], \
+                       nngrp['uiobjects']['lay1parfld'], \
+                       nngrp['uiobjects']['lay2parfld'], \
+                       nngrp['uiobjects']['lay3parfld'], \
+                       nngrp['uiobjects']['lay4parfld'], \
+                       nngrp['uiobjects']['lay5parfld'], \
+                       nngrp['uiobjects']['buttonparfld'], \
+                       svmgrp['uiobjects']['svmtyp'], \
+                       svmgrp['uiobjects']['kernel'], \
+                       svmgrp['uiobjects']['degree']
+                       )
+    else:
+      parsgrp = column(modeltyp, \
+                       lineargrp['uiobjects']['logtyp'], \
+                       lineargrp['uiobjects']['solvertyp'], \
+                       ensemblegrp['uiobjects']['ensembletyp'], \
+                       ensemblegrp['uiobjects']['estparfldrf'], \
+                       ensemblegrp['uiobjects']['depparfldrf'], \
+                       ensemblegrp['uiobjects']['estparfldgb'], \
+                       ensemblegrp['uiobjects']['depparfldgb'], \
+                       ensemblegrp['uiobjects']['lrparfldgb'], \
+                       ensemblegrp['uiobjects']['estparfldada'], \
+                       ensemblegrp['uiobjects']['lrparfldada'], \
+                       nngrp['uiobjects']['nntyp'], \
+                       nngrp['uiobjects']['itrparfld'], \
+                       nngrp['uiobjects']['lrparfld'], \
+                       nngrp['uiobjects']['lay1parfld'], \
+                       nngrp['uiobjects']['lay2parfld'], \
+                       nngrp['uiobjects']['lay3parfld'], \
+                       nngrp['uiobjects']['lay4parfld'], \
+                       nngrp['uiobjects']['lay5parfld'], \
+                       nngrp['uiobjects']['buttonparfld'], \
+                       svmgrp['uiobjects']['svmtyp'], \
+                       svmgrp['uiobjects']['kernel'], \
+                       svmgrp['uiobjects']['degree']
+                       )
   else:
-    parsgrp = column(modeltyp, \
-                     lineargrp['uiobjects']['lineartyp'], \
-                     ensemblegrp['uiobjects']['ensembletyp'], \
-                     ensemblegrp['uiobjects']['estparfldrf'], \
-                     ensemblegrp['uiobjects']['depparfldrf'], \
-                     ensemblegrp['uiobjects']['estparfldgb'], \
-                     ensemblegrp['uiobjects']['depparfldgb'], \
-                     ensemblegrp['uiobjects']['lrparfldgb'], \
-                     ensemblegrp['uiobjects']['estparfldada'], \
-                     ensemblegrp['uiobjects']['lrparfldada'], \
-                     ensemblegrp['uiobjects']['estparfldxg'], \
-                     ensemblegrp['uiobjects']['depparfldxg'], \
-                     ensemblegrp['uiobjects']['lrparfldxg'], \
-                     nngrp['uiobjects']['nntyp'], \
-                     nngrp['uiobjects']['itrparfld'], \
-                     nngrp['uiobjects']['lrparfld'], \
-                     nngrp['uiobjects']['lay1parfld'], \
-                     nngrp['uiobjects']['lay2parfld'], \
-                     nngrp['uiobjects']['lay3parfld'], \
-                     nngrp['uiobjects']['lay4parfld'], \
-                     nngrp['uiobjects']['lay5parfld'], \
-                     nngrp['uiobjects']['buttonparfld'], \
-                     svmgrp['uiobjects']['svmtyp'], \
-                     svmgrp['uiobjects']['kernel'], \
-                     svmgrp['uiobjects']['degree']
-                     )
+    if hasXGBoost():
+      parsgrp = column(modeltyp, \
+                       lineargrp['uiobjects']['lineartyp'], \
+                       ensemblegrp['uiobjects']['ensembletyp'], \
+                       ensemblegrp['uiobjects']['estparfldrf'], \
+                       ensemblegrp['uiobjects']['depparfldrf'], \
+                       ensemblegrp['uiobjects']['estparfldgb'], \
+                       ensemblegrp['uiobjects']['depparfldgb'], \
+                       ensemblegrp['uiobjects']['lrparfldgb'], \
+                       ensemblegrp['uiobjects']['estparfldada'], \
+                       ensemblegrp['uiobjects']['lrparfldada'], \
+                       ensemblegrp['uiobjects']['estparfldxg'], \
+                       ensemblegrp['uiobjects']['depparfldxg'], \
+                       ensemblegrp['uiobjects']['lrparfldxg'], \
+                       nngrp['uiobjects']['nntyp'], \
+                       nngrp['uiobjects']['itrparfld'], \
+                       nngrp['uiobjects']['lrparfld'], \
+                       nngrp['uiobjects']['lay1parfld'], \
+                       nngrp['uiobjects']['lay2parfld'], \
+                       nngrp['uiobjects']['lay3parfld'], \
+                       nngrp['uiobjects']['lay4parfld'], \
+                       nngrp['uiobjects']['lay5parfld'], \
+                       nngrp['uiobjects']['buttonparfld'], \
+                       svmgrp['uiobjects']['svmtyp'], \
+                       svmgrp['uiobjects']['kernel'], \
+                       svmgrp['uiobjects']['degree']
+                       )
+    else:
+      parsgrp = column(modeltyp, \
+                       lineargrp['uiobjects']['lineartyp'], \
+                       ensemblegrp['uiobjects']['ensembletyp'], \
+                       ensemblegrp['uiobjects']['estparfldrf'], \
+                       ensemblegrp['uiobjects']['depparfldrf'], \
+                       ensemblegrp['uiobjects']['estparfldgb'], \
+                       ensemblegrp['uiobjects']['depparfldgb'], \
+                       ensemblegrp['uiobjects']['lrparfldgb'], \
+                       ensemblegrp['uiobjects']['estparfldada'], \
+                       ensemblegrp['uiobjects']['lrparfldada'], \
+                       nngrp['uiobjects']['nntyp'], \
+                       nngrp['uiobjects']['itrparfld'], \
+                       nngrp['uiobjects']['lrparfld'], \
+                       nngrp['uiobjects']['lay1parfld'], \
+                       nngrp['uiobjects']['lay2parfld'], \
+                       nngrp['uiobjects']['lay3parfld'], \
+                       nngrp['uiobjects']['lay4parfld'], \
+                       nngrp['uiobjects']['lay5parfld'], \
+                       nngrp['uiobjects']['buttonparfld'], \
+                       svmgrp['uiobjects']['svmtyp'], \
+                       svmgrp['uiobjects']['kernel'], \
+                       svmgrp['uiobjects']['degree']
+                       )
   return {
     'grp' : parsgrp,
     'uiobjects': {

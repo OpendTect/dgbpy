@@ -34,6 +34,13 @@ import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
+def hasXGBoost():
+  try:
+    import xgboost
+  except ModuleNotFoundError:
+    return False
+  return True
+
 platform = (dgbkeys.scikitplfnm,'Scikit-learn')
 regmltypes = (\
             ('linear','Linear'),\
@@ -54,11 +61,8 @@ ensembletypes = [\
                   ('gbc','Gradient Boosting'),\
                   ('ada','Adaboost'),\
                 ]
-try:
-  import xgboost
+if hasXGBoost():
   ensembletypes.append( ('xgb','XGBoost: (Random Forests)') )
-except ModuleNotFoundError:
-  pass
 
 nntypes = [ ('mlp','Multi-Layer Perceptron') ]
 svmtypes = [ ('svm','Support Vector Machine') ]
@@ -120,6 +124,7 @@ def getDefaultNNKernel( uiname=True ):
   kernelstr = SVC().kernel
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
+
 scikit_dict = {
   'ensemblepars': {
     'rf': {
@@ -134,6 +139,11 @@ scikit_dict = {
     'ada': {
       'est': AdaBoostRegressor().n_estimators,
       'lr': AdaBoostRegressor().learning_rate
+      },
+    'xg': {
+      'lr': 1,
+      'maxdep': 1,
+      'est': 1
       }
     },
   'nnpars': {
@@ -152,17 +162,15 @@ scikit_dict = {
     'degree': SVC().degree
     }
 }
-try:
-  import xgboost
-  defregressor = xgboost.XGBRFRegressor()
+if hasXGBoost():
+  from xgboost import XGBRFRegressor
+  defregressor = XGBRFRegressor()
   scikit_dict['ensemblepars'].update({ 'xg': {
       'lr': defregressor.learning_rate,
       'maxdep': defregressor.max_depth,
       'est': defregressor.n_estimators,
       }
   })
-except ModuleNotFoundError:
-  pass
 
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
@@ -346,14 +354,14 @@ def getDefaultModel( setup, params=scikit_dict ):
       else:
         model = AdaBoostRegressor(n_estimators=n_estimators,learning_rate=learning_rate)
     elif modelname == 'XGBoost: (Random Forests)':
-      import xgboost
+      from xgboost import XGBRFClassifier, XGBRFRegressor
       learning_rate = params['lr']
       max_depth = params['maxdep']
       n_estimators = params['est']
       if isclassification:
-        model = xgboost.XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
+        model = XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
       else:
-        model = xgboost.XGBRFRegressor(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
+        model = XGBRFRegressor(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
     elif modelname == 'Multi-Layer Perception':
       lay1 = params['lay1']
       lay2 = params['lay2']
