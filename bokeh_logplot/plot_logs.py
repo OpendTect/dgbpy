@@ -303,7 +303,8 @@ def create_plot(alldata, nr, plotmarkersyesno):
                      x_axis_location = 'above',
                      background_fill_color="#f0f0f0",
                      tools='ypan,ywheel_zoom,reset,hover',
-                     y_axis_label=ylabel)
+                     y_axis_label=ylabel,
+                     output_backend='webgl')
     else:
         xaxislabel = lognames[0]
         for i in range(2, len(lognames)):
@@ -314,7 +315,8 @@ def create_plot(alldata, nr, plotmarkersyesno):
                      x_axis_location = 'above',
                      background_fill_color="#f0f0f0",
                      tools='ypan,ywheel_zoom,reset,hover',
-                     y_axis_label=ylabel)
+                     y_axis_label=ylabel,
+                     output_backend='webgl')
     ticker = []
     for i in range(0,-10000,-depthticks):
         ticker.append(i)

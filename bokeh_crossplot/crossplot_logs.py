@@ -117,7 +117,8 @@ def create_histogramplots(alldata, source, data, p):
     ph = figure(toolbar_location=None, plot_width=p.plot_width,
                 plot_height=200, x_range=p.x_range,
                 y_range=(0, hmax), min_border=10, min_border_left=50,
-                y_axis_location="right")
+                y_axis_location="right",
+                output_backend='webgl')
     ph.xgrid.grid_line_color = None
     ph.yaxis.major_label_orientation = np.pi/4
     ph.background_fill_color = "#f0f0f0"
@@ -133,7 +134,8 @@ def create_histogramplots(alldata, source, data, p):
 
     pv = figure(toolbar_location=None, plot_width=200,
                 plot_height=p.plot_height, x_range=(0, vmax),
-                y_range=p.y_range, min_border=10, y_axis_location="right")
+                y_range=p.y_range, min_border=10, y_axis_location="right",
+                output_backend='webgl')
     pv.ygrid.grid_line_color = None
     pv.xaxis.major_label_orientation = np.pi/4
     pv.background_fill_color = "#f0f0f0"
@@ -166,7 +168,8 @@ def create_bubblecrossplot(alldata, source, data):
                background_fill_color="#f0f0f0",
                tools='pan,box_zoom,lasso_select,box_select,hover,reset',
                tooltips=TOOLTIPS,
-               title = kw['title'])
+               title = kw['title'],
+               output_backend='webgl')
     p.xaxis.axis_label = x_title
     p.yaxis.axis_label = y_title
 
@@ -195,7 +198,8 @@ def create_bubblecrossplot(alldata, source, data):
     color_bar_plot = figure(title=title, title_location="right",
                         height=200, width=160,
                         toolbar_location=None, min_border=0,
-                        outline_line_color=None)
+                        outline_line_color=None,
+                        output_backend='webgl')
     color_bar_plot.add_layout(color_bar, 'right')
     xplot = gridplot([[p, pv], [ph, color_bar_plot], [stats, None]],
                      merge_tools=False)
@@ -223,7 +227,8 @@ def create_scattercrossplot(alldata, source, data):
                background_fill_color="#f0f0f0",
                tools='pan,box_zoom,lasso_select, box_select, hover, reset',
                tooltips=TOOLTIPS,
-               title = kw['title'])
+               title = kw['title'],
+               output_backend='webgl')
     p.xaxis.axis_label = x_title
     p.yaxis.axis_label = y_title
 
@@ -348,7 +353,8 @@ def create_logplot(alldata, nr, source, data):
                   x_axis_location = 'above',
                   background_fill_color="#f0f0f0",
                   tools='ypan,ywheel_zoom,box_select,reset',
-                  y_axis_label=ylabel)
+                  y_axis_label=ylabel,
+                  output_backend='webgl')
     plot.add_tools( hover )
 
     ticker = []
