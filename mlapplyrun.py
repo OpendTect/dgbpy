@@ -13,6 +13,7 @@ import os
 import platform
 import argparse
 import json
+import traceback as tb
 
 from odpy import common as odcommon
 from odpy.oscommand import getPythonExecNm, printProcessTime
@@ -79,7 +80,12 @@ if __name__ == '__main__':
                                   outnm=dict['output'],
                                   args=args )
   except Exception as e:
-    odcommon.log_msg( 'Exception:', e )
+    exc_type, exc_obj, exc_tb = sys.exc_info()
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
+    odcommon.log_msg( 'Training error exception:' )
+    odcommon.log_msg( repr(e), 'on line', exc_tb.tb_lineno, 'of script', fname )
+    odcommon.log_msg( stackstr )
     sys.exit(1)
   if not success:
     sys.exit(1)
