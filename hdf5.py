@@ -175,8 +175,12 @@ def getCubeLets( infos, datasets, groupnm ):
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = group[dsetnm]
         if img2img:
-          cubelets[idx] = np.resize(dset[:-1],cubelets[idx].shape)
-          output[idx] = np.resize(dset[-1],output[idx].shape)
+          try:
+            cubelets[idx] = np.resize(dset[:-1],cubelets[idx].shape)
+            output[idx] = np.resize(dset[-1],output[idx].shape)
+          except Exception as e:
+            cubelets[idx] = np.zeros( cubelets[idx].shape, cubelets.dtype )
+            output[idx] = np.zeros( output[idx].shape, output[idx].dtype )
         else:
           cubelets[idx] = np.resize(dset,cubelets[idx].shape)
           if isclass :
