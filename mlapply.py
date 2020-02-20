@@ -58,7 +58,7 @@ def computeChunkedScaler_(datasets,infos,groupnm,scalebyattrib):
       chunkstd.append(scaleronechunk.scale_)
 
   if chunknb < 2:
-    return getNewScaler( chunkmean, chunkstd )
+    return getNewScaler( chunkmean[0], chunkstd[0] )
   if scalebyattrib:
     attrnb = dgbhdf5.getNrAttribs(infos)
   else:
@@ -202,15 +202,15 @@ def getNewScaler( mean, scale ):
 def transform(x_train,scaler):
   nrattribs = scaler.n_samples_seen_
   if nrattribs > 0:
-    for a in range(nrattribs):
+    for iattr in range(nrattribs):
       if nrattribs == 1:
         inp = x_train
       else:
-        inp = x_train[:,a]
-      inp -= scaler.mean_[a]
+        inp = x_train[:,iattr]
+      inp -= scaler.mean_[iattr]
       doscale = np.flatnonzero( scaler.scale_ )
-      if (doscale == a)[a]:
-        inp /= scaler.scale_[a]
+      if (doscale == iattr)[iattr]:
+        inp /= scaler.scale_[iattr]
 
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
