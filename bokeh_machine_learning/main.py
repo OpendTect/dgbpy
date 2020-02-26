@@ -79,7 +79,7 @@ def training_app(doc):
   from dgbpy import mlapply as dgbmlapply
   from dgbpy import uibokeh, uikeras, uisklearn
   from dgbpy import mlio as dgbmlio
-  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid']) as this_service:
+  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],'Training UI') as this_service:
     
     examplefilenm = args['h5file'].name
     trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
@@ -108,6 +108,22 @@ def training_app(doc):
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
+    def procArgChgCB( paramobj ):
+      for key, val in paramobj.items():
+        if key=='Training Type':
+          args['transfer'] = val=='transfer'
+          odcommon.log_msg(f'Changed training type to: "{val}".')
+        elif key=='Model Filename':
+          args['model'] = val
+          odcommon.log_msg(f'Changed model file name to: "{val}".')
+        elif key=='Examples Filename':
+          examplefilenm = val
+          odcommon.log_msg(f'Changed examples file name to: "{val}".')
+
+      return dict()
+     
+    this_service.addAction('mlTrainingParChg', procArgChgCB)
+      
     def mlchgCB( attrnm, old, new):
       selParsGrp( new )
 
@@ -146,7 +162,8 @@ def training_app(doc):
       doc.clear()
       parameterspanel.child = column( parsgrp, parsbackbut )
       doc.add_root(mainpanel)
-      this_service.sendObject('ml_training_msg', {'platform_change': platformnm})
+      dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
+                           'ml_training_msg', {'platform_change': platformnm})
 
     def getUiParams():
       parsgrp = getParsGrp( platformfld.value )
@@ -198,7 +215,8 @@ def training_app(doc):
                               scriptargs['dict'], scriptargs['odargs'] )
       odcommon.log_msg( 'Starting process:', cmdtorun )
 
-      this_service.sendObject('ml_training_msg', {'training_started': ''})
+      dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
+                                  'ml_training_msg', {'training_started': ''})
 
       return execCommand( cmdtorun, background=True )
 
@@ -225,7 +243,8 @@ def training_app(doc):
           odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
           odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
         else:
-          this_service.sendObject('ml_training_msg', {'training_finished': ''})
+          dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
+                               'ml_training_msg', {'training_finished': ''})
         return False
       return True
 
