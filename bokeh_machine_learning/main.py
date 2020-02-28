@@ -6,6 +6,7 @@
 #
 # _________________________________________________________________________
 
+import os
 import sys
 import argparse
 from dgbpy.bokehserver import StartBokehServer, DefineBokehArguments
@@ -81,7 +82,17 @@ def training_app(doc):
   from dgbpy import mlio as dgbmlio
   with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],'Training UI') as this_service:
     
-    examplefilenm = args['h5file'].name
+    this_service.examplefilenm = args['h5file'].name
+    this_service.traintype = dgbmlapply.TrainType.New
+    this_service.modelfilenm = None
+    if 'model' in args:
+      model = args['model']
+      if model != None and len(model)>0:
+        this_service.modelfilenm = model[0]
+        if args['transfer']:
+          this_service.traintype = dgbmlapply.TrainType.Transfer
+        else:
+          this_service.traintype = dgbmlapply.TrainType.Resume
     trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
 
     traintabnm = 'Training'
@@ -100,7 +111,8 @@ def training_app(doc):
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
     outputnmfld = TextInput(title='Output model:')
 
-    info = dgbmlio.getInfo( examplefilenm )
+    this_service.info = dgbmlio.getInfo( this_service.examplefilenm )
+    info = this_service.info
     keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
                               estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
     sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
@@ -110,19 +122,33 @@ def training_app(doc):
 
     def procArgChgCB( paramobj ):
       for key, val in paramobj.items():
-        if key=='Training Type':
-          args['transfer'] = val=='transfer'
-          odcommon.log_msg(f'Changed training type to: "{val}".')
-        elif key=='Model Filename':
-          args['model'] = val
-          odcommon.log_msg(f'Changed model file name to: "{val}".')
-        elif key=='Examples Filename':
-          examplefilenm = val
+        if key == 'Examples Filename':
+          this_service.examplefilenm = val
+          this_service.info = dgbmlio.getInfo( this_service.examplefilenm )
           odcommon.log_msg(f'Changed examples file name to: "{val}".')
+        elif key == 'Training Type':
+          if val == dgbmlapply.TrainType.New.name:
+            this_service.traintype = dgbmlapply.TrainType.New
+            this_service.modelfilenm = None
+          elif val == dgbmlapply.TrainType.Resume.name:
+            this_service.traintype = dgbmlapply.TrainType.Resume
+          elif val == dgbmlapply.TrainType.Transfer.name:
+            this_service.traintype = dgbmlapply.TrainType.Transfer
+          odcommon.log_msg(f'Changed training type to: "{this_service.traintype.name}".')
+        elif key == 'Model Filename':
+          if os.path.isfile(val):
+            this_service.modelfilenm = val
+            odcommon.log_msg(f'Changed model file name to: "{val}".')
+          else:
+            this_service.modelfilenm = None
+            this_service.traintype = dgbmlapply.TrainType.New
+            odcommon.log_msg(f'Changed model file name to: "None".')
+        else:
+          odcommon.log_msg(f'Unrecognized: "{key}" - "{val}"')
 
       return dict()
      
-    this_service.addAction('mlTrainingParChg', procArgChgCB)
+    this_service.addAction('mlTrainingParChg', procArgChgCB )
       
     def mlchgCB( attrnm, old, new):
       selParsGrp( new )
@@ -162,8 +188,12 @@ def training_app(doc):
       doc.clear()
       parameterspanel.child = column( parsgrp, parsbackbut )
       doc.add_root(mainpanel)
-      dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
-                           'ml_training_msg', {'platform_change': platformnm})
+      dgbservmgr.Message().sendObjectToAddress(
+                 args['bsmserver'],
+                 'ml_training_msg',
+                 {'platform_change': platformnm,
+                  'bokehid': args['bokehid']
+                 })
 
     def getUiParams():
       parsgrp = getParsGrp( platformfld.value )
@@ -174,9 +204,9 @@ def training_app(doc):
       return {}
 
     def getProcArgs( platfmnm, pars, outnm ):
-      traintype = dgbmlapply.TrainType.New
+      traintype = this_service.traintype
       ret = {
-        'posargs': [examplefilenm],
+        'posargs': [this_service.examplefilenm],
         'odargs': odcommon.getODArgs( args ),
         'dict': {
           'platform': platfmnm,
@@ -185,14 +215,8 @@ def training_app(doc):
         }
       }
       dict = ret['dict']
-      if 'model' in args:
-        model = args['model']
-        if model != None and len(model)>0:
-          dict.update({'model': model[0]})
-          if args['transfer']:
-            traintype = dgbmlapply.TrainType.Transfer
-          else:
-            traintype = dgbmlapply.TrainType.Resume
+      if this_service.modelfilenm != None:
+        dict.update({'model': this_service.modelfilenm})
       if 'mldir' in args:
         mldir = args['mldir']
         if mldir != None and len(mldir)>0:
@@ -215,8 +239,12 @@ def training_app(doc):
                               scriptargs['dict'], scriptargs['odargs'] )
       odcommon.log_msg( 'Starting process:', cmdtorun )
 
-      dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
-                                  'ml_training_msg', {'training_started': ''})
+      dgbservmgr.Message().sendObjectToAddress(
+                 args['bsmserver'],
+                 'ml_training_msg',
+                 {'training_started': '',
+                  'bokehid': args['bokehid']
+                 })
 
       return execCommand( cmdtorun, background=True )
 
@@ -243,8 +271,13 @@ def training_app(doc):
           odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
           odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
         else:
-          dgbservmgr.Message().sendObjectToAddress(args['bsmserver'],
-                               'ml_training_msg', {'training_finished': ''})
+          dgbservmgr.Message().sendObjectToAddress(
+                     args['bsmserver'],
+                     'ml_training_msg',
+                     {
+                       'training_finished': '',
+                       'bokehid': args['bokehid']
+                     })
         return False
       return True
 
