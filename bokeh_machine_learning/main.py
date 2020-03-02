@@ -80,23 +80,24 @@ def training_app(doc):
   from dgbpy import mlapply as dgbmlapply
   from dgbpy import uibokeh, uikeras, uisklearn
   from dgbpy import mlio as dgbmlio
-  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],'Training UI') as this_service:
-    
-    this_service.examplefilenm = args['h5file'].name
-    this_service.traintype = dgbmlapply.TrainType.New
-    this_service.modelfilenm = None
-    if 'model' in args:
-      model = args['model']
-      if model != None and len(model)>0:
-        this_service.modelfilenm = model[0]
-        if args['transfer']:
-          this_service.traintype = dgbmlapply.TrainType.Transfer
-        else:
-          this_service.traintype = dgbmlapply.TrainType.Resume
-    trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
 
+  examplefilenm = args['h5file'].name
+  traintype =  dgbmlapply.TrainType.New
+  if 'model' in args:
+    model = args['model']
+    if model != None and len(model)>0:
+      args['model'] = model[0]
+      if args['transfer']:
+        traintype = dgbmlapply.TrainType.Transfer
+      else:
+        traintype = dgbmlapply.TrainType.Resume
+        
+  trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
+  
+  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],'Training UI') as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
+    args['outputnm'] = ''
 
     trainpanel = Panel(title=traintabnm)
     parameterspanel = Panel(title=paramtabnm)
@@ -109,71 +110,62 @@ def training_app(doc):
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
     platformparsbut = uibokeh.getButton(paramtabnm,\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
-    outputnmfld = TextInput(title='Output model:')
 
-    this_service.info = dgbmlio.getInfo( this_service.examplefilenm )
-    info = this_service.info
-    keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
+    info = None
+    keraspars = None
+    sklearnpars = None
+    parsgroups = None
+
+    def updateInfo(examplefilenm):
+      nonlocal info
+      nonlocal keraspars
+      nonlocal sklearnpars
+      nonlocal parsgroups
+      info = dgbmlio.getInfo( examplefilenm )
+      keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
                               estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
-    sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
-    parsgroups = (keraspars,sklearnpars)
+      sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
+      parsgroups = (keraspars,sklearnpars)
+
+    updateInfo(examplefilenm)
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
     def procArgChgCB( paramobj ):
+      nonlocal examplefilenm
+      nonlocal traintype
       for key, val in paramobj.items():
-        if key == 'Examples Filename':
-          this_service.examplefilenm = val
-          this_service.info = dgbmlio.getInfo( this_service.examplefilenm )
-          odcommon.log_msg(f'Changed examples file name to: "{val}".')
-        elif key == 'Training Type':
+        if key=='Training Type':
           if val == dgbmlapply.TrainType.New.name:
-            this_service.traintype = dgbmlapply.TrainType.New
-            this_service.modelfilenm = None
+            traintype = dgbmlapply.TrainType.New
+            args['model'] = None
           elif val == dgbmlapply.TrainType.Resume.name:
-            this_service.traintype = dgbmlapply.TrainType.Resume
+            traintype = dgbmlapply.TrainType.Resume
           elif val == dgbmlapply.TrainType.Transfer.name:
-            this_service.traintype = dgbmlapply.TrainType.Transfer
-          odcommon.log_msg(f'Changed training type to: "{this_service.traintype.name}".')
-        elif key == 'Model Filename':
+            traintype = dgbmlapply.TrainType.Transfer
+          odcommon.log_msg(f'Changed training type to: "{traintype.name}".')
+        elif key=='Input Model File':
           if os.path.isfile(val):
-            this_service.modelfilenm = val
-            odcommon.log_msg(f'Changed model file name to: "{val}".')
+            args['model'] = val
+            odcommon.log_msg(f'Changed pretrained model file name to: "{val}".')
           else:
-            this_service.modelfilenm = None
-            this_service.traintype = dgbmlapply.TrainType.New
-            odcommon.log_msg(f'Changed model file name to: "None".')
-        else:
-          odcommon.log_msg(f'Unrecognized: "{key}" - "{val}"')
-
+            args['model'] = None
+            traintype = dgbmlapply.TrainType.New
+            odcommon.log_msg(f'Changed pretrained model file name to: "None".')
+        elif key=='Output Model File':
+          args['outputnm'] = val
+          odcommon.log_msg(f'Changed output model file name to: "{val}".')
+        elif key=='Examples Filename':
+          if examplefilenm != val:
+            examplefilenm = val
+            updateInfo(examplefilenm)
+            odcommon.log_msg(f'Changed examples file name to: "{examplefilenm}".')
       return dict()
      
     this_service.addAction('mlTrainingParChg', procArgChgCB )
       
     def mlchgCB( attrnm, old, new):
       selParsGrp( new )
-
-    def nameChgCB( attrnm, old, new):
-      if len(new) < 1:
-        return
-
-      modtype = dgbmlio.getModelType( info ) 
-      curbg = outputnmfld.background
-      (exists,sametrl,sameformat,sametyp) = \
-                  dgbmlio.modelNameExists( new,modtype, \
-                  args=args,reload=False)
-      if dgbmlio.modelNameIsFree(new,modtype,args=args,reload=False):
-        if exists and sametrl and sameformat and sametyp != None and sametyp:
-          outputnmfld.background = '#FFFF00'
-        else:
-          outputnmfld.background = None
-      else:
-        outputnmfld.background = '#FF0000'
-      outputnmfld.value = new
-      if outputnmfld.background == curbg:
-        return
-      doc.clear()
-      doc.add_root(mainpanel)
 
     def getParsGrp( platformnm ):
       for platform,parsgroup in zip(ML_PLFS,parsgroups):
@@ -204,9 +196,8 @@ def training_app(doc):
       return {}
 
     def getProcArgs( platfmnm, pars, outnm ):
-      traintype = this_service.traintype
       ret = {
-        'posargs': [this_service.examplefilenm],
+        'posargs': [examplefilenm],
         'odargs': odcommon.getODArgs( args ),
         'dict': {
           'platform': platfmnm,
@@ -215,8 +206,11 @@ def training_app(doc):
         }
       }
       dict = ret['dict']
-      if this_service.modelfilenm != None:
-        dict.update({'model': this_service.modelfilenm})
+      if 'model' in args:
+        model = args['model']
+        if model:
+          dict.update({'model': model[0]})
+          
       if 'mldir' in args:
         mldir = args['mldir']
         if mldir != None and len(mldir)>0:
@@ -225,13 +219,17 @@ def training_app(doc):
       return ret
 
     def doRun( cb = None ):
-      modelnm = outputnmfld.value
-      modtype = dgbmlio.getModelType( info ) 
-      canwrite = dgbmlio.modelNameIsFree(modelnm,modtype,args=args,reload=True)
-      if not canwrite:
-        odcommon.log_msg( 'Output model is not writable, please provide another name' )
-      #TODO: replace with netpacket
+      if not args['outputnm']:
+        dgbservmgr.Message().sendObjectToAddress(
+                    args['bsmserver'],
+                    'ml_training_msg',
+                    {'no output file': '',
+                    'bokehid': args['bokehid']
+                    })
+        
         return False
+      
+      modelnm = args['outputnm']
   
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
                             modelnm )
@@ -282,9 +280,8 @@ def training_app(doc):
       return True
 
     platformfld.on_change('value',mlchgCB)
-    outputnmfld.on_change('value_input',nameChgCB)
     buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
-    trainpanel.child = column( platformfld, platformparsbut, outputnmfld, buttonsgrp )
+    trainpanel.child = column( platformfld, platformparsbut, buttonsgrp )
 
     def initWin():
       mllearntype = info[dgbkeys.learntypedictstr]
@@ -294,7 +291,6 @@ def training_app(doc):
       else:
         platformfld.value = uikeras.getPlatformNm(True)[0]
       mlchgCB( 'value', 0, platformfld.value )
-      nameChgCB( 'value', 0, dgbkeys.modelnm )
       doc.title = 'Machine Learning'
 
     initWin()
