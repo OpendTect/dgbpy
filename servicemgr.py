@@ -21,11 +21,11 @@ from tornado import gen
 import tornado.tcpserver
 
 class ServiceMgr(tornado.tcpserver.TCPServer):
-  def __init__(self, cmdserver, ppid, servicename=None):
+  def __init__(self, cmdserver, ppid, serviceID=None):
     super(ServiceMgr, self).__init__()
     self.host = None
     self.port = None
-    self.servicename = servicename
+    self.serviceID = serviceID
     if '@' in cmdserver:
       info = cmdserver.split('@')
       cmdserver = info[1]
@@ -66,7 +66,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
 
   def _register(self, port):
     Message().sendObject(self.host, self.port,
-                   'register', {'servicename': self.servicename,
+                   'register', {'servicename': self.serviceID,
                                 'hostname': socket.gethostname(),
                                 'port': port,
                                 'pid': os.getpid()

@@ -26,6 +26,9 @@ datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
 traingrp = parser.add_argument_group( 'Training' )
+traingrp.add_argument( '--outputfnm',
+            dest='outputfnm', nargs=1,
+            help='Output model file name' )
 traingrp.add_argument( '--modelfnm',
             dest='model', nargs=1,
             help='Input model file name' )
@@ -94,10 +97,9 @@ def training_app(doc):
         
   trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
   
-  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],'Training UI') as this_service:
+  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],args['bokehid']) as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
-    args['outputnm'] = ''
 
     trainpanel = Panel(title=traintabnm)
     parameterspanel = Panel(title=paramtabnm)
@@ -153,9 +155,9 @@ def training_app(doc):
             traintype = dgbmlapply.TrainType.New
             odcommon.log_msg(f'Changed pretrained model file name to: "None".')
         elif key=='Output Model File':
-          args['outputnm'] = val
+          args['outputfnm'] = val
           odcommon.log_msg(f'Changed output model file name to: "{val}".')
-        elif key=='Examples Filename':
+        elif key=='Examples File':
           if examplefilenm != val:
             examplefilenm = val
             updateInfo(examplefilenm)
@@ -219,7 +221,7 @@ def training_app(doc):
       return ret
 
     def doRun( cb = None ):
-      if not args['outputnm']:
+      if not args['outputfnm']:
         dgbservmgr.Message().sendObjectToAddress(
                     args['bsmserver'],
                     'ml_training_msg',
@@ -229,7 +231,7 @@ def training_app(doc):
         
         return False
       
-      modelnm = args['outputnm']
+      modelnm = args['outputfnm']
   
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
                             modelnm )
