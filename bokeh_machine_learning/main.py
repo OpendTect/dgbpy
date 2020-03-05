@@ -31,6 +31,7 @@ traingrp.add_argument( '--outputfnm',
             help='Output model file name' )
 traingrp.add_argument( '--modelfnm',
             dest='model', nargs=1,
+            type=argparse.FileType('r'),
             help='Input model file name' )
 traingrp.add_argument( '--transfer', dest='transfer',
             action='store_true', default=False,
@@ -85,11 +86,14 @@ def training_app(doc):
   from dgbpy import mlio as dgbmlio
 
   examplefilenm = args['h5file'].name
+  outputfnm = None
+  if 'outputfnm' in args:
+    outputfnm = args['outputfnm']
   traintype =  dgbmlapply.TrainType.New
   if 'model' in args:
     model = args['model']
     if model != None and len(model)>0:
-      args['model'] = model[0]
+      model = model[0].name
       if args['transfer']:
         traintype = dgbmlapply.TrainType.Transfer
       else:
@@ -135,12 +139,14 @@ def training_app(doc):
 
     def procArgChgCB( paramobj ):
       nonlocal examplefilenm
+      nonlocal model
       nonlocal traintype
+      nonlocal outputfnm
       for key, val in paramobj.items():
         if key=='Training Type':
           if val == dgbmlapply.TrainType.New.name:
             traintype = dgbmlapply.TrainType.New
-            args['model'] = None
+            model = None
           elif val == dgbmlapply.TrainType.Resume.name:
             traintype = dgbmlapply.TrainType.Resume
           elif val == dgbmlapply.TrainType.Transfer.name:
@@ -148,15 +154,15 @@ def training_app(doc):
           odcommon.log_msg(f'Changed training type to: "{traintype.name}".')
         elif key=='Input Model File':
           if os.path.isfile(val):
-            args['model'] = val
+            model = val
             odcommon.log_msg(f'Changed pretrained model file name to: "{val}".')
           else:
-            args['model'] = None
+            model = None
             traintype = dgbmlapply.TrainType.New
             odcommon.log_msg(f'Changed pretrained model file name to: "None".')
         elif key=='Output Model File':
-          args['outputfnm'] = val
-          odcommon.log_msg(f'Changed output model file name to: "{val}".')
+          outputfnm = val
+          odcommon.log_msg(f'Changed output model file name to: "{outputfnm}".')
         elif key=='Examples File':
           if examplefilenm != val:
             examplefilenm = val
@@ -208,10 +214,8 @@ def training_app(doc):
         }
       }
       dict = ret['dict']
-      if 'model' in args:
-        model = args['model']
-        if model:
-          dict.update({'model': model[0]})
+      if model != None:
+        dict.update({'model': model})
           
       if 'mldir' in args:
         mldir = args['mldir']
@@ -221,7 +225,7 @@ def training_app(doc):
       return ret
 
     def doRun( cb = None ):
-      if not args['outputfnm']:
+      if len(outputfnm) < 1:
         dgbservmgr.Message().sendObjectToAddress(
                     args['bsmserver'],
                     'ml_training_msg',
@@ -231,10 +235,10 @@ def training_app(doc):
         
         return False
       
-      modelnm = args['outputfnm']
+      modelnm = outputfnm
   
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
-                            modelnm )
+                                modelnm )
       cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                               scriptargs['dict'], scriptargs['odargs'] )
       odcommon.log_msg( 'Starting process:', cmdtorun )
