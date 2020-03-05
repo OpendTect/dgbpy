@@ -330,6 +330,9 @@ def getInfo( filenm ):
       inpxyobj = {
         iddictstr: idy
       }
+      compkey = inpidystr+'Component'
+      if odhdf5.hasAttr(info,compkey):
+        collnm += '`' + odhdf5.getText(info,compkey)
       idkey = inpidystr+'ID'
       if odhdf5.hasAttr(info,idkey):
         inpxyobj.update({dbkeydictstr: odhdf5.getText(info,idkey)})
