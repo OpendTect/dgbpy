@@ -533,7 +533,7 @@ def getClassIndicesFromData( info ):
     grp = h5file[groupnm]
     if isimg2img:
       for inpnm in grp:
-        sublist = list(set(grp[inpnm][0].astype('uint8').ravel()))
+        sublist = list(set(grp[inpnm][-1].astype('uint8').ravel()))
         sublist.extend( ret )
         ret = list(set(sublist))
     else:
