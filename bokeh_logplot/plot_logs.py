@@ -80,10 +80,6 @@ def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
     shadingdifferencelog2 = 'None'
     firstcurve = scaledlogs.loc[:, shadinglogs[0]]
     (minbound, maxbound) = getShadingBounds(firstcurve)
-    leftbound = pd.DataFrame()
-    rightbound = pd.DataFrame()
-    shadingdifferencelog1 = 'None'
-    shadingdifferencelog2 = 'None'
     if (shadingtype == 'Difference 2 logs shading color'):
         if (len(shadinglogs) >= 2):
             shadingdifferencelog1 = shadinglogs[0]
@@ -108,15 +104,15 @@ def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
         rightbound = pd.Series(maxbound for x in range(len(firstcurve)))
     if (shadingtype == 'Difference 2 logs shading color'):
         leftbound = firstcurve
-        rightbound = secondcurve
-        plot.line(leftbound, depthdata[:],
-                  legend_label=shadingdifferencelog1,
-                  color=mypalette[-2],
-                   line_width=2,
-                  line_dash =  linestyles[-2])
-        plot.line(rightbound, depthdata[:],
-                  legend_label=shadingdifferencelog2,
-                  color=mypalette[-1],
+        rightbound = secondcurve       
+        plot.line(leftbound, depthdata[:], 
+                  name=shadingdifferencelog1, 
+                  line_color=mypalette[-2], 
+                  line_width=2,
+                  line_dash =  linestyles[-2]) 
+        plot.line(rightbound, depthdata[:], 
+                  name=shadingdifferencelog2, 
+                  line_color=mypalette[-1], 
                   line_width=2,
                   line_dash =  linestyles[-1])
     minvalue = firstcurve.min()
@@ -246,16 +242,12 @@ def create_plot(alldata, nr, plotmarkersyesno):
     depthdata = -data.loc[:, depthlogstr]
     logwidth = int(alldata['logwidth'].value)
     logheight = int(alldata['logheight'].value)
-    firstdepth = alldata['firstdepth']
-    lastdepth = alldata['lastdepth']
-    if (firstdepth == 0):
-        firstdepth = depthdata.iloc[0]
-    else:
-        firstdepth = -float(alldata['firstdepth'].value)
-    if (lastdepth == 0):
-        lastdepth = depthdata.iloc[-1]
-    else:
-        lastdepth = -float(alldata['lastdepth'].value)
+    inputmindepth = -float(alldata['inputmindepth'].value)
+    inputmaxdepth = -float(alldata['inputmaxdepth'].value)
+    if (inputmindepth > depthdata.iloc[0]):
+        inputmindepth = depthdata.iloc[0]
+    if (inputmaxdepth < depthdata.iloc[-1]):
+        inputmaxdepth = depthdata.iloc[-1]
     depthticks = int(alldata['depthticks'].value)
     depthminorticks = int(alldata['depthminorticks'].value)
     ylabel = depthlogstr
@@ -330,7 +322,7 @@ def create_plot(alldata, nr, plotmarkersyesno):
     plot.ygrid.minor_grid_line_color = 'navy'
     plot.ygrid.minor_grid_line_alpha = 0.1
     plot.title.text = 'Plot ' + str(nr+1)
-    plot.y_range = Range1d(lastdepth , firstdepth)
+    plot.y_range = Range1d(inputmaxdepth , inputmindepth) 
     plot.x_range = Range1d(float(minvalues[0]), float(maxvalues[0]))
 
     if (plotmarkersyesno != 'Last'):
@@ -341,10 +333,10 @@ def create_plot(alldata, nr, plotmarkersyesno):
                                       linestyles,
                                       mypalette):
             if (count == 0):
-                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                    plot.line(scaledlogs[name], depthdata[:],
-                              legend_label=name,
-                              color=color,
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):            
+                    plot.line(scaledlogs[name], depthdata[:], 
+                              name=name, 
+                              line_color=color, 
                               line_width=2,
                               line_dash = linestyle)
             if (count == 1):
@@ -360,18 +352,18 @@ def create_plot(alldata, nr, plotmarkersyesno):
                 if (xaxistype == 'log'):
                       plot.add_layout(LogAxis(x_range_name=xrange2,
                             axis_label=name), 'above')
-                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                    plot.line(scaledlogs[name], depthdata[:],
-                              legend_label=name,
-                              color=color,
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):            
+                    plot.line(scaledlogs[name], depthdata[:], 
+                              name=name, 
+                              line_color=color, 
                               x_range_name = name,
                               line_width = 2,
                               line_dash =  linestyle)
             if (count > 1):
-                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):
-                    plot.line(scaledlogs[name], depthdata[:],
-                              legend_label=name,
-                              color=color,
+                if ((name != shadingdifferencelog1) and (name != shadingdifferencelog2)):            
+                    plot.line(scaledlogs[name], depthdata[:], 
+                              name=name, 
+                              line_color=color, 
                               line_width=2,
                               line_dash =  linestyle)
                     print ("Warning: only two separate X-ranges supported.",
@@ -389,9 +381,8 @@ def create_plot(alldata, nr, plotmarkersyesno):
     extension = (maxval - minval) / 20
     minbound = minval - extension
     maxbound =  maxval + extension
-    if not markers:
-      return plot
 
-    plot = add_markers(plot, markers, plotmarkers, plotmarkersyesno,
+    if len(markers)>0:
+      plot = add_markers(plot, markers, plotmarkers, plotmarkersyesno,
                        minbound, maxbound)
     return (plot)
