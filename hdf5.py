@@ -10,7 +10,6 @@ from os import path
 import random
 import json
 import numpy as np
-import h5py
 
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
@@ -43,7 +42,7 @@ def getCubeLetNamesByGroup( info, groupnm, example ):
   return ret
 
 def getCubeLetNamesByGroupByItem( info, groupnm, idx ):
-  h5file = h5py.File( info[filedictstr], 'r' )
+  h5file = odhdf5.openFile( info[filedictstr], 'r' )
   if not groupnm in h5file:
     return {}
   group = h5file[groupnm]
@@ -57,7 +56,7 @@ def getCubeLetNamesByGroupByItem( info, groupnm, idx ):
   return np.ndarray.tolist(ret)
 
 def getGroupSize( filenm, groupnm ):
-  h5file = h5py.File( filenm, 'r' )
+  h5file = odhdf5.openFile( filenm, 'r' )
   group = h5file[groupnm]
   size = len(group)
   h5file.close()
@@ -116,7 +115,7 @@ def getCubeLets( infos, datasets, groupnm ):
   outdtype = np.float32
   if isclass:
     outdtype = np.uint8
-  h5file = h5py.File( infos[filedictstr], 'r' )
+  h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   group = h5file[groupnm]
   dsetnms = list(group.keys())
   hasdata = None
@@ -258,7 +257,7 @@ def validInfo( info ):
   return True
 
 def getInfo( filenm ):
-  h5file = h5py.File( filenm, 'r' )
+  h5file = odhdf5.openFile( filenm, 'r' )
   info = odhdf5.getInfoDataSet( h5file )
   if not validInfo( info ):
     h5file.close()
@@ -414,7 +413,7 @@ def getWellInfo( info, filenm ):
       classnmdictstr: getMainOutputs(info)[0]
     })
   info.update( {estimatedsizedictstr: getTotalSize(info)} )
-  h5file = h5py.File( filenm, 'r' )
+  h5file = odhdf5.openFile( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
   zstep = odhdf5.getDValue(infods,"Z step") 
   marker = (odhdf5.getText(infods,"Top marker"),
@@ -460,8 +459,8 @@ def modelIdxStr( idx ):
 def addInfo( inpfile, plfnm, filenm, infos=None ):
   if infos == None:
     infos = getInfo( inpfile )
-  h5filein = h5py.File( inpfile, 'r' )
-  h5fileout = h5py.File( filenm, 'r+' )
+  h5filein = odhdf5.openFile( inpfile, 'r' )
+  h5fileout = odhdf5.openFile( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
   dsinfoout = odhdf5.ensureHasDataset( h5fileout )
   attribman = dsinfoin.attrs
@@ -522,7 +521,7 @@ def getClassIndicesFromData( info ):
   if classesdictstr in info:
     return info[classesdictstr]
   filenm = info[filedictstr]
-  h5file = h5py.File( filenm, 'r' )
+  h5file = odhdf5.openFile( filenm, 'r' )
   dsinfoin = odhdf5.ensureHasDataset( h5file )
   if odhdf5.hasAttr( dsinfoin, classesvalstr ):
     return odhdf5.getIArray( dsinfoin, classesvalstr )
@@ -547,7 +546,7 @@ def getClassIndicesFromData( info ):
       ret = list(set(sublist))
   ret = np.sort( ret )
   h5file.close()
-  h5fileout = h5py.File( filenm, 'r+' )
+  h5fileout = odhdf5.openFile( filenm, 'r+' )
   dsinfoout = odhdf5.ensureHasDataset( h5fileout )
   odhdf5.setArray( dsinfoout, classesvalstr, ret )
   h5fileout.close()
@@ -572,7 +571,7 @@ def getOutputs( info ):
   return ret
 
 def getOutputNames( filenm, indices ):
-  h5file = h5py.File( filenm, 'r' )
+  h5file = odhdf5.openFile( filenm, 'r' )
   info = odhdf5.getInfoDataSet( h5file )
   ret = list()
   for idx in indices:
