@@ -361,7 +361,7 @@ def getDefaultModel( setup, params=scikit_dict ):
       if isclassification:
         model = XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
       else:
-        model = XGBRFRegressor(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
+        model = XGBRFRegressor(objective='reg:squarederror',n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
     elif modelname == 'Multi-Layer Perception':
       lay1 = params['lay1']
       lay2 = params['lay2']
