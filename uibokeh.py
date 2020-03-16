@@ -22,6 +22,7 @@ go_lbl = '▶ Run'
 stop_lbl = '◼ Abort'
 pause_lbl = '❚❚ Pause'
 resume_lbl = '► Resume'
+timerkey = 'timerobj'
 
 RunState = Enum( 'RunState', 'Ready Running Pause', module=__name__ )
 
@@ -47,7 +48,7 @@ def getRunButtonsBar(runact,abortact,pauseact,resumeact,timercb):
     'run': runstopbut,
     'pause': pauseresumebut,
     'state': RunState.Ready,
-    'timerobj': None
+    timerkey: None
   }
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,
                               timer_fn=timercb) )
@@ -56,28 +57,28 @@ def getRunButtonsBar(runact,abortact,pauseact,resumeact,timercb):
 
 def startStopCB( cb, run_fn, abort_fn, timer_fn, repeat=2000 ):
   if isReady( cb ):
-    canrun = run_fn( cb['timerobj'] )
+    canrun = run_fn( cb[timerkey] )
     if not canrun:
       return
-    cb['timerobj'] = canrun
     setRunning( cb )
     cb.update({
       'cb': curdoc().add_periodic_callback(partial(timerCB,cb=cb,timer_fn=timer_fn),repeat)
     })
   else:
     setReady( cb )
-    cb['timerobj'] = abort_fn( cb['timerobj'] )
+    cb[timerkey] = abort_fn( cb[timerkey] )
 
 def pauseResumeCB( cb, pause_fn, resume_fn ):
   if isRunning( cb ):
     setPaused( cb )
-    cb['timerobj'] = pause_fn( cb['timerobj'] )
+    cb[timerkey] = pause_fn( cb[timerkey] )
   else:
     setResumed( cb )
-    cb['timerobj'] = resume_fn( cb['timerobj'] )
+    cb[timerkey] = resume_fn( cb[timerkey] )
 
 def timerCB( cb, timer_fn ):
-  if not timer_fn( cb['timerobj'] ):
+  (docontinue,cb) = timer_fn( cb )
+  if not docontinue:
     setReady( cb )
 
 def isReady( runbutbar ):

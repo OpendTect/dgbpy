@@ -26,9 +26,6 @@ datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
 traingrp = parser.add_argument_group( 'Training' )
-traingrp.add_argument( '--outputfnm',
-            dest='outputfnm', nargs=1,
-            help='Output model file name' )
 traingrp.add_argument( '--modelfnm',
             dest='model', nargs=1,
             type=argparse.FileType('r'),
@@ -86,10 +83,9 @@ def training_app(doc):
   from dgbpy import mlio as dgbmlio
 
   examplefilenm = args['h5file'].name
-  outputfnm = None
-  if 'outputfnm' in args:
-    outputfnm = args['outputfnm']
+  trainingcb = None
   traintype =  dgbmlapply.TrainType.New
+  doabort = False
   if 'model' in args:
     model = args['model']
     if model != None and len(model)>0:
@@ -141,7 +137,6 @@ def training_app(doc):
       nonlocal examplefilenm
       nonlocal model
       nonlocal traintype
-      nonlocal outputfnm
       for key, val in paramobj.items():
         if key=='Training Type':
           if val == dgbmlapply.TrainType.New.name:
@@ -161,8 +156,7 @@ def training_app(doc):
             traintype = dgbmlapply.TrainType.New
             odcommon.log_msg(f'Changed pretrained model file name to: "None".')
         elif key=='Output Model File':
-          outputfnm = val
-          odcommon.log_msg(f'Changed output model file name to: "{outputfnm}".')
+          doRun( doTrain(val) )
         elif key=='Examples File':
           if examplefilenm != val:
             examplefilenm = val
@@ -225,24 +219,32 @@ def training_app(doc):
       return ret
 
     def doRun( cb = None ):
-      if len(outputfnm) < 1:
-        dgbservmgr.Message().sendObjectToAddress(
-                    args['bsmserver'],
-                    'ml_training_msg',
-                    {'no output file': '',
-                    'bokehid': args['bokehid']
-                    })
-        
+      nonlocal trainingcb
+      nonlocal doabort
+      doabort = False
+      if cb == None:
+        dgbservmgr.Message().sendObjectToAddress( args['bsmserver'],
+                             'ml_training_msg',
+                             {'training can start request': '',
+                             'bokehid': args['bokehid']
+                             })
+        return True
+      elif cb == False:
+        doabort = True
+        return False
+      else:
+        trainingcb = {uibokeh.timerkey: cb}
+      return True
+
+    def doTrain( trainedfnm ):
+      if len(trainedfnm) < 1:
         return False
       
-      modelnm = outputfnm
-  
+      modelnm = trainedfnm
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
                                 modelnm )
       cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                               scriptargs['dict'], scriptargs['odargs'] )
-      odcommon.log_msg( 'Starting process:', cmdtorun )
-
       dgbservmgr.Message().sendObjectToAddress(
                  args['bsmserver'],
                  'ml_training_msg',
@@ -265,9 +267,18 @@ def training_app(doc):
       resumeProcess( proc )
       return proc
 
-    def trainMonitorCB( proc ):
-      if proc == None or isRunning(proc):
-        return True
+    def trainMonitorCB( rectrainingcb ):
+      proc = rectrainingcb[uibokeh.timerkey]
+      nonlocal trainingcb
+      nonlocal doabort
+      if doabort:
+        return (False,rectrainingcb)
+      if proc == None:
+        if trainingcb != None and uibokeh.timerkey in trainingcb:
+          rectrainingcb[uibokeh.timerkey] = trainingcb[uibokeh.timerkey]
+        return (True,rectrainingcb)
+      if isRunning(proc):
+        return (True,rectrainingcb)
       try:
         stat = proc.status()
       except psutil.NoSuchProcess:
@@ -282,8 +293,10 @@ def training_app(doc):
                        'training_finished': '',
                        'bokehid': args['bokehid']
                      })
-        return False
-      return True
+        rectrainingcb[uibokeh.timerkey] = None
+        trainingcb[uibokeh.timerkey] = None
+        return (False,rectrainingcb)
+      return (True,rectrainingcb)
 
     platformfld.on_change('value',mlchgCB)
     buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
