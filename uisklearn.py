@@ -84,16 +84,15 @@ def getNNGrp():
   dict = scikit_dict
   nntyp = Select(title='Model',value = 'Multi-Layer Perception',options=getUiNNTypes() )
   itrparfld = Slider(start=10,end=1000,value=dict['nnpars']['maxitr'],title='Max Iteration')
-  lay1parfld = Slider(start=1,end=200,value=50,
-                      title='Layer 1', callback_policy='mouseup')
+  lay1parfld = Slider(start=1,end=200,value=50,title='Layer 1')
   lay2parfld = Slider(start=1,end=50,value=dict['nnpars']['lay2'],
-                      title='Layer 2',callback_policy='mouseup')
+                      title='Layer 2')
   lay3parfld = Slider(start=1,end=10,value=dict['nnpars']['lay3'],
-                      title='Layer 3',callback_policy='mouseup')
+                      title='Layer 3')
   lay4parfld = Slider(start=1,end=5,value=dict['nnpars']['lay4'],
-                      title='Layer 4',callback_policy='mouseup')
+                      title='Layer 4')
   lay5parfld = Slider(start=1,end=3,value=dict['nnpars']['lay5'],
-                      title='Layer 5',callback_policy='mouseup')
+                      title='Layer 5')
   lrparfld = Slider(start=1,end=100,value=dict['nnpars']['lr']*1000,
                     title='Initial Learning Rate '+ '('+u'\u2030'+')')
   # just need number, we treat like this in order to simplify further code
@@ -103,10 +102,6 @@ def getNNGrp():
   buttonparfld = row(addbutton,Spacer(width = 5),lessbutton,sizing_mode='stretch_width')
   layergrp = [nb,lay1parfld,lay2parfld,lay3parfld,lay4parfld,lay5parfld,
               addbutton,lessbutton]
-  lay1parfld.on_change('value',partial(layer1ChgCB,layergrp))
-  lay2parfld.on_change('value',partial(layer2ChgCB,layergrp))
-  lay3parfld.on_change('value',partial(layer3ChgCB,layergrp))
-  lay4parfld.on_change('value',partial(layer4ChgCB,layergrp))
   try:
     lay1parfld.value_throttled = lay1parfld.value
     lay2parfld.value_throttled = lay2parfld.value

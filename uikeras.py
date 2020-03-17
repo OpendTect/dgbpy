@@ -46,16 +46,15 @@ def getUiPars(learntype,estimatedszgb=None):
                 title='Patience')
   dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
   chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],
-                    title='Number of Chunks',callback_policy='mouseup')
+                    title='Number of Chunks')
   sizefld = None
   if estimatedszgb != None:
     sizefld = Div( text=getSizeStr(estimatedszgb) )
   decimateCB( dodecimatefld.active,chunkfld,sizefld, estimatedszgb )
   dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld,
                                  estimatedszgb=estimatedszgb))
-  chunkfld.on_change('value',partial(chunkfldCB, sizefld, estimatedszgb))
   try:
-    chunkfld.value_throttlared = chunkfld.value
+    chunkfld.value_throttled = chunkfld.value
     chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld, estimatedszgb))
   except AttributeError:
     log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
