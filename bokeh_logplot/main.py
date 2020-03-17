@@ -13,10 +13,8 @@ Log plotting GUI
 @author: paul
 """
 
-from os import path
+import sys
 import argparse
-import odpy.wellman as wellman
-import bokeh_logplot as blp
 from dgbpy.bokehserver import StartBokehServer, DefineBokehArguments
 
 parser = argparse.ArgumentParser(
@@ -33,10 +31,26 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
+loggrp = parser.add_argument_group( 'Logging' )
+loggrp.add_argument( '--proclog',
+            dest='logfile', metavar='file', nargs='?',
+            type=argparse.FileType('w'), default=sys.stdout,
+            help='Progress report output' )
+loggrp.add_argument( '--syslog',
+            dest='sysout', metavar='stdout', nargs='?',
+            type=argparse.FileType('w'), default=sys.stdout,
+            help='Standard output' )
 
 parser = DefineBokehArguments(parser)
 
 args = vars(parser.parse_args())
+
+import odpy.common as odcommon
+odcommon.initLogging( args )
+
+from odpy import wellman
+import bokeh_logplot as blp
+
 reload = False
 
 wellid = args['wellid'][0]

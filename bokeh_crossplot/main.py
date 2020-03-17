@@ -11,15 +11,9 @@ Log crossplot GUI
 
 @author: paul
 """
+
 import sys
 import argparse
-import pandas as pd 
-import numpy as np
-from bokeh.layouts import column, row
-from bokeh.models.widgets import Select, PreText, TextInput
-from bokeh.palettes import Viridis
-import crossplot_logs
-import odpy.wellman as wellman
 from dgbpy.bokehserver import StartBokehServer, DefineBokehArguments
 
 parser = argparse.ArgumentParser(
@@ -36,11 +30,35 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
+loggrp = parser.add_argument_group( 'Logging' )
+loggrp.add_argument( '--proclog',
+            dest='logfile', metavar='file', nargs='?',
+            type=argparse.FileType('w'), default=sys.stdout,
+            help='Progress report output' )
+loggrp.add_argument( '--syslog',
+            dest='sysout', metavar='stdout', nargs='?',
+            type=argparse.FileType('w'), default=sys.stdout,
+            help='Standard output' )
 
 parser = DefineBokehArguments(parser)
 
 args = vars(parser.parse_args())
 
+import odpy.common as odcommon
+odcommon.initLogging( args )
+
+import numpy as np
+import pandas as pd 
+from bokeh.core.validation import silence
+from bokeh.core.validation.warnings import MISSING_RENDERERS
+from bokeh.layouts import column, row
+from bokeh.models.widgets import Select, PreText, TextInput
+from bokeh.palettes import Viridis
+
+import odpy.wellman as wellman
+import crossplot_logs
+
+silence(MISSING_RENDERERS, True)
 reload = False
 
 wellid = args['wellid'][0]
