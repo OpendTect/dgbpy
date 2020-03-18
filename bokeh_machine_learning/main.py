@@ -97,7 +97,7 @@ def training_app(doc):
         
   trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
   
-  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],args['bokehid']) as this_service:
+  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],args['port'],args['bokehid']) as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
 

@@ -21,7 +21,7 @@ from tornado import gen
 import tornado.tcpserver
 
 class ServiceMgr(tornado.tcpserver.TCPServer):
-  def __init__(self, cmdserver, ppid, serviceID=None):
+  def __init__(self, cmdserver, ppid, tornadoport, serviceID=None):
     super(ServiceMgr, self).__init__()
     self.host = None
     self.port = None
@@ -39,7 +39,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       self._parentproc = psutil.Process(ppid)
       tornado.ioloop.PeriodicCallback(self._parentChkCB, 1000)
 
-    self._startServer()
+    self._startServer( tornadoport )
     self._actions = dict()
     
   def __enter__(self):
@@ -49,10 +49,13 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     pass
 #    self.stop()
     
-  def _startServer(self, attempts=20):
+  def _startServer(self, tornadoport, attempts=20):
     port = self.port+1
     while attempts:
       attempts -=1
+      if port == tornadoport:
+        port += 1
+        continue
       try:
         self.listen(port)
         self._register(port)
@@ -230,10 +233,10 @@ class Packet:
   def _json_decode(self, json_bytes, encoding):
     hdrlen = 4
     jsonobj_len = struct.unpack('=i',json_bytes[:hdrlen])[0]
-    tiow = io.TextIOWrapper(
-      io.BytesIO(json_bytes[hdrlen:hdrlen+jsonobj_len]), encoding=encoding, newline=""
-    )
-    jsonobj = json.load(tiow)
-    tiow.close()
+    jsonbytes = json_bytes[hdrlen:hdrlen+jsonobj_len]
+    jsonstr = jsonbytes.decode('utf-8')
+    if odcommon.isWin():
+      jsonstr = jsonstr.translate(str.maketrans({"\\": r"\\"}))
+    jsonobj = json.loads( jsonstr )
 
     return (jsonobj, json_bytes[hdrlen+jsonobj_len:])
