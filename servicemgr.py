@@ -48,12 +48,16 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
   def __exit__(self, exc_type, exc_value, traceback):
     pass
 #    self.stop()
+
+  def _is_port_in_use(self, port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+      return s.connect_ex(('127.0.0.1', port)) == 0
     
   def _startServer(self, tornadoport, attempts=20):
-    port = self.port+1
+    port = max(self.port+1,tornadoport+1)
     while attempts:
       attempts -=1
-      if port == tornadoport:
+      if self._is_port_in_use(port):
         port += 1
         continue
       try:
@@ -61,7 +65,8 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
         self._register(port)
         return
       except OSError as ex:
-        if "Address already in use" in str(ex):
+# using error code since the error string is translated in current locale
+        if '10048' in str(ex):
           port += 1
         else:
           raise ex
