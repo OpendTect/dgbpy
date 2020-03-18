@@ -47,11 +47,13 @@ args = vars(parser.parse_args())
 import odpy.common as odcommon
 odcommon.initLogging( args )
 
+from os.path import dirname,join
 import numpy as np
 import pandas as pd 
 from bokeh.core.validation import silence
 from bokeh.core.validation.warnings import MISSING_RENDERERS
 from bokeh.layouts import column, row
+from bokeh import themes
 from bokeh.models.widgets import Select, PreText, TextInput
 from bokeh.palettes import Viridis
 
@@ -233,6 +235,7 @@ def crossplot_app(doc):
   layout = row( controls, grid, xplot )
 
   doc.add_root(layout)
+#  doc.theme = themes.Theme( filename=join(dirname(__file__),'theme.yaml') )
   doc.title = "Crossplot well logs"
 
 StartBokehServer({'/': crossplot_app}, args)
