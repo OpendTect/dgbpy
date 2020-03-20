@@ -20,8 +20,8 @@ mlinpgrp = 'Deep Learning Example Data'
 mltrlgrp = 'Deep Learning Model'
 dgbtrl = 'dGB'
 
-def getInfo( filenm ):
-  return dgbhdf5.getInfo( filenm )
+def getInfo( filenm, quick=False ):
+  return dgbhdf5.getInfo( filenm, quick )
 
 def datasetCount( dsets ):
   if dgbkeys.datasetdictstr in dsets:

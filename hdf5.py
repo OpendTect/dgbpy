@@ -256,7 +256,7 @@ def validInfo( info ):
     return False
   return True
 
-def getInfo( filenm ):
+def getInfo( filenm, quick ):
   h5file = odhdf5.openFile( filenm, 'r' )
   info = odhdf5.getInfoDataSet( h5file )
   if not validInfo( info ):
@@ -374,9 +374,11 @@ def getInfo( filenm ):
     filedictstr: filenm
   }
 
-  retinfo.update({
-    datasetdictstr: getCubeLetNames( retinfo )
-  })
+  if not quick:
+    retinfo.update({
+      datasetdictstr: getCubeLetNames( retinfo )
+      })
+    
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
@@ -391,7 +393,7 @@ def getInfo( filenm ):
   std_msg( "Unrecognized learn type: ", learntype )
   raise KeyError
 
-def getAttribInfo( info, filenm ):
+def getAttribInfo( info, filenm, quick ):
   if info[classdictstr]:
     if isSeisClass(info):
       (classidxs,classnms) = getClassIndices(info)
@@ -402,8 +404,8 @@ def getAttribInfo( info, filenm ):
       })
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
-
-  info.update( {estimatedsizedictstr: getTotalSize(info)} )
+      
+  info.update( {estimatedsizedictstr: getTotalSize(info,quick)} )
   return info
 
 def getWellInfo( info, filenm ):
@@ -432,20 +434,20 @@ def arroneitemsize( dtype ):
   arr = np.empty(1,dtype)
   return arr.itemsize
 
-def getTotalSize(info):
+def getTotalSize( info ):
   inpnrattribs = getNrAttribs( info )
   inpshape = info[inpshapedictstr]
   outshape = info[outshapedictstr]
-  datasets = info[datasetdictstr]
+  examples = info[exampledictstr]
+  h5file = odhdf5.openFile( info[filedictstr], 'r' )
   nrpts = 0
-  for groupnm in datasets:
-    alldata = datasets[groupnm]
-    for inp in alldata:
-      nrpts += len(alldata[inp])
+  for groupnm in examples:
+    nrpts += len(h5file[groupnm])
+  h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
   if info[classdictstr]:
-    nroutvals = getNrClasses(info)
+    nroutvals = getNrClasses( info )
   else:
     nroutvals = getNrOutputs( info )
   outshape = get_np_shape( outshape, nrpts, nroutvals )

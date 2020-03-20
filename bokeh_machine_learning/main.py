@@ -123,7 +123,7 @@ def training_app(doc):
       nonlocal keraspars
       nonlocal sklearnpars
       nonlocal parsgroups
-      info = dgbmlio.getInfo( examplefilenm )
+      info = dgbmlio.getInfo( examplefilenm, quick=True )
       keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
                               estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
       sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
