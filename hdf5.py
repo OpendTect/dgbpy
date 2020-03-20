@@ -393,7 +393,7 @@ def getInfo( filenm, quick ):
   std_msg( "Unrecognized learn type: ", learntype )
   raise KeyError
 
-def getAttribInfo( info, filenm, quick ):
+def getAttribInfo( info, filenm ):
   if info[classdictstr]:
     if isSeisClass(info):
       (classidxs,classnms) = getClassIndices(info)
@@ -405,7 +405,7 @@ def getAttribInfo( info, filenm, quick ):
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
       
-  info.update( {estimatedsizedictstr: getTotalSize(info,quick)} )
+  info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
 
 def getWellInfo( info, filenm ):
