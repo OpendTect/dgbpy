@@ -400,8 +400,8 @@ def train(model, trainingdp):
   printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
   return ret
 
-def save( model, inpfnm, outfnm, save_type=defsavetype ):
-  h5file = h5py.File( outfnm, 'w' )
+def save( model, outfnm, save_type=defsavetype ):
+  h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'scikit-learn' )
   odhdf5.setAttr( h5file, 'sklearn_version', sklearn.__version__ )
   odhdf5.setAttr( h5file, 'type', 'RandomForestRegressor' )
@@ -417,11 +417,10 @@ def save( model, inpfnm, outfnm, save_type=defsavetype ):
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
-  dgbhdf5.addInfo( inpfnm, getMLPlatform(), outfnm )
 
 def load( modelfnm ):
   model = None
-  h5file = h5py.File( modelfnm, 'r' )
+  h5file = odhdf5.openFile( modelfnm, 'r' )
 
   modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
   modeltype = odhdf5.getText( h5file, 'type' )

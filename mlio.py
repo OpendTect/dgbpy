@@ -199,14 +199,14 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
     try:
       os.remove( outfnm )
     except Exception as e:
-      log_msg( 'Cannot save model:', e )
+      log_msg( '[Warning] Could not remove pre-existing model file:', e )
   log_msg( 'Saving model.' )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     dgbkeras.save( model, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
-    dgbscikit.save(model,inpfnm, outfnm)
+    dgbscikit.save( model, outfnm )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
@@ -214,7 +214,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   log_msg( 'Model saved.' )
 
 def getModel( modelfnm, fortrain=False ):
-  infos = dgbhdf5.getInfo( modelfnm )
+  infos = getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
@@ -229,7 +229,7 @@ def getModel( modelfnm, fortrain=False ):
   return (model,infos)
 
 def getApplyInfoFromFile( modelfnm, outsubsel=None ):
-  return getApplyInfo( dgbhdf5.getInfo(modelfnm), outsubsel )
+  return getApplyInfo( getInfo(modelfnm), outsubsel )
 
 def getApplyInfo( infos, outsubsel=None ):
   isclassification = infos[dgbkeys.classdictstr]

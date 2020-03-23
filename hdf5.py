@@ -103,6 +103,9 @@ def isImg2Img( info ):
     return info[learntypedictstr] == seisimgtoimgtypestr
   return info == seisimgtoimgtypestr
 
+def isModel( info ):
+  return plfdictstr in info
+
 def getCubeLets( infos, datasets, groupnm ):
   inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
@@ -405,7 +408,8 @@ def getAttribInfo( info, filenm ):
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
       
-  info.update( {estimatedsizedictstr: getTotalSize(info)} )
+  if not isModel(info):
+    info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
 
 def getWellInfo( info, filenm ):
@@ -414,7 +418,9 @@ def getWellInfo( info, filenm ):
       classesdictstr: getClassIndicesFromData(info),
       classnmdictstr: getMainOutputs(info)[0]
     })
-  info.update( {estimatedsizedictstr: getTotalSize(info)} )
+
+  if not isModel(info):
+    info.update( {estimatedsizedictstr: getTotalSize(info)} )
   h5file = odhdf5.openFile( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
   zstep = odhdf5.getDValue(infods,"Z step") 
@@ -458,9 +464,7 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
-def addInfo( inpfile, plfnm, filenm, infos=None ):
-  if infos == None:
-    infos = getInfo( inpfile )
+def addInfo( inpfile, plfnm, filenm, infos ):
   h5filein = odhdf5.openFile( inpfile, 'r' )
   h5fileout = odhdf5.openFile( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )

@@ -41,7 +41,7 @@ class ModelApplier:
     def _open(self):
         modelfnm = self.fnm_
         if self.fakeapply_:
-            info = dgbmlio.getInfo( modelfnm )
+            info = dgbmlio.getInfo( modelfnm, quick=True )
             info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
             return (None,info)
         else:
