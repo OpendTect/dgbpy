@@ -38,17 +38,17 @@ def getCubeLetNamesByGroup( info, groupnm, example ):
   ret = {}
   for collnm in collection:
     itmidx = collection[collnm][iddictstr]
-    ret.update({collnm: getCubeLetNamesByGroupByItem(info,groupnm,itmidx)})
+    ret.update({collnm: getCubeLetNamesByGroupByItem(info,groupnm,collnm,itmidx)})
   return ret
 
-def getCubeLetNamesByGroupByItem( info, groupnm, idx ):
+def getCubeLetNamesByGroupByItem( info, groupnm, collnm, idx ):
   h5file = odhdf5.openFile( info[filedictstr], 'r' )
   if not groupnm in h5file:
     return {}
   group = h5file[groupnm]
   dsetnms = list(group.keys())
-  if xdatadictstr in dsetnms:
-    ret = np.arange(len(group[xdatadictstr]))
+  if collnm in dsetnms:
+    ret = np.arange(group[collnm][xdatadictstr].shape[-1])
   else:
     dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
     ret = np.extract( dsetwithinp, dsetnms )
@@ -106,13 +106,16 @@ def isImg2Img( info ):
 def isModel( info ):
   return plfdictstr in info
 
-def getCubeLets( infos, datasets, groupnm ):
+def getCubeLets( infos, collection, groupnm ):
+  if len(collection)< 1:
+    return {}
   inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
   outshape = infos[outshapedictstr]
   nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
   img2img = isImg2Img( infos )
+  examples = infos[exampledictstr]
   if img2img:
     outnrattribs = 1
   outdtype = np.float32
@@ -121,14 +124,16 @@ def getCubeLets( infos, datasets, groupnm ):
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   group = h5file[groupnm]
   dsetnms = list(group.keys())
+
+  firstcollnm = next(iter(collection))
   hasdata = None
-  if xdatadictstr in dsetnms and ydatadictstr in dsetnms:
-    x_data = group[xdatadictstr]
-    y_data = group[ydatadictstr]
+  if firstcollnm in group:
     allcubelets = list()
     alloutputs = list()
-    for inputnm in datasets:
-      dsetnms = datasets[inputnm]
+    for collnm in collection:
+      x_data = np.transpose( group[collnm][xdatadictstr] )
+      y_data = np.transpose( group[collnm][ydatadictstr] )
+      dsetnms = collection[collnm]
       nrpts = len(dsetnms)
       inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
       if img2img:
@@ -164,8 +169,8 @@ def getCubeLets( infos, datasets, groupnm ):
   else:
     allcubelets = list()
     alloutputs = list()
-    for inputnm in datasets:
-      dsetnms = datasets[inputnm]
+    for collnm in collection:
+      dsetnms = collection[collnm]
       nrpts = len(dsetnms)
       inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
       cubelets = np.empty( inparrshape, np.float32 )
@@ -448,7 +453,14 @@ def getTotalSize( info ):
   h5file = odhdf5.openFile( info[filedictstr], 'r' )
   nrpts = 0
   for groupnm in examples:
-    nrpts += len(h5file[groupnm])
+    grp = h5file[groupnm]
+    collection = examples[groupnm][collectdictstr]
+    firstcollnm = next(iter(collection))
+    if not firstcollnm in grp:
+      nrpts += len(grp)
+      continue
+    for collnm in collection:
+      nrpts += grp[collnm][xdatadictstr].shape[-1] 
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
