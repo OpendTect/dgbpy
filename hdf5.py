@@ -48,7 +48,7 @@ def getCubeLetNamesByGroupByItem( info, groupnm, collnm, idx ):
   group = h5file[groupnm]
   dsetnms = list(group.keys())
   if collnm in dsetnms:
-    ret = np.arange(group[collnm][xdatadictstr].shape[-1])
+    ret = np.arange(len(group[collnm][xdatadictstr]))
   else:
     dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
     ret = np.extract( dsetwithinp, dsetnms )
@@ -131,8 +131,8 @@ def getCubeLets( infos, collection, groupnm ):
     allcubelets = list()
     alloutputs = list()
     for collnm in collection:
-      x_data = np.transpose( group[collnm][xdatadictstr] )
-      y_data = np.transpose( group[collnm][ydatadictstr] )
+      x_data = group[collnm][xdatadictstr]
+      y_data = group[collnm][ydatadictstr]
       dsetnms = collection[collnm]
       nrpts = len(dsetnms)
       inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
@@ -460,7 +460,7 @@ def getTotalSize( info ):
       nrpts += len(grp)
       continue
     for collnm in collection:
-      nrpts += grp[collnm][xdatadictstr].shape[-1] 
+      nrpts += len(grp[collnm][xdatadictstr]) 
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
