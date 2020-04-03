@@ -313,6 +313,9 @@ def getInfo( filenm, quick ):
       linenmstr = exidystr+'Line name'
       if odhdf5.hasAttr(info,linenmstr):
         collnm = odhdf5.getText(info,linenmstr)
+        if len(collnm) < 1:
+          idy = idy+1
+          continue
       collection.update({ collnm: exxyobj })
       idy += 1
     if len(collection) > 0:
