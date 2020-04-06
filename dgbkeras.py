@@ -20,13 +20,15 @@ import dgbpy.hdf5 as dgbhdf5
 
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-from keras.callbacks import (EarlyStopping,LearningRateScheduler)
 withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
   withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
                           os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
-if withtensorboard:
-  from keras.callbacks import TensorBoard
+withaugmentation = True
+if 'KERAS_WITH_AUGMENTATION' in os.environ:
+  withaugmentation = not ( os.environ['KERAS_WITH_AUGMENTATION'] == False or \
+                           os.environ['KERAS_WITH_AUGMENTATION'] == 'No' )
+
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 mltypes = (\
@@ -56,6 +58,9 @@ def isLeNet( mltype ):
 unetidx = 1
 def isUnet( mltype ):
   return mltype == mltypes[unetidx][0] or mltype == mltypes[unetidx][1]
+unet_smallsz = (2,64)
+unet_mediumsz = (16,512)
+unet_largesz = (32,512)
 
 squeezenetidx = 2
 def isSqueezeNet( mltype ):
@@ -84,14 +89,15 @@ keras_dict = {
   'patience': 5,
   'learnrate': 0.01,
   'epochdrop': 5,
+  'unetnszs': unet_smallsz,
   'type': mltypes[letnetidx][0],
 }
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
                epochs=keras_dict['epoch'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
-               learnrate=keras_dict['learnrate'],
-               epochdrop=keras_dict['epochdrop'],nntype=keras_dict['type'] ):
+               learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
+               unetnszs=keras_dict['unetnszs'],nntype=keras_dict['type'] ):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -100,6 +106,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'patience': patience,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
+    'unetnszs': unetnszs,
     'type': nntype
   }
   if not dodec:
@@ -110,6 +117,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
 # input_int: the epoch that is currently being entered
 def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
                       epochs_drop=keras_dict['epochdrop']):
+  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
   def adaptive_lr(input_int):
     drop = 0.5
     return initial_lrate * math.pow(drop,
@@ -207,6 +215,7 @@ def getModelDims( model_shape, data_format ):
   return len(ret)
 
 def getDefaultModel(setup,type=keras_dict['type'],
+                    unetnszs=keras_dict['unetnszs'],
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
   isclassification = setup[dgbhdf5.classdictstr]
@@ -223,75 +232,11 @@ def getDefaultModel(setup,type=keras_dict['type'],
                            learnrate=learnrate,data_format=data_format)
   elif isUnet( type ):
     return getDefaultUnet(setup,isclassification,model_shape,nroutputs,
+                          unetnszs=unetnszs,
                           learnrate=learnrate,data_format=data_format)
   else:
     return None
 
-def getDefaultLeNet3D( model, shape, format ):
-  from keras.layers import (Activation,Conv3D,Dropout)
-  from keras.layers.normalization import BatchNormalization
-  model.add(Conv3D(50, (5, 5, 5), strides=(4, 4, 4), padding='same', \
-            name='conv_layer1',input_shape=shape,data_format=format))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer2', data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer3',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer4',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding='same', name='conv_layer5',data_format=format))
-  return model
-
-def getDefaultLeNet2D( model, shape, format ):
-  from keras.layers import (Activation,Conv2D,Dropout)
-  from keras.layers.normalization import BatchNormalization
-  model.add(Conv2D(50, (5, 5), strides=(4, 4), padding='same', \
-            name='conv_layer1',input_shape=shape,data_format=format))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer2', data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer3',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer4',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv2D(50, (3, 3), strides=(2, 2), padding='same', name='conv_layer5',data_format=format))
-  return model
-
-def getDefaultLeNet1D( model, shape, format ):
-  from keras.layers import (Activation,Conv1D,Dropout)
-  from keras.layers.normalization import BatchNormalization
-  model.add(Conv1D(50, 5, strides=4, padding='same', \
-            name='conv_layer1',input_shape=shape,data_format=format))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer2', data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer3',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer4',data_format=format))
-  model.add(Dropout(0.2))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Conv1D(50, 3, strides=2, padding='same', name='conv_layer5',data_format=format))
-  return model
 
 def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
                     learnrate=keras_dict['learnrate'],
@@ -305,22 +250,26 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
   from keras.models import Sequential
   from keras.optimizers import Adam
 
+  filtersz = 50
+  densesz = 10
+
   nrdims = getModelDims( model_shape, data_format )
   model = Sequential()
+  from keras.layers import (Conv1D,Conv2D,Conv3D)
   if nrdims == 3:
-    model = getDefaultLeNet3D( model, model_shape, data_format )
+    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv3D )
   elif nrdims == 2:
-    model = getDefaultLeNet2D( model, model_shape, data_format )
+    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv2D )
   elif nrdims == 1 or nrdims == 0:
-    model = getDefaultLeNet1D( model, model_shape, data_format )
+    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv1D )
   else:
     return None
 
   model.add(Flatten())
-  model.add(Dense(50,name = 'dense_layer1'))
+  model.add(Dense(filtersz,name = 'dense_layer1'))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(Dense(10,name = 'attribute_layer'))
+  model.add(Dense(densesz,name = 'attribute_layer'))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
   model.add(Dense(nroutputs, name='pre-softmax_layer'))
@@ -347,7 +296,36 @@ def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
+def getDefaultLeNetND( model, shape, filtersz, format, conv_clss ):
+  from keras.layers import (Activation,Conv3D,Dropout)
+  from keras.layers.normalization import BatchNormalization
+
+  kernel_sz1 = 5
+  kernel_sz2 = 3
+  stride_sz1 = 4
+  stride_sz2 = 2
+  dropout = 0.2
+  
+  model.add(conv_clss(filtersz, kernel_sz1, strides=stride_sz1, padding='same', name='conv_layer1',input_shape=shape,data_format=format))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2', data_format=format))
+  model.add(Dropout(dropout))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer3',data_format=format))
+  model.add(Dropout(dropout))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer4',data_format=format))
+  model.add(Dropout(dropout))
+  model.add(BatchNormalization())
+  model.add(Activation('relu'))
+  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer5',data_format=format))
+  return model
+
 def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
+                    unetnszs=keras_dict['unetnszs'],
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
   redirect_stdout()
@@ -366,12 +344,15 @@ def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
     nroutputs = 1
 
   nrdims = getModelDims( model_shape, data_format )
+  from keras.layers import (Conv1D,Conv2D,Conv3D)
+  from keras.layers import (MaxPooling1D,MaxPooling2D,MaxPooling3D)
+  from keras.layers import (UpSampling1D,UpSampling2D,UpSampling3D)
   if nrdims == 3:
-    lastconv = getDefaultUnet3D( inputs, data_format, axis, nroutputs )
+    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv3D, MaxPooling3D, UpSampling3D )
   elif nrdims == 2:
-    lastconv = getDefaultUnet2D( inputs, data_format, axis, nroutputs )
+    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv2D, MaxPooling2D, UpSampling2D  )
   elif nrdims == 1:
-    lastconv = getDefaultUnet1D( inputs, data_format, axis, nroutputs )
+    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv1D, MaxPooling1D, UpSampling1D  )
   else:
     return None
   
@@ -393,109 +374,53 @@ def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
-def getDefaultUnet3D( inputs, format, axis, nroutputs ):
-  from keras.layers import (concatenate,Conv3D,MaxPooling3D,UpSampling3D)
+def getDefaultUnetND( inputs, unetnszs, format, axis, nroutputs, conv_clss, pool_clss, upsamp_clss ):
+  from keras.layers import concatenate
 
-  conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(inputs)
-  conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(conv1)
-  pool1 = MaxPooling3D(pool_size=(2,2,2),data_format=format)(conv1)
+  poolsz1 = 2
+  poolsz2 = 2
+  filtersz0 = unetnszs[0]
+  filtersz1 = filtersz0 * poolsz1
+  filtersz2 = filtersz1 * poolsz2
+  filtersz3 = unetnszs[1]
+  kernel_size = 3
+  upscalesz = 2
 
-  conv2 = Conv3D(4, (3,3,3), activation='relu', padding='same', data_format=format)(pool1)
-  conv2 = Conv3D(4, (3,3,3), activation='relu', padding='same', data_format=format)(conv2)
-  pool2 = MaxPooling3D(pool_size=(2,2,2),data_format=format)(conv2)
+  conv1 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(inputs)
+  conv1 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(conv1)
+  pool1 = pool_clss(pool_size=2,data_format=format)(conv1)
 
-  conv3 = Conv3D(8, (3,3,3), activation='relu', padding='same', data_format=format)(pool2)
-  conv3 = Conv3D(8, (3,3,3), activation='relu', padding='same', data_format=format)(conv3)
-  pool3 = MaxPooling3D(pool_size=(2,2,2),data_format=format)(conv3)
+  conv2 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(pool1)
+  conv2 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(conv2)
+  pool2 = pool_clss(pool_size=poolsz1,data_format=format)(conv2)
 
-  conv4 = Conv3D(64, (3,3,3), activation='relu', padding='same', data_format=format)(pool3)
-  conv4 = Conv3D(64, (3,3,3), activation='relu', padding='same', data_format=format)(conv4)
+  conv3 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(pool2)
+  conv3 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(conv3)
+  pool3 = pool_clss(pool_size=poolsz2,data_format=format)(conv3)
 
-  up5 = concatenate([UpSampling3D(size=(2,2,2),data_format=format)(conv4), conv3], axis=axis)
-  conv5 = Conv3D(8, (3,3,3), activation='relu', padding='same', data_format=format)(up5)
-  conv5 = Conv3D(8, (3,3,3), activation='relu', padding='same', data_format=format)(conv5)
+  conv4 = conv_clss(filtersz3, kernel_size, activation='relu', padding='same', data_format=format)(pool3)
+  conv4 = conv_clss(filtersz3, kernel_size, activation='relu', padding='same', data_format=format)(conv4)
 
-  up6 = concatenate([UpSampling3D(size=(2,2,2),data_format=format)(conv5), conv2], axis=axis)
-  conv6 = Conv3D(4, (3,3,3), activation='relu', padding='same', data_format=format)(up6)
-  conv6 = Conv3D(4, (3,3,3), activation='relu', padding='same', data_format=format)(conv6)
+  up5 = concatenate([upsamp_clss(size=upscalesz,data_format=format)(conv4), conv3], axis=axis)
+  conv5 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(up5)
+  conv5 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(conv5)
 
-  up7 = concatenate([UpSampling3D(size=(2,2,2),data_format=format)(conv6), conv1], axis=axis)
-  conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(up7)
-  conv7 = Conv3D(2, (3,3,3), activation='relu', padding='same', data_format=format)(conv7)
+  up6 = concatenate([upsamp_clss(size=poolsz2,data_format=format)(conv5), conv2], axis=axis)
+  conv6 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(up6)
+  conv6 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(conv6)
 
-  conv8 = Conv3D(nroutputs, (1,1,1), activation='sigmoid', data_format=format)(conv7)
+  up7 = concatenate([upsamp_clss(size=poolsz1,data_format=format)(conv6), conv1], axis=axis)
+  conv7 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(up7)
+  conv7 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(conv7)
+
+  conv8 = conv_clss(nroutputs, 1, activation='sigmoid', data_format=format)(conv7)
   return conv8
 
-
-def getDefaultUnet2D( inputs, format, axis, nroutputs ):
-  from keras.layers import (concatenate,Conv2D,MaxPooling2D,UpSampling2D)
-
-  conv1 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(inputs)
-  conv1 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(conv1)
-  pool1 = MaxPooling2D(pool_size=(2,2),data_format=format)(conv1)
-
-  conv2 = Conv2D(4, (3,3), activation='relu', padding='same', data_format=format)(pool1)
-  conv2 = Conv2D(4, (3,3), activation='relu', padding='same', data_format=format)(conv2)
-  pool2 = MaxPooling2D(pool_size=(2,2),data_format=format)(conv2)
-
-  conv3 = Conv2D(8, (3,3), activation='relu', padding='same', data_format=format)(pool2)
-  conv3 = Conv2D(8, (3,3), activation='relu', padding='same', data_format=format)(conv3)
-  pool3 = MaxPooling2D(pool_size=(2,2),data_format=format)(conv3)
-
-  conv4 = Conv2D(64, (3,3), activation='relu', padding='same', data_format=format)(pool3)
-  conv4 = Conv2D(64, (3,3), activation='relu', padding='same', data_format=format)(conv4)
-
-  up5 = concatenate([UpSampling2D(size=(2,2),data_format=format)(conv4), conv3], axis=axis)
-  conv5 = Conv2D(8, (3,3), activation='relu', padding='same', data_format=format)(up5)
-  conv5 = Conv2D(8, (3,3), activation='relu', padding='same', data_format=format)(conv5)
-
-  up6 = concatenate([UpSampling2D(size=(2,2),data_format=format)(conv5), conv2], axis=axis)
-  conv6 = Conv2D(4, (3,3), activation='relu', padding='same', data_format=format)(up6)
-  conv6 = Conv2D(4, (3,3), activation='relu', padding='same', data_format=format)(conv6)
-
-  up7 = concatenate([UpSampling2D(size=(2,2),data_format=format)(conv6), conv1], axis=axis)
-  conv7 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(up7)
-  conv7 = Conv2D(2, (3,3), activation='relu', padding='same', data_format=format)(conv7)
-
-  conv8 = Conv2D(nroutputs, (1,1), activation='sigmoid', data_format=format)(conv7)
-  return conv8
-
-def getDefaultUnet1D( inputs, format, axis, nroutputs ):
-  from keras.layers import (concatenate,Conv1D,MaxPooling1D,UpSampling1D)
-
-  conv1 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(inputs)
-  conv1 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(conv1)
-  pool1 = MaxPooling1D(pool_size=2,data_format=format)(conv1)
-
-  conv2 = Conv1D(4, 3, activation='relu', padding='same', data_format=format)(pool1)
-  conv2 = Conv1D(4, 3, activation='relu', padding='same', data_format=format)(conv2)
-  pool2 = MaxPooling1D(pool_size=2,data_format=format)(conv2)
-
-  conv3 = Conv1D(8, 3, activation='relu', padding='same', data_format=format)(pool2)
-  conv3 = Conv1D(8, 3, activation='relu', padding='same', data_format=format)(conv3)
-  pool3 = MaxPooling1D(pool_size=2,data_format=format)(conv3)
-
-  conv4 = Conv1D(64, 3, activation='relu', padding='same', data_format=format)(pool3)
-  conv4 = Conv1D(64, 3, activation='relu', padding='same', data_format=format)(conv4)
-
-  up5 = concatenate([UpSampling1D(2)(conv4), conv3], axis=axis)
-  conv5 = Conv1D(8, 3, activation='relu', padding='same', data_format=format)(up5)
-  conv5 = Conv1D(8, 3, activation='relu', padding='same', data_format=format)(conv5)
-
-  up6 = concatenate([UpSampling1D(2)(conv5), conv2], axis=axis)
-  conv6 = Conv1D(4, 3, activation='relu', padding='same', data_format=format)(up6)
-  conv6 = Conv1D(4, 3, activation='relu', padding='same', data_format=format)(conv6)
-
-  up7 = concatenate([UpSampling1D(2)(conv6), conv1], axis=axis)
-  conv7 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(up7)
-  conv7 = Conv1D(2, 3, activation='relu', padding='same', data_format=format)(conv7)
-
-  conv8 = Conv1D(nroutputs, 1, activation='sigmoid',data_format=format)(conv7)
-  return conv8
-
-def train(model,training,params=keras_dict,trainfile=None,logdir=None):
+def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmentation=withaugmentation):
   redirect_stdout()
   import keras
+  from keras.callbacks import EarlyStopping
+  from dgbpy.keras_classes import TrainingSequence
   restore_stdout()
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
@@ -508,51 +433,22 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None):
   callbacks = [early_stopping,LR_sched]
   batchsize = params['batch']
   if logdir != None:
+    from keras.callbacks import TensorBoard
     tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, \
                                batch_size=batchsize,\
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
+  train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
+  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
-  x_train = {}
-  y_train = {}
-  decimate = nbchunks > 1
-  if not decimate:
-    if not dgbkeys.xtraindictstr in training:
-      log_msg('No data to train the model')
-      return model
-    x_train = training[dgbkeys.xtraindictstr]
-    y_train = training[dgbkeys.ytraindictstr]
-    x_validate = training[dgbkeys.xvaliddictstr]
-    y_validate = training[dgbkeys.yvaliddictstr]
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
-    if decimate and trainfile != None:
-      import dgbpy.mlapply as dgbmlapply
-      trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, flatten=False,
-                                                 scale=True, ichunk=ichunk )
-      if not dgbkeys.xtraindictstr in trainbatch:
-        continue
-      x_train = trainbatch[dgbkeys.xtraindictstr]
-      y_train = trainbatch[dgbkeys.ytraindictstr]
-      x_validate = trainbatch[dgbkeys.xvaliddictstr]
-      y_validate = trainbatch[dgbkeys.yvaliddictstr]
-    log_msg('Training done on', len(x_train), 'examples.' )
-    log_msg('Validation done on', len(x_validate), 'examples.' )
-    x_train = adaptToModel( model, x_train )
-    x_validate = adaptToModel( model, x_validate )
-    if len(y_train.shape) > 2:
-      y_train = adaptToModel( model, y_train )
-    if len(y_validate.shape) > 2:
-      y_validate = adaptToModel( model, y_validate )
-    if classification and not dgbhdf5.isImg2Img(infos):
-      nrclasses = dgbhdf5.getNrClasses( infos )
-      y_train = keras.utils.to_categorical(y_train,nrclasses)
-      y_validate = keras.utils.to_categorical(y_validate,nrclasses)
+    if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
+      continue
+    
     redirect_stdout()
-    hist = model.fit(x=x_train,y=y_train,callbacks=callbacks,\
-                  shuffle=True, validation_data=(x_validate,y_validate),\
-                  batch_size=batchsize, \
-                  epochs=params['epoch'])
+    hist = model.fit_generator(train_datagen,epochs=params['epoch'],\
+                               validation_data=validate_datagen,callbacks=callbacks)
     #log_msg( hist.history )
     restore_stdout()
 
