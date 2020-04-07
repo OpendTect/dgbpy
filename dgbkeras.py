@@ -38,7 +38,7 @@ mltypes = (\
             ('other','MobilNet V2'),\
           )
 
-cudacores = [ '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
+cudacores = [ '1', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
               '288',  '384',  '448',  '480',  '512',  '576',  '640',  '768', \
               '896',  '960',  '1024', '1152', '1280', '1344', '1408', '1536', \
               '1664', '1792', '1920', '2048', '2176', '2304', '2432', '2496', \
@@ -434,7 +434,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
   batchsize = params['batch']
   if logdir != None:
     from keras.callbacks import TensorBoard
-    tensor_board = TensorBoard(log_dir=logdir, histogram_freq=1, \
+    tensor_board = TensorBoard(log_dir=logdir, \
                                batch_size=batchsize,\
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
@@ -445,6 +445,13 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
     if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
       continue
+
+    if batchsize == 1:
+      log_msg( 'Training on', len(train_datagen), 'samples' )
+      log_msg( 'Validate on', len(validate_datagen), 'samples' )
+    else:
+      log_msg( 'Training on', len(train_datagen), 'batches of', batchsize, 'samples' )
+      log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
     
     redirect_stdout()
     hist = model.fit_generator(train_datagen,epochs=params['epoch'],\
