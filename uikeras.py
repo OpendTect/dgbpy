@@ -15,6 +15,8 @@ from odpy.common import log_msg
 from dgbpy.dgbkeras import *
 from dgbpy import uibokeh
 
+info = None
+
 def getPlatformNm( full=False ):
   if full:
     return platform
@@ -29,8 +31,9 @@ def getSizeStr( sizeinbytes ):
     ret += str(int(sizeinbytes)) + ' bytes'
   return ret
 
-def getUiPars(learntype,estimatedszgb=None):
+def getUiPars():
   dict = keras_dict
+  learntype = info[dgbkeys.learntypedictstr]
   modeltypes = getUiModelTypes( learntype )
   modeltypfld = Select(title='Type',value=modeltypes[0],
                        options=modeltypes )
@@ -48,14 +51,14 @@ def getUiPars(learntype,estimatedszgb=None):
   chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],
                     title='Number of Chunks')
   sizefld = None
-  if estimatedszgb != None:
-    sizefld = Div( text=getSizeStr(estimatedszgb) )
-  decimateCB( dodecimatefld.active,chunkfld,sizefld, estimatedszgb )
-  dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld,
-                                 estimatedszgb=estimatedszgb))
+  estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  if estimatedsz != None:
+    sizefld = Div( text=getSizeStr( estimatedsz ) )
+  decimateCB( dodecimatefld.active,chunkfld,sizefld )
+  dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld))
   try:
     chunkfld.value_throttled = chunkfld.value
-    chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld, estimatedszgb))
+    chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld))
   except AttributeError:
     log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
     pass
@@ -77,10 +80,10 @@ def getUiPars(learntype,estimatedszgb=None):
     }
   }
 
-def chunkfldCB(sizefld,datasize,attr,old,new):
+def chunkfldCB(sizefld,attr,old,new):
   if sizefld == None:
     return
-  sizefld.text = getSizeStr( datasize/new )
+  sizefld.text = getSizeStr( info[dgbkeys.estimatedsizedictstr]/new )
 
 def getUiParams( keraspars ):
   kerasgrp = keraspars['uiobjects']
@@ -101,12 +104,12 @@ def getUiParams( keraspars ):
 def doDecimate( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
 
-def decimateCB( widgetactivelist,chunkfld,sizefld,estimatedszgb ):
+def decimateCB( widgetactivelist,chunkfld,sizefld ):
   decimate = uibokeh.integerListContains( widgetactivelist, 0 )
   chunkfld.visible = decimate
   if sizefld == None:
     return
-  size = estimatedszgb
+  size = info[dgbkeys.estimatedsizedictstr]
   if decimate:
     size /= chunkfld.value
   sizefld.text = getSizeStr( size )

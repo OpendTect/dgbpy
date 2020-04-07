@@ -118,18 +118,24 @@ def training_app(doc):
     sklearnpars = None
     parsgroups = None
 
-    def updateInfo(examplefilenm):
+    def makeUI(examplefilenm):
       nonlocal info
       nonlocal keraspars
       nonlocal sklearnpars
       nonlocal parsgroups
       info = dgbmlio.getInfo( examplefilenm, quick=True )
-      keraspars = uikeras.getUiPars( info[dgbkeys.learntypedictstr],
-                              estimatedszgb=info[dgbkeys.estimatedsizedictstr] )
+      uikeras.info = info
+      keraspars = uikeras.getUiPars()
       sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
       parsgroups = (keraspars,sklearnpars)
 
-    updateInfo(examplefilenm)
+    def updateUI():
+      nonlocal info
+      nonlocal keraspars
+      keraspars['uiobjects']['dodecimatefld'].active = []
+      keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
+
+    makeUI(examplefilenm)
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
@@ -137,6 +143,7 @@ def training_app(doc):
       nonlocal examplefilenm
       nonlocal model
       nonlocal traintype
+      nonlocal info
       for key, val in paramobj.items():
         if key=='Training Type':
           if val == dgbmlapply.TrainType.New.name:
@@ -160,7 +167,9 @@ def training_app(doc):
         elif key=='Examples File':
           if examplefilenm != val:
             examplefilenm = val
-            updateInfo(examplefilenm)
+            info = dgbmlio.getInfo( examplefilenm, quick=True )
+            uikeras.info = info
+            doc.add_next_tick_callback(partial(updateUI))
             odcommon.log_msg(f'Changed examples file name to: "{examplefilenm}".')
       return dict()
      
