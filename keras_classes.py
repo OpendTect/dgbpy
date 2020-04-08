@@ -25,7 +25,9 @@ class TrainingSequence(Sequence):
       self._model = model
       self._batch_size = batch_size
       self._augmentation = with_augmentation
+      self._channels_format = dgbkeras.getDataFormat(model)
       self._infos = self._trainbatch[dgbkeys.infodictstr]
+      self._data_IDs = []
       if exfilenm == None:
         self._exfilenm = self._infos[dgbkeys.filedictstr]
       else:
@@ -46,12 +48,16 @@ class TrainingSequence(Sequence):
       else:
           trainbatch = self._trainbatch
           
-      if not dgbkeys.xtraindictstr in trainbatch:
-          return False
       if self._forvalid:
+          if not dgbkeys.xvaliddictstr in trainbatch or \
+             not dgbkeys.yvaliddictstr in trainbatch:
+              return False
           self._x_data = trainbatch[dgbkeys.xvaliddictstr]
           self._y_data = trainbatch[dgbkeys.yvaliddictstr]
       else:
+          if not dgbkeys.xtraindictstr in trainbatch or \
+             not dgbkeys.ytraindictstr in trainbatch:
+              return False
           self._x_data = trainbatch[dgbkeys.xtraindictstr]
           self._y_data = trainbatch[dgbkeys.ytraindictstr]
       model = self._model
@@ -60,13 +66,28 @@ class TrainingSequence(Sequence):
           self._y_data = dgbkeras.adaptToModel( model, self._y_data )
       inp_shape = self._x_data.shape[1:]
       if self._augmentation and len(inp_shape) == 4:
-        self._nrrot = 4
+          if self._channels_format == 'channels_first':
+              self._rotdims = (2,3)
+              cubesz = self._x_data.shape[2:4]
+          else:
+              self._rotdims = (1,2)
+              cubesz = self._x_data.shape[1:3]
+          if cubesz[0] == cubesz[1]:
+              self._rot = range(4)
+              self._rotidx = self._rot
+          else:
+              self._rot = range(2)
+              self._rotidx = range(0,4,2)
       elif self._augmentation and len(inp_shape) == 3:
-        self._nrrot = 2
+          self._rot = range(2)
+          self._rotidx = range(0,4,2)
+          if self._channels_format == 'channels_first':
+              self._rotdims = 2
+          else:
+              self._rotdims = 1
       else:
-        self._nrrot = 1
-      self._nrrot = 1
-      self._data_IDs = range(len(self._x_data)*self._nrrot)
+          self._rot = range(1)
+      self._data_IDs = range(len(self._x_data)*len(self._rot))
       self.on_epoch_end()
       return True
 
@@ -92,38 +113,38 @@ class TrainingSequence(Sequence):
       nrpts = len(data_IDs_temp)
       X = np.empty( (nrpts,*inp_shape), dtype=x_data.dtype )
       Y = np.empty( (nrpts,*out_shape), dtype=y_data.dtype )
-      nrrot = self._nrrot
-      iindex,frem = np.divmod(data_IDs_temp,nrrot)
-      if nrrot == 4:
-          if len(y_data.shape) > 2:
-              for i in range(1,nrrot):
-                  for k,idx in zip(range(i*nrpts,(i+1)*nrpts),data_IDs_temp):
-                      X[k] = np.reshape(np.rot90(x_data[idx],i,(0,1)), inp_shape)
-                      Y[k] = np.reshape(np.rot90(y_data[idx],i,(0,1)), out_shape)
-          else:
-              for i in range(1,nrrot):
-                  for k,idx in zip(range(i*nrpts,(i+1)*nrpts),data_IDs_temp):
-                      X[k] = np.reshape(np.rot90(x_data[idx],i,(0,1)), inp_shape)
-              Y[nrpts:2*nrpts] = y_data[data_IDs_temp]
-              Y[2*nrpts:3*nrpts] = y_data[data_IDs_temp]
-              Y[3*nrpts:] = y_data[data_IDs_temp]
-      elif nrrot == 2:
-          norotidx = iindex[frem==0]
-          n = len(norotidx)
-          if n > 0:
-              X[:n] = x_data[norotidx]
-              Y[:n] = y_data[norotidx]
-          rotidx = iindex[frem==1]
-          n = len(rotidx)
-          if n > 0:
-              X[n:] = np.flip(x_data[rotidx])
-              if len(y_data.shape) > 2:
-                  Y[n:] = np.flip(y_data[rotidx])
-              else:
-                  Y[n:] = y_data[rotidx]
+      nrrot = len(self._rot)
+      if nrrot == 1:
+          X = x_data[data_IDs_temp]
+          Y = y_data[data_IDs_temp]
       else:
-          X = x_data[iindex]
-          Y = y_data[iindex]
+          iindex,frem = np.divmod(data_IDs_temp,nrrot)
+          n = 0
+          rotdims = self._rotdims
+          flip2d = not isinstance( rotdims, tuple )
+          for j,k in zip(self._rot,self._rotidx):
+              rotidx = iindex[frem==j]
+              m = len(rotidx)
+              if m > 0:
+                  wrrg = range(n,n+m)
+                  if flip2d:
+                      if k == 0:
+                          X[wrrg] = x_data[rotidx]
+                      else:
+                          X[wrrg] = np.fliplr(x_data[rotidx])
+                  else:
+                      X[wrrg] = np.rot90(x_data[rotidx],k,rotdims)
+                  if len(y_data.shape) > 2:
+                      if flip2d:
+                          if k == 0:
+                              Y[wrrg] = y_data[rotidx]
+                          else:
+                              Y[wrrg] = np.fliplr(y_data[rotidx])
+                      else:
+                          Y[wrrg] = np.rot90(y_data[rotidx],k,rotdims)
+                  else:
+                      Y[wrrg] = y_data[rotidx]
+                  n = wrrg.stop
       if self._nrclasses > 0:
           Y = keras.utils.to_categorical(Y,self._nrclasses)
       return X, Y

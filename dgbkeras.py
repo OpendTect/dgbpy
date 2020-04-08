@@ -24,7 +24,7 @@ withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
   withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
                           os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
-withaugmentation = True
+withaugmentation = False
 if 'KERAS_WITH_AUGMENTATION' in os.environ:
   withaugmentation = not ( os.environ['KERAS_WITH_AUGMENTATION'] == False or \
                            os.environ['KERAS_WITH_AUGMENTATION'] == 'No' )
