@@ -35,12 +35,15 @@ def getUiPars():
   dict = keras_dict
   learntype = info[dgbkeys.learntypedictstr]
   modeltypes = getUiModelTypes( learntype )
-  modeltypfld = Select(title='Type',value=modeltypes[0],
+  defmodel = modeltypes[0]
+  modeltypfld = Select(title='Type',value=defmodel,
                        options=modeltypes )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],
               title='Epochs')
-  batchfld = Select(title='Batch Size',value=str(keras_dict['batch']),
-                    options=cudacores)
+  defbatchsz = keras_dict['batch']
+  if isUnet( defmodel ):
+    defbatchsz = 4
+  batchfld = Select(title='Batch Size',value=str(defbatchsz),options=cudacores)
   lrfld = Slider(start=1,end=100,value=dict['learnrate']*1000,
                  title='Initial Learning Rate '+ '('+u'\u2030'+')')
   edfld = Slider(start=1,end=100,value=100*dict['epochdrop']/epochfld.value,
