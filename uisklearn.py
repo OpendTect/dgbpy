@@ -422,41 +422,45 @@ def getUiParams( sklearnpars ):
   modeltype = sklearngrp['modeltyp']
   if modeltype.value == 'Linear':
     parmobj = sklearngrp['lineargrp']['uiobjects']
-    return getLinearPars( parmobj['lineartyp'].value )
+    return getLinearPars( modelname=parmobj['lineartyp'].value )
   if modeltype.value == 'Logistic':
     parmobj = sklearngrp['loggrp']['uiobjects']
-    return getLogPars( parmobj['logtyp'].value,parmobj['solvertyp'].value)
+    return getLogPars( modelname=parmobj['logtyp'].value,
+                       solver=parmobj['solvertyp'].value)
   if modeltype.value == 'Ensemble':
     parmobj = sklearngrp['ensemblegrp']['uiobjects']
     if parmobj['ensembletyp'].value == 'Random Forests':
-      return getEnsembleParsRF( parmobj['ensembletyp'].value,parmobj['depparfldrf'].value,
-                                          parmobj['estparfldrf'].value)
+      return getEnsembleParsRF( modelname=parmobj['ensembletyp'].value,
+                                maxdep=parmobj['depparfldrf'].value,
+                                est=parmobj['estparfldrf'].value)
     elif parmobj['ensembletyp'].value == 'Gradient Boosting':
-      return getEnsembleParsGB( parmobj['ensembletyp'].value,parmobj['depparfldgb'].value,
-                                          parmobj['estparfldgb'].value,parmobj['lrparfldgb'].value)
+      return getEnsembleParsGB( modelname=parmobj['ensembletyp'].value,
+                                maxdep=parmobj['depparfldgb'].value,
+                                est=parmobj['estparfldgb'].value,
+                                lr=parmobj['lrparfldgb'].value)
     elif parmobj['ensembletyp'].value == 'Adaboost':
-      return getEnsembleParsAda( parmobj['ensembletyp'].value,
-                                 parmobj['estparfldada'].value,
-                                 parmobj['lrparfldada'].value)
+      return getEnsembleParsAda( modelname=parmobj['ensembletyp'].value,
+                                 est=parmobj['estparfldada'].value,
+                                 lr=parmobj['lrparfldada'].value)
     elif parmobj['ensembletyp'].value == 'XGBoost: (Random Forests)':
-      return getEnsembleParsXG( parmobj['ensembletyp'].value,
-                                parmobj['depparfldxg'].value,
-                                parmobj['estparfldxg'].value,
-                                parmobj['lrparfldxg'].value )
+      return getEnsembleParsXG( modelname=parmobj['ensembletyp'].value,
+                                maxdep=parmobj['depparfldxg'].value,
+                                est=parmobj['estparfldxg'].value,
+                                lr=parmobj['lrparfldxg'].value )
   elif modeltype.value == 'Neural Network':
     parmobj = sklearngrp['nngrp']['uiobjects']
-    return getNNPars( parmobj['nntyp'].value,
-                      parmobj['itrparfld'].value,
-                      parmobj['lrparfld'].value/1000,
-                      parmobj['lay1parfld'].value,
-                      parmobj['lay2parfld'].value,
-                      parmobj['lay3parfld'].value,
-                      parmobj['lay4parfld'].value,
-                      parmobj['lay5parfld'].value,
-                      sklearngrp['nngrp']['nb'].value)
+    return getNNPars( modelname=parmobj['nntyp'].value,
+                      maxitr=parmobj['itrparfld'].value,
+                      lr=parmobj['lrparfld'].value/1000,
+                      lay1=parmobj['lay1parfld'].value,
+                      lay2=parmobj['lay2parfld'].value,
+                      lay3=parmobj['lay3parfld'].value,
+                      lay4=parmobj['lay4parfld'].value,
+                      lay5=parmobj['lay5parfld'].value,
+                      nb=sklearngrp['nngrp']['nb'].value)
   elif modeltype.value == 'SVM':
     parmobj = sklearngrp['svmgrp']['uiobjects']
-    return getSVMPars( parmobj['svmtyp'].value,
-                       parmobj['kernel'].value,
-                       parmobj['degree'].value )
+    return getSVMPars( modelname=parmobj['svmtyp'].value,
+                       kernel=parmobj['kernel'].value,
+                       degree=parmobj['degree'].value )
   return None

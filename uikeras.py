@@ -39,7 +39,7 @@ def getUiPars():
                        options=modeltypes )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],
               title='Epochs')
-  batchfld = Select(title='Batch Size',value=cudacores[2],
+  batchfld = Select(title='Batch Size',value=str(keras_dict['batch']),
                     options=cudacores)
   lrfld = Slider(start=1,end=100,value=dict['learnrate']*1000,
                  title='Initial Learning Rate '+ '('+u'\u2030'+')')
@@ -92,14 +92,14 @@ def getUiParams( keraspars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  return getParams( doDecimate(kerasgrp['dodecimatefld']), \
-                             kerasgrp['chunkfld'].value, \
-                             kerasgrp['epochfld'].value, \
-                             int(kerasgrp['batchfld'].value), \
-                             kerasgrp['patiencefld'].value, \
-                             kerasgrp['lrfld'].value/1000, \
-                             epochdrop, \
-                             kerasgrp['modeltypfld'].value )
+  return getParams( dodec=doDecimate(kerasgrp['dodecimatefld']), \
+                             nbchunk=kerasgrp['chunkfld'].value, \
+                             epochs=kerasgrp['epochfld'].value, \
+                             batch=int(kerasgrp['batchfld'].value), \
+                             patience=kerasgrp['patiencefld'].value, \
+                             learnrate=kerasgrp['lrfld'].value/1000, \
+                             epochdrop=epochdrop, \
+                             nntype=kerasgrp['modeltypfld'].value )
 
 def doDecimate( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

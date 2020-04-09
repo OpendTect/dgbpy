@@ -239,8 +239,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                        learnrate=params['learnrate'])
     elif type == TrainType.Transfer:
       model = dgbkeras.transfer( model )
-    model = dgbkeras.train( model, trainingdp, params,
-                            trainfile=examplefilenm, logdir=logdir )
+    model = dgbkeras.train( model, trainingdp, params=params,
+                            trainfile=examplefilenm, logdir=logdir,
+                            withaugmentation=dgbkeras.withaugmentation )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
