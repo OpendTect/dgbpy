@@ -89,7 +89,7 @@ keras_dict = {
   'patience': 5,
   'learnrate': 0.01,
   'epochdrop': 5,
-  'unetnszs': unet_smallsz,
+  'unetnszs': unet_mediumsz,
   'type': mltypes[letnetidx][0],
 }
 
@@ -452,7 +452,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
     else:
       log_msg( 'Training on', len(train_datagen), 'batches of', batchsize, 'samples' )
       log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
-    
+
     redirect_stdout()
     hist = model.fit_generator(train_datagen,epochs=params['epoch'],\
                                validation_data=validate_datagen,callbacks=callbacks)
