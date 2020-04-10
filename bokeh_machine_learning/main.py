@@ -67,6 +67,12 @@ import dgbpy.servicemgr as dgbservmgr
 
 def training_app(doc):
 # Keep all lengthy operations below
+  import logging
+  logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
+  odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
+  
+  odcommon.log_msg( 'Start training UI')
+  
   from os import path
   import psutil
   from functools import partial
@@ -117,6 +123,7 @@ def training_app(doc):
     keraspars = None
     sklearnpars = None
     parsgroups = None
+    traininglogfilenm = None
 
     def makeUI(examplefilenm):
       nonlocal info
@@ -144,6 +151,7 @@ def training_app(doc):
       nonlocal model
       nonlocal traintype
       nonlocal info
+      nonlocal traininglogfilenm
       for key, val in paramobj.items():
         if key=='Training Type':
           if val == dgbmlapply.TrainType.New.name:
@@ -153,15 +161,14 @@ def training_app(doc):
             traintype = dgbmlapply.TrainType.Resume
           elif val == dgbmlapply.TrainType.Transfer.name:
             traintype = dgbmlapply.TrainType.Transfer
-          odcommon.log_msg(f'Changed training type to: "{traintype.name}".')
         elif key=='Input Model File':
           if os.path.isfile(val):
             model = val
-            odcommon.log_msg(f'Changed pretrained model file name to: "{val}".')
           else:
             model = None
             traintype = dgbmlapply.TrainType.New
-            odcommon.log_msg(f'Changed pretrained model file name to: "None".')
+        elif key=='ProcLog File':
+          traininglogfilenm = val
         elif key=='Output Model File':
           doRun( doTrain(val) )
         elif key=='Examples File':
@@ -170,10 +177,9 @@ def training_app(doc):
             info = dgbmlio.getInfo( examplefilenm, quick=True )
             uikeras.info = info
             doc.add_next_tick_callback(partial(updateUI))
-            odcommon.log_msg(f'Changed examples file name to: "{examplefilenm}".')
       return dict()
      
-    this_service.addAction('mlTrainingParChg', procArgChgCB )
+    this_service.addAction('BokehParChg', procArgChgCB )
       
     def mlchgCB( attrnm, old, new):
       selParsGrp( new )
@@ -216,6 +222,9 @@ def training_app(doc):
           'output': outnm
         }
       }
+      dict = ret['odargs']
+      dict.update({'proclog': traininglogfilenm})
+      print(dict)
       dict = ret['dict']
       if model != None:
         dict.update({'model': model})
@@ -291,7 +300,7 @@ def training_app(doc):
       try:
         stat = proc.status()
       except psutil.NoSuchProcess:
-        if not odcommon.batchIsFinished( odcommon.get_log_file() ):
+        if not odcommon.batchIsFinished( traininglogfilenm ):
           odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
           odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
         else:
