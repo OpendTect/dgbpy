@@ -228,17 +228,17 @@ def getDefaultModel(setup,type=keras_dict['type'],
   model_shape = get_model_shape( setup[dgbkeys.inpshapedictstr], nrattribs,
                                  attribfirst=data_format=='channels_first' )
   if isLeNet( type ):
-    return getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
+    return getDefaultLeNet(isclassification,model_shape,nroutputs,
                            learnrate=learnrate,data_format=data_format)
   elif isUnet( type ):
-    return getDefaultUnet(setup,isclassification,model_shape,nroutputs,
+    return getDefaultUnet(isclassification,model_shape,nroutputs,
                           unetnszs=unetnszs,
                           learnrate=learnrate,data_format=data_format)
   else:
     return None
 
 
-def getDefaultLeNet(setup,isclassification,model_shape,nroutputs,
+def getDefaultLeNet(isclassification,model_shape,nroutputs,
                     learnrate=keras_dict['learnrate'],
                     data_format='channels_first'):
   
@@ -309,7 +309,7 @@ def getDefaultLeNetND( model, shape, filtersz, format, conv_clss ):
   model.add(conv_clss(filtersz, kernel_sz1, strides=stride_sz1, padding='same', name='conv_layer1',input_shape=shape,data_format=format))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
-  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2', data_format=format))
+  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2',data_format=format))
   model.add(Dropout(dropout))
   model.add(BatchNormalization())
   model.add(Activation('relu'))
@@ -324,10 +324,10 @@ def getDefaultLeNetND( model, shape, filtersz, format, conv_clss ):
   model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer5',data_format=format))
   return model
 
-def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
+def getDefaultUnet(isclassification,model_shape,nroutputs,
                     unetnszs=keras_dict['unetnszs'],
                     learnrate=keras_dict['learnrate'],
-                    data_format='channels_first'):
+                    data_format='channels_last'):
   redirect_stdout()
   import keras
   restore_stdout()
@@ -335,15 +335,19 @@ def getDefaultUnet(setup,isclassification,model_shape,nroutputs,
   from keras.models import Model
   from keras.optimizers import Adam
 
-  inputs = Input(model_shape)
+  input_shape = model_shape
   if data_format == 'channels_first':
-    axis = 1
-  else:
-    axis = len(model_shape)
+#Tensorflow bug; always bad accuracy, no training
+    data_format = 'channels_last'
+    dims = model_shape[1:]
+    input_shape = ( *dims, model_shape[0] )
+
   if isclassification:
     nroutputs = 1
 
+  inputs = Input(input_shape)
   nrdims = getModelDims( model_shape, data_format )
+  axis = -1
   from keras.layers import (Conv1D,Conv2D,Conv3D)
   from keras.layers import (MaxPooling1D,MaxPooling2D,MaxPooling3D)
   from keras.layers import (UpSampling1D,UpSampling2D,UpSampling3D)
@@ -379,39 +383,42 @@ def getDefaultUnetND( inputs, unetnszs, format, axis, nroutputs, conv_clss, pool
 
   poolsz1 = 2
   poolsz2 = 2
-  filtersz0 = unetnszs[0]
-  filtersz1 = filtersz0 * poolsz1
-  filtersz2 = filtersz1 * poolsz2
-  filtersz3 = unetnszs[1]
-  kernel_size = 3
+  poolsz3 = 2
   upscalesz = 2
+  filtersz1 = unetnszs[0]
+  filtersz2 = filtersz1 * poolsz2
+  filtersz3 = filtersz2 * poolsz3
+  filtersz4 = unetnszs[1]
 
-  conv1 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(inputs)
-  conv1 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(conv1)
-  pool1 = pool_clss(pool_size=2,data_format=format)(conv1)
+  params = dict(kernel_size=3, activation='relu', padding='same', data_format=format)
 
-  conv2 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(pool1)
-  conv2 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(conv2)
-  pool2 = pool_clss(pool_size=poolsz1,data_format=format)(conv2)
+  conv1 = conv_clss(filtersz1, **params)(inputs)
+  conv1 = conv_clss(filtersz1, **params)(conv1)
 
-  conv3 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(pool2)
-  conv3 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(conv3)
-  pool3 = pool_clss(pool_size=poolsz2,data_format=format)(conv3)
+  pool1 = pool_clss(pool_size=poolsz1,data_format=format)(conv1)
 
-  conv4 = conv_clss(filtersz3, kernel_size, activation='relu', padding='same', data_format=format)(pool3)
-  conv4 = conv_clss(filtersz3, kernel_size, activation='relu', padding='same', data_format=format)(conv4)
+  conv2 = conv_clss(filtersz2, **params)(pool1)
+  conv2 = conv_clss(filtersz2, **params)(conv2)
+  pool2 = pool_clss(pool_size=poolsz2,data_format=format)(conv2)
+
+  conv3 = conv_clss(filtersz3, **params)(pool2)
+  conv3 = conv_clss(filtersz3, **params)(conv3)
+  pool3 = pool_clss(pool_size=poolsz3,data_format=format)(conv3)
+
+  conv4 = conv_clss(filtersz4, **params)(pool3)
+  conv4 = conv_clss(filtersz4, **params)(conv4)
 
   up5 = concatenate([upsamp_clss(size=upscalesz,data_format=format)(conv4), conv3], axis=axis)
-  conv5 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(up5)
-  conv5 = conv_clss(filtersz2, kernel_size, activation='relu', padding='same', data_format=format)(conv5)
+  conv5 = conv_clss(filtersz3, **params)(up5)
+  conv5 = conv_clss(filtersz3, **params)(conv5)
 
   up6 = concatenate([upsamp_clss(size=poolsz2,data_format=format)(conv5), conv2], axis=axis)
-  conv6 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(up6)
-  conv6 = conv_clss(filtersz1, kernel_size, activation='relu', padding='same', data_format=format)(conv6)
+  conv6 = conv_clss(filtersz2, **params)(up6)
+  conv6 = conv_clss(filtersz2, **params)(conv6)
 
   up7 = concatenate([upsamp_clss(size=poolsz1,data_format=format)(conv6), conv1], axis=axis)
-  conv7 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(up7)
-  conv7 = conv_clss(filtersz0, kernel_size, activation='relu', padding='same', data_format=format)(conv7)
+  conv7 = conv_clss(filtersz1, **params)(up7)
+  conv7 = conv_clss(filtersz1, **params)(conv7)
 
   conv8 = conv_clss(nroutputs, 1, activation='sigmoid', data_format=format)(conv7)
   return conv8

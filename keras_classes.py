@@ -52,18 +52,23 @@ class TrainingSequence(Sequence):
           if not dgbkeys.xvaliddictstr in trainbatch or \
              not dgbkeys.yvaliddictstr in trainbatch:
               return False
-          self._x_data = trainbatch[dgbkeys.xvaliddictstr]
-          self._y_data = trainbatch[dgbkeys.yvaliddictstr]
+          x_data = trainbatch[dgbkeys.xvaliddictstr]
+          y_data = trainbatch[dgbkeys.yvaliddictstr]
       else:
           if not dgbkeys.xtraindictstr in trainbatch or \
              not dgbkeys.ytraindictstr in trainbatch:
               return False
-          self._x_data = trainbatch[dgbkeys.xtraindictstr]
-          self._y_data = trainbatch[dgbkeys.ytraindictstr]
+          x_data = trainbatch[dgbkeys.xtraindictstr]
+          y_data = trainbatch[dgbkeys.ytraindictstr]
       model = self._model
-      self._x_data = dgbkeras.adaptToModel( model, self._x_data )
-      if len(self._y_data.shape) > 2:
-          self._y_data = dgbkeras.adaptToModel( model, self._y_data )
+      if self._channels_format == 'channels_last':
+          lastaxis = len(x_data.shape)-1
+          x_data = np.swapaxes(x_data,1,lastaxis)
+          if len(y_data.shape) > 2:
+              y_data = np.swapaxes(y_data,1,lastaxis)
+      self._x_data = dgbkeras.adaptToModel( model, x_data, sample_data_format=self._channels_format)
+      if len(y_data.shape) > 2:
+          self._y_data = dgbkeras.adaptToModel( model, y_data, sample_data_format=self._channels_format )
       inp_shape = self._x_data.shape[1:]
       if self._augmentation and len(inp_shape) == 4:
           if self._channels_format == 'channels_first':
