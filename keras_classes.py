@@ -69,6 +69,8 @@ class TrainingSequence(Sequence):
       self._x_data = dgbkeras.adaptToModel( model, x_data, sample_data_format=self._channels_format)
       if len(y_data.shape) > 2:
           self._y_data = dgbkeras.adaptToModel( model, y_data, sample_data_format=self._channels_format )
+      else:
+          self._y_data = y_data
       inp_shape = self._x_data.shape[1:]
       if self._augmentation and len(inp_shape) == 4:
           if self._channels_format == 'channels_first':
