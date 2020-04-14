@@ -61,14 +61,9 @@ class TrainingSequence(Sequence):
           x_data = trainbatch[dgbkeys.xtraindictstr]
           y_data = trainbatch[dgbkeys.ytraindictstr]
       model = self._model
-      if self._channels_format == 'channels_last':
-          lastaxis = len(x_data.shape)-1
-          x_data = np.swapaxes(x_data,1,lastaxis)
-          if len(y_data.shape) > 2:
-              y_data = np.swapaxes(y_data,1,lastaxis)
-      self._x_data = dgbkeras.adaptToModel( model, x_data, sample_data_format=self._channels_format)
+      self._x_data = dgbkeras.adaptToModel( model, x_data )
       if len(y_data.shape) > 2:
-          self._y_data = dgbkeras.adaptToModel( model, y_data, sample_data_format=self._channels_format )
+          self._y_data = dgbkeras.adaptToModel( model, y_data )
       else:
           self._y_data = y_data
       inp_shape = self._x_data.shape[1:]
