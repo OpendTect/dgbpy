@@ -43,6 +43,7 @@ class TrainingSequence(Sequence):
       infos = self._infos
       nbchunks = len(infos[dgbkeys.trainseldicstr])
       if nbchunks > 1:
+          from dgbpy import mlapply as dgbmlapply
           trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, flatten=False,
                                                  scale=True, ichunk=ichunk )
       else:
