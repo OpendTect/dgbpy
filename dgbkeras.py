@@ -106,9 +106,10 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'patience': patience,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
-    'unetnszs': unetnszs,
     'type': nntype
   }
+  if isUnet(nntype):
+    ret.update({'unetnszs': unetnszs})
   if not dodec:
     ret['nbchunk'] = 1
   return ret
