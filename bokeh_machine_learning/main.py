@@ -154,6 +154,7 @@ def training_app(doc):
       nonlocal traininglogfilenm
       for key, val in paramobj.items():
         if key=='Training Type':
+          odcommon.log_msg(f'Change training type to "{val}".')
           if val == dgbmlapply.TrainType.New.name:
             traintype = dgbmlapply.TrainType.New
             model = None
@@ -162,16 +163,20 @@ def training_app(doc):
           elif val == dgbmlapply.TrainType.Transfer.name:
             traintype = dgbmlapply.TrainType.Transfer
         elif key=='Input Model File':
+          odcommon.log_msg(f'Change pretrained input model to "{val}".')
           if os.path.isfile(val):
             model = val
           else:
             model = None
             traintype = dgbmlapply.TrainType.New
         elif key=='ProcLog File':
+          odcommon.log_msg(f'Change log file name to "{val}".')
           traininglogfilenm = val
         elif key=='Output Model File':
+          odcommon.log_msg(f'Change output model to "{val}".')
           doRun( doTrain(val) )
         elif key=='Examples File':
+          odcommon.log_msg(f'Change input example data to "{val}".')
           if examplefilenm != val:
             examplefilenm = val
             info = dgbmlio.getInfo( examplefilenm, quick=True )
