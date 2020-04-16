@@ -526,6 +526,8 @@ def getClassIndices( info, filternms=None ):
     collclassnms = {}
     for collnm in collection:
       collitm = collection[collnm]
+      if not classnmdictstr in collitm:
+        continue
       classnm = collitm[classnmdictstr]
       if filternms==None or classnm in filternms:
         collclassnms.update({classnm: collitm[iddictstr]})
