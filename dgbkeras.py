@@ -468,14 +468,39 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
     restore_stdout()
 
   keras.utils.print_summary( model, print_fn=log_msg )
-  if getDataFormat(model) == 'channels_first':
-    infos[dgbkeys.inpshapedictstr] = model.input_shape[2:]
-    infos[dgbkeys.outshapedictstr] = model.output_shape[2:]
-  else:
-    infos[dgbkeys.inpshapedictstr] = model.input_shape[1:-1]
-    infos[dgbkeys.outshapedictstr] = model.output_shape[1:-1]
+  infos = updateModelShape( infos, model, True )
+  infos = updateModelShape( infos, model, False )
 
   return model
+
+def updateModelShape( infos, model, forinput ):
+  if forinput:
+    shapekey = dgbkeys.inpshapedictstr
+    modelshape = model.input_shape
+  else:
+    shapekey = dgbkeys.outshapedictstr
+    modelshape = model.output_shape
+    
+  exshape = infos[shapekey]
+  if getDataFormat(model) == 'channels_first':
+    modelshape = modelshape[2:]
+  else:
+    modelshape = modelshape[1:-1]
+
+  if len(exshape) == len(modelshape) and np.prod(exshape) == np.prod(modelshape):
+    return infos
+
+  ret = ()
+  i = 0
+  for exdim in exshape:
+    if exdim < 2:
+      ret += (exdim,)
+    else:
+      ret += (modelshape[i],)
+      i += 1
+      
+  infos[shapekey] = ret
+  return infos
 
 def save( model, outfnm ):
   model.save( outfnm )
