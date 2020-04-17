@@ -487,6 +487,9 @@ def updateModelShape( infos, model, forinput ):
   else:
     modelshape = modelshape[1:-1]
 
+  if isinstance(exshape,int):
+    return infos
+
   if len(exshape) == len(modelshape) and np.prod(exshape) == np.prod(modelshape):
     return infos
 
