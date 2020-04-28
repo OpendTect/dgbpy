@@ -10,8 +10,7 @@
 
 
 import numpy as np
-import keras
-from keras.utils import Sequence
+from tensorflow.keras.utils import Sequence, to_categorical
 
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
@@ -149,6 +148,6 @@ class TrainingSequence(Sequence):
                       Y[wrrg] = y_data[rotidx]
                   n = wrrg.stop
       if self._nrclasses > 0:
-          Y = keras.utils.to_categorical(Y,self._nrclasses)
-      return X, Y
+          Y = to_categorical(Y,self._nrclasses)
+      return (X, Y, [None])
 

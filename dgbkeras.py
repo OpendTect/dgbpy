@@ -131,20 +131,20 @@ def cross_entropy_balanced(y_true, y_pred):
   from keras.optimizers import tf
   _epsilon = _to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
   y_pred   = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
-  y_pred   = tf.log(y_pred/ (1 - y_pred))
+  y_pred   = tf.math.log(y_pred/ (1 - y_pred))
 
   y_true = tf.cast(y_true, tf.float32)
-  count_neg = tf.reduce_sum(1. - y_true)
-  count_pos = tf.reduce_sum(y_true)
+  count_neg = tf.reduce_sum(input_tensor=1. - y_true)
+  count_pos = tf.reduce_sum(input_tensor=y_true)
   beta = count_neg / (count_neg + count_pos)
   pos_weight = beta / (1 - beta)
-  cost = tf.nn.weighted_cross_entropy_with_logits(logits=y_pred, targets=y_true, pos_weight=pos_weight)
-  cost = tf.reduce_mean(cost * (1 - beta))
-  return tf.where(tf.equal(count_pos, 0.0), 0.0, cost)
+  cost = tf.nn.weighted_cross_entropy_with_logits(logits=y_pred, labels=y_true, pos_weight=pos_weight)
+  cost = tf.reduce_mean(input_tensor=cost * (1 - beta))
+  return tf.compat.v1.where(tf.equal(count_pos, 0.0), 0.0, cost)
 
 def _to_tensor(x, dtype):
   from keras.optimizers import tf
-  x = tf.convert_to_tensor(x)
+  x = tf.convert_to_tensor(value=x)
   if x.dtype != dtype:
     x = tf.cast(x, dtype)
   return x
@@ -246,36 +246,40 @@ def getDefaultLeNet(isclassification,model_shape,nroutputs,
   redirect_stdout()
   import keras
   restore_stdout()
-  from keras.layers import (Activation,Dense,Flatten)
-  from keras.layers.normalization import BatchNormalization
-  from keras.models import Sequential
-  from keras.optimizers import Adam
+  from tensorflow.keras.layers import (Activation,BatchNormalization,Dense,Flatten)
+  from tensorflow.keras.layers import (Conv1D,Conv2D,Conv3D)
+  from tensorflow.keras.models import Sequential
+  from tensorflow.keras.optimizers import Adam, RMSprop
 
   filtersz = 50
   densesz = 10
 
   nrdims = getModelDims( model_shape, data_format )
-  model = Sequential()
-  from keras.layers import (Conv1D,Conv2D,Conv3D)
+
+  layers = list()
   if nrdims == 3:
-    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv3D )
+    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv3D )
   elif nrdims == 2:
-    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv2D )
+    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv2D )
   elif nrdims == 1 or nrdims == 0:
-    model = getDefaultLeNetND( model, model_shape, filtersz, data_format, Conv1D )
+    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv1D )
   else:
     return None
 
-  model.add(Flatten())
-  model.add(Dense(filtersz,name = 'dense_layer1'))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Dense(densesz,name = 'attribute_layer'))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(Dense(nroutputs, name='pre-softmax_layer'))
-  model.add(BatchNormalization())
-  model.add(Activation('softmax'))
+  layers.extend([
+    Flatten(),
+    Dense(filtersz,name = 'dense_layer1'),
+    BatchNormalization(),
+    Activation('relu'),
+    Dense(densesz,name = 'attribute_layer'),
+    BatchNormalization(),
+    Activation('relu'),
+    Dense(nroutputs, name='pre-softmax_layer'),
+    BatchNormalization(),
+    Activation('softmax')
+  ])
+  
+  model = Sequential( layers )
 
 # initiate the model compiler options
   if isclassification:
@@ -286,10 +290,10 @@ def getDefaultLeNet(isclassification,model_shape,nroutputs,
       loss = 'binary_crossentropy'
     metrics = ['accuracy']
   else:
-    opt = keras.optimizers.RMSprop(lr=learnrate)
-    from keras import backend as K
+    opt = RMSprop(lr=learnrate)
+    from keras import backend as kb
     def root_mean_squared_error(y_true, y_pred):
-      return K.sqrt(K.mean(K.square(y_pred - y_true)))
+      return kb.sqrt(kb.mean(kb.square(y_pred - y_true)))
     loss = root_mean_squared_error
     metrics = ['mean_squared_error']
 
@@ -297,33 +301,33 @@ def getDefaultLeNet(isclassification,model_shape,nroutputs,
   model.compile(optimizer=opt,loss=loss,metrics=metrics)
   return model
 
-def getDefaultLeNetND( model, shape, filtersz, format, conv_clss ):
-  from keras.layers import (Activation,Conv3D,Dropout)
-  from keras.layers.normalization import BatchNormalization
-
+def getDefaultLeNetND( layers, shape, filtersz, format, conv_clss ):
+  from tensorflow.keras.layers import (Activation,BatchNormalization,Dropout)
   kernel_sz1 = 5
   kernel_sz2 = 3
   stride_sz1 = 4
   stride_sz2 = 2
   dropout = 0.2
   
-  model.add(conv_clss(filtersz, kernel_sz1, strides=stride_sz1, padding='same', name='conv_layer1',input_shape=shape,data_format=format))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2',data_format=format))
-  model.add(Dropout(dropout))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer3',data_format=format))
-  model.add(Dropout(dropout))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer4',data_format=format))
-  model.add(Dropout(dropout))
-  model.add(BatchNormalization())
-  model.add(Activation('relu'))
-  model.add(conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer5',data_format=format))
-  return model
+  layers.extend([
+    conv_clss(filtersz, kernel_sz1, strides=stride_sz1, padding='same', name='conv_layer1',input_shape=shape,data_format=format),
+    BatchNormalization(),
+    Activation('relu'),
+    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2',data_format=format),
+    Dropout(dropout),
+    BatchNormalization(),
+    Activation('relu'),
+    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer3',data_format=format),
+    Dropout(dropout),
+    BatchNormalization(),
+    Activation('relu'),
+    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer4',data_format=format),
+    Dropout(dropout),
+    BatchNormalization(),
+    Activation('relu'),
+    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer5',data_format=format)
+  ])
+  return layers
 
 def getDefaultUnet(isclassification,model_shape,nroutputs,
                     unetnszs=keras_dict['unetnszs'],
@@ -433,7 +437,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
   if classification:
-    monitor = 'acc'
+    monitor = 'accuracy'
   else:
     monitor = 'loss'
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
@@ -462,8 +466,8 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
       log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
 
     redirect_stdout()
-    hist = model.fit_generator(train_datagen,epochs=params['epoch'],\
-                               validation_data=validate_datagen,callbacks=callbacks)
+    hist = model.fit(x=train_datagen,epochs=params['epoch'],\
+                     validation_data=validate_datagen,callbacks=callbacks)
     #log_msg( hist.history )
     restore_stdout()
 
@@ -506,11 +510,14 @@ def updateModelShape( infos, model, forinput ):
   return infos
 
 def save( model, outfnm ):
-  model.save( outfnm )
+  try:
+    model.save( outfnm, save_format='h5' )
+  except Exception as e:
+    model.save( outfnm )
 
 def load( modelfnm, fortrain ):
   redirect_stdout()
-  from keras.models import load_model
+  from tensorflow.keras.models import load_model
   try:
     ret = load_model( modelfnm, compile=fortrain )
   except ValueError:
