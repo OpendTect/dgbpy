@@ -38,7 +38,15 @@ nolog = 'None'
 wellnm = 'None'
 fulltest = False
 
-def readLogs( wellnm, undefvalue, reload, args ):
+def readFromFile( filenm, undefval ):
+    logdata = pd.read_csv( filenm, delimiter='\t' )
+    logdata = logdata.replace( to_replace=undefval, value=float('NaN'))
+    headers = list( logdata.columns.values )
+    mindepth = logdata.iloc[0][0]
+    maxdepth = logdata.iloc[-1][0]
+    return (headers,logdata,mindepth,maxdepth)
+
+def readLogs( wellnm, filenm, undefval, reload, args ):
     lognames = wellman.getLogNames( wellnm, reload, args )
     logdata = pd.DataFrame()
     if not lognames:
@@ -53,7 +61,7 @@ def readLogs( wellnm, undefvalue, reload, args ):
       else:
         logdata = pd.merge( logdata, lddf, on='MD', how='outer', sort=True )
 
-    logdata = logdata.replace(to_replace=undefvalue, value=float('NaN'))
+    logdata = logdata.replace(to_replace=undefval, value=float('NaN'))
     lognames = ['MD'] + lognames
 
     if ( logdata.empty ):

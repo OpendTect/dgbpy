@@ -31,6 +31,9 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
+datagrp.add_argument( '--file',
+            dest='filename', nargs=1,
+            help='Log file' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
@@ -55,8 +58,13 @@ reload = False
 
 wellid = args['wellid'][0]
 blp.wellnm = wellman.getName( wellid, reload, args )
+filenm = args['filename'][0]
 
-(blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readLogs( blp.wellnm, blp.undef, reload, args )
+if ( filenm != '' ):
+  (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readFromFile( filenm, blp.undef )
+else:
+  (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readLogs( blp.wellnm, blp.undef, reload, args )
+
 depthlogstr = blp.headers[0]
 blp.loglist = blp.updateLogList(depthlogstr, blp.headers, option = 1)
 blp.logonlylist = blp.updateLogList(depthlogstr, blp.headers, option = 0)

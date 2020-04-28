@@ -30,6 +30,9 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
+datagrp.add_argument( '--file',
+            dest='filename', nargs=1,
+            help='Log file' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
@@ -65,6 +68,7 @@ reload = False
 
 wellid = args['wellid'][0]
 wellnm = wellman.getName( wellid, reload, args )
+filenm = args['filename'][0]
 
 data = pd.DataFrame
 undef = 1e30
@@ -98,17 +102,29 @@ def readLogs( wellnm, undefvalue ):
     return (lognames,logdata)
 
 
-def prepareForPlot( wellnm ):
-    (lognames,logdata) = readLogs( wellnm, undef )
+def readFromFile( filenm, undefval ):
+    logdata = pd.read_csv( filenm, delimiter='\t' )
+    logdata = logdata.replace( to_replace=undefval, value=float('NaN') )
+    headers = list( logdata.columns.values )
+    return (headers,logdata)
+
+
+def prepareForPlot( wellnm, filenm ):
+    (lognames,logdata) = readFromFile( filenm, undef )
+#    (lognames,logdata) = readLogs( wellnm, undef )
     global data, headers, mindepth, maxdepth
     global logx, logy, logcol, logsz, xoptions, yoptions
     data = logdata
     headers = [nolog] + lognames
     logx = logy = logcol = logsz = nolog
-    if ( len(lognames) > 0 ):
-        logx = lognames[0]
-    if ( len(lognames) > 1 ):
-        logy = lognames[1]
+    if ( len(lognames) == 2 ):
+      logx = lognames[0]
+      logy = lognames[1]
+    else:
+      if ( len(lognames) > 1 ):
+        logx = lognames[1]
+      if ( len(lognames) > 2 ):
+        logy = lognames[2]
 
     if not lognames:
         xoptions = yoptions = [nolog]
@@ -123,7 +139,7 @@ def prepareForPlot( wellnm ):
         maxdepth = data.iloc[-1][0]
 
 
-prepareForPlot( wellnm )
+prepareForPlot( wellnm, filenm )
   
 def crossplot_app(doc):
   SIZES = list(range(6, 25, 1))
@@ -149,42 +165,6 @@ def crossplot_app(doc):
     else:
         alldata['maxdepth'] = float(new)
     update(attr, old, alldata['maxdepth'])
-
-  def wellChangeCB(attr, old, new):
-    prepareForPlot( new )
-
-    x.disabled = True
-    y.disabled = True
-    size.disabled = True
-    color.disabled = True
-    inputmindepth.disabled = True
-    inputmaxdepth.disabled = True
-
-    x.options = xoptions
-    y.options = yoptions
-    x.value = logx
-    y.value = logy
-    size.options = headers
-    size.value = nolog
-    color.options = headers
-    color.value = nolog
-    inputmindepth.value = str(mindepth)
-    inputmaxdepth.value = str(maxdepth)
-
-    alldata['data'] = data
-    alldata['headers'] = headers
-    alldata['mindepth'] = mindepth
-    alldata['maxdepth'] = maxdepth
-
-    x.disabled = False
-    y.disabled = False
-    size.disabled = False
-    color.disabled = False
-    inputmindepth.disabled = False
-    inputmaxdepth.disabled = False
-
-    update(attr,old,alldata)
-
 
   w = TextInput(title='Well', value=wellnm )
   w.disabled = True
