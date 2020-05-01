@@ -251,18 +251,25 @@ def getDefaultLeNet(isclassification,model_shape,nroutputs,
   from tensorflow.keras.models import Sequential
   from tensorflow.keras.optimizers import Adam, RMSprop
 
+  input_shape = model_shape
+  if need_channels_last() and data_format == 'channels_first':
+#Tensorflow bug; cannot use channel_first on CPU: crash or no accuracy
+    data_format = 'channels_last'
+    dims = model_shape[1:]
+    input_shape = ( *dims, model_shape[0] )
+
   filtersz = 50
   densesz = 10
 
-  nrdims = getModelDims( model_shape, data_format )
+  nrdims = getModelDims( input_shape, data_format )
 
   layers = list()
   if nrdims == 3:
-    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv3D )
+    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv3D )
   elif nrdims == 2:
-    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv2D )
+    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv2D )
   elif nrdims == 1 or nrdims == 0:
-    layers = getDefaultLeNetND( layers, model_shape, filtersz, data_format, Conv1D )
+    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv1D )
   else:
     return None
 
@@ -901,3 +908,11 @@ def is_gpu_ready():
     return False
   cc = compute_capability_from_device_desc( devs[0] )
   return tf.test.is_gpu_available(True,cc)
+
+def need_channels_last():
+  import tensorflow as tf
+  if tf.test.is_built_with_cuda():
+    gpudevs = tf.config.get_visible_devices('GPU')
+    if len(gpudevs) > 0:
+      return False
+  return True
