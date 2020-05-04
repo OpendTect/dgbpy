@@ -30,8 +30,8 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
-datagrp.add_argument( '--file',
-            dest='filename', nargs=1,
+datagrp.add_argument( '--wlfile',
+            dest='welllogfile', nargs=1,
             help='Log file' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
@@ -68,7 +68,7 @@ reload = False
 
 wellid = args['wellid'][0]
 wellnm = wellman.getName( wellid, reload, args )
-filenm = args['filename'][0]
+filenm = args['welllogfile'][0]
 
 data = pd.DataFrame
 undef = 1e30
