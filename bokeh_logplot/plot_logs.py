@@ -158,7 +158,8 @@ def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
 
 def add_markers(plot, markers, plotmarkers, plotmarkersyesno,
                 minbound, maxbound):
-    markerdepths = list(-markers['Depth'])
+    markerdepths = list(markers['MD'])
+    markerdepths = [m * -1 for m in markerdepths]
     markernames = list(markers['Name'])
     markercolors =  list(markers['Color'])
     xseries = [minbound, maxbound]
@@ -296,7 +297,8 @@ def create_plot(alldata, nr, plotmarkersyesno):
                      background_fill_color="#f0f0f0",
                      tools='ypan,ywheel_zoom,reset,hover',
                      y_axis_label=ylabel,
-                     output_backend='webgl')
+#                     output_backend='webgl' // gives weird look when zoomed out
+                     )
     else:
         xaxislabel = lognames[0]
         for i in range(2, len(lognames)):
@@ -308,7 +310,8 @@ def create_plot(alldata, nr, plotmarkersyesno):
                      background_fill_color="#f0f0f0",
                      tools='ypan,ywheel_zoom,reset,hover',
                      y_axis_label=ylabel,
-                     output_backend='webgl')
+#                     output_backend='webgl' // gives weird look when zoomed out
+                     )
     ticker = []
     for i in range(0,-10000,-depthticks):
         ticker.append(i)
