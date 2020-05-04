@@ -149,6 +149,7 @@ def logplot_app(doc):
 		    options=markernames[:])
 
   inputwellname = TextInput(title='Well name', value=wellnm)
+  inputwellname.disabled = True
   maxnrplots = 5
   nrlogplots = Slider(start=1, end=maxnrplots, value=1, step=1,
 			title='Number of log plots')
@@ -175,14 +176,18 @@ def logplot_app(doc):
 		    value=[loglist[1]],
 		    options=loglist[:]
 		    ))
-    rowdict['r2'].append(Select(title='Shading type:',
-		    value=shadingtypes[0],
-		    options=shadingtypes[:]
-		    ))
-    rowdict['r3'].append(MultiSelect(title='Shading log(s):',
-		    value=[loglist[0]],
-		    options=loglist[:]
-		    ))
+    shtp = Select(title='Shading type:',
+                    value=shadingtypes[0],
+                    options=shadingtypes[:]
+                    )
+    shtp.visible = False
+    rowdict['r2'].append(shtp)
+    shlogs = MultiSelect(title='Shading log(s):',
+                    value=[loglist[0]],
+                    options=loglist[:]
+                    )
+    shlogs.visible = False
+    rowdict['r3'].append(shlogs)
 
   for i in range(0,5):
     c = 'c' + str(i)
@@ -292,6 +297,7 @@ def logplot_app(doc):
 
   wellnmfld = TextInput()
   wellnmfld.value = wellnm
+  wellnmfld.disabled = True
   if fulltest:
       layoutcurves.children[2].children[0].value = 5 
       layoutcurves.children[4].children[0].children[0].children[0].children[2].value = 'Column wide palette'
