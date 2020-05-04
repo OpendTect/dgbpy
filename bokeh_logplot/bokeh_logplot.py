@@ -46,6 +46,10 @@ def readFromFile( filenm, undefval ):
     maxdepth = logdata.iloc[-1][0]
     return (headers,logdata,mindepth,maxdepth)
 
+def readMarkers( filenm ):
+    mrkrs = pd.read_csv( filenm, delimiter='\t')
+    return mrkrs;
+
 def readLogs( wellnm, filenm, undefval, reload, args ):
     lognames = wellman.getLogNames( wellnm, reload, args )
     logdata = pd.DataFrame()
@@ -140,10 +144,10 @@ def logplot_app(doc):
   markernames = ['None', 'All']
   if len(markers)>0:
     markernames += list(markers['Name'])
-    
-  plotmarkers = MultiSelect(title='Plot markers:',
+    plotmarkers = MultiSelect(title='Plot markers:',
 		    value=[markernames[0]],
 		    options=markernames[:])
+
   inputwellname = TextInput(title='Well name', value=wellnm)
   maxnrplots = 5
   nrlogplots = Slider(start=1, end=maxnrplots, value=1, step=1,
