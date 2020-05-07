@@ -116,8 +116,6 @@ def training_app(doc):
     ML_PLFS.append( uisklearn.getPlatformNm(True) )
 
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
-    platformparsbut = uibokeh.getButton(paramtabnm,\
-      callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=paramtabnm))
 
     info = None
     keraspars = None
@@ -323,7 +321,7 @@ def training_app(doc):
 
     platformfld.on_change('value',mlchgCB)
     buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
-    trainpanel.child = column( platformfld, platformparsbut, buttonsgrp )
+    trainpanel.child = column( platformfld, buttonsgrp )
 
     def initWin():
       mllearntype = info[dgbkeys.learntypedictstr]
