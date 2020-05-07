@@ -466,13 +466,13 @@ def getTotalSize( info ):
       nrpts += len(grp[collnm][xdatadictstr]) 
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
-  x_size = np.prod( examplesshape ) * arroneitemsize( np.float32 )
+  x_size = np.prod( examplesshape, dtype=np.int64 ) * arroneitemsize( np.float32 )
   if info[classdictstr]:
     nroutvals = getNrClasses( info )
   else:
     nroutvals = getNrOutputs( info )
   outshape = get_np_shape( outshape, nrpts, nroutvals )
-  y_size = np.prod( outshape ) * arroneitemsize( np.float32 )
+  y_size = np.prod( outshape, dtype=np.int64 ) * arroneitemsize( np.float32 )
   return x_size + y_size
 
 modeloutstr = 'Model.Output.'

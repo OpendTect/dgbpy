@@ -290,7 +290,7 @@ class Message:
         offset = 0
         arrs = list()
         for shape,dtype in zip(shapes,dtypes):
-          nrsamples = np.prod(shape)
+          nrsamples = np.prod(shape,dtype=np.int64)
           arr = np.frombuffer(arrptr,dtype=dtype,count=nrsamples,offset=offset)
           arr = arr.reshape( shape )
           offset += arr.nbytes

@@ -501,7 +501,8 @@ def updateModelShape( infos, model, forinput ):
   if isinstance(exshape,int):
     return infos
 
-  if len(exshape) == len(modelshape) and np.prod(exshape) == np.prod(modelshape):
+  if len(exshape) == len(modelshape) and \
+     np.prod(exshape,dtype=np.int64) == np.prod(modelshape,dtype=np.int64):
     return infos
 
   ret = ()
