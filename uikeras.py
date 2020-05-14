@@ -8,6 +8,8 @@
 
 from functools import partial
 
+import numpy as np
+
 from bokeh.layouts import column
 from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
 
@@ -44,8 +46,8 @@ def getUiPars():
   if isUnet( defmodel ):
     defbatchsz = 4
   batchfld = Select(title='Batch Size',value=str(defbatchsz),options=cudacores)
-  lrfld = Slider(start=1,end=100,value=dict['learnrate']*1000,
-                 title='Initial Learning Rate '+ '('+u'\u2030'+')')
+  lrfld = Slider(start=-10,end=-1,step=1,value=np.log10( dict['learnrate'] ),
+                 title='Initial Learning Rate (1e)')
   edfld = Slider(start=1,end=100,value=100*dict['epochdrop']/epochfld.value,
                  title='Epoch drop (%)', step=0.1)
   patiencefld = Slider(start=1,end=100,value=dict['patience'],
@@ -100,7 +102,7 @@ def getUiParams( keraspars ):
                              epochs=kerasgrp['epochfld'].value, \
                              batch=int(kerasgrp['batchfld'].value), \
                              patience=kerasgrp['patiencefld'].value, \
-                             learnrate=kerasgrp['lrfld'].value/1000, \
+                             learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
                              nntype=kerasgrp['modeltypfld'].value )
 

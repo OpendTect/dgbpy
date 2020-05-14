@@ -87,7 +87,7 @@ keras_dict = {
   'epoch': 15,
   'batch': 32,
   'patience': 5,
-  'learnrate': 0.01,
+  'learnrate': 1e-4,
   'epochdrop': 5,
   'unetnszs': unet_mediumsz,
   'type': mltypes[letnetidx][0],
