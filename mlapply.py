@@ -227,6 +227,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getParams()
+    dgbkeras.set_compute_device( params['prefercpu'] )
     validation_split = 0.2 #Params?
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scale=True, force=False,

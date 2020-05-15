@@ -67,9 +67,11 @@ def getUiPars():
   except AttributeError:
     log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
     pass
+  kerashasgpu = can_use_gpu()
+  rundevicefld = CheckboxGroup( labels=['Train on GPU'], active=[0], visible=kerashasgpu )
   parsgrp = column(modeltypfld, \
                    batchfld,epochfld,patiencefld,lrfld,edfld,sizefld,dodecimatefld, \
-                   chunkfld)
+                   chunkfld,rundevicefld)
   return {
     'grp' : parsgrp,
     'uiobjects': {
@@ -81,7 +83,8 @@ def getUiPars():
       'batchfld': batchfld,
       'patiencefld': patiencefld,
       'lrfld': lrfld,
-      'edfld': edfld
+      'edfld': edfld,
+      'rundevicefld': rundevicefld
     }
   }
 
@@ -97,16 +100,19 @@ def getUiParams( keraspars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  return getParams( dodec=doDecimate(kerasgrp['dodecimatefld']), \
+  runoncpu = not kerasgrp['rundevicefld'].visible or \
+             not isSelected( kerasgrp['rundevicefld'] )
+  return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \
                              nbchunk=kerasgrp['chunkfld'].value, \
                              epochs=kerasgrp['epochfld'].value, \
                              batch=int(kerasgrp['batchfld'].value), \
                              patience=kerasgrp['patiencefld'].value, \
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
-                             nntype=kerasgrp['modeltypfld'].value )
+                             nntype=kerasgrp['modeltypfld'].value, \
+                             prefercpu=runoncpu)
 
-def doDecimate( fldwidget, index=0 ):
+def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
 
 def decimateCB( widgetactivelist,chunkfld,sizefld ):

@@ -77,9 +77,8 @@ def training_app(doc):
   import psutil
   from functools import partial
 
-  from bokeh.io import curdoc
   from bokeh.layouts import column
-  from bokeh.models.widgets import Panel, Select, Tabs, TextInput
+  from bokeh.models.widgets import Panel, Select, Tabs
 
   from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)

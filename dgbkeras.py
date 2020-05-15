@@ -91,13 +91,30 @@ keras_dict = {
   'epochdrop': 5,
   'unetnszs': unet_mediumsz,
   'type': mltypes[letnetidx][0],
+  'prefercpu': None
 }
+
+def can_use_gpu():
+  from tensorflow import config as tfconfig
+  return len(tfconfig.list_physical_devices('GPU')) > 0
+
+def get_cpu_preference():
+  from tensorflow import config as tfconfig
+  return len(tfconfig.list_physical_devices('GPU')) < 1
+
+def set_compute_device( prefercpu=get_cpu_preference() ):
+  if not prefercpu:
+      return
+  from tensorflow import config as tfconfig
+  cpudevs = tfconfig.list_physical_devices('CPU')
+  tfconfig.set_visible_devices( cpudevs )
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
                epochs=keras_dict['epoch'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
-               unetnszs=keras_dict['unetnszs'],nntype=keras_dict['type'] ):
+               unetnszs=keras_dict['unetnszs'],nntype=keras_dict['type'],
+               prefercpu=keras_dict['prefercpu']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -110,6 +127,9 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
   }
   if isUnet(nntype):
     ret.update({'unetnszs': unetnszs})
+  if prefercpu == None:
+    prefercpu = get_cpu_preference()
+  ret.update({'prefercpu': prefercpu})
   if not dodec:
     ret['nbchunk'] = 1
   return ret
@@ -286,7 +306,9 @@ def getDefaultLeNet(isclassification,model_shape,nroutputs,
     Activation('softmax')
   ])
   
+  redirect_stdout()
   model = Sequential( layers )
+  restore_stdout()
 
 # initiate the model compiler options
   if isclassification:
@@ -441,6 +463,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
   from keras.callbacks import EarlyStopping
   from dgbpy.keras_classes import TrainingSequence
   restore_stdout()
+  
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
   if classification:
@@ -473,9 +496,8 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
       log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
 
     redirect_stdout()
-    hist = model.fit(x=train_datagen,epochs=params['epoch'],\
-                     validation_data=validate_datagen,callbacks=callbacks)
-    #log_msg( hist.history )
+    model.fit(x=train_datagen,epochs=params['epoch'],\
+              validation_data=validate_datagen,callbacks=callbacks)
     restore_stdout()
 
   keras.utils.print_summary( model, print_fn=log_msg )
