@@ -227,7 +227,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getParams()
-    dgbkeras.set_compute_device( params['prefercpu'] )
+    dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
     validation_split = 0.2 #Params?
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scale=True, force=False,
@@ -277,7 +277,7 @@ def doApplyFromFile( modelfnm, samples, outsubsel=None ):
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
   return doApply( model, info, samples, applyinfo=applyinfo )
 
-def doApply( model, info, samples, scaler=None, applyinfo=None ):
+def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None ):
   platform = info[dgbkeys.plfdictstr]
   if applyinfo == None:
     applyinfo = dgbmlio.getApplyInfo( info )
@@ -296,7 +296,8 @@ def doApply( model, info, samples, scaler=None, applyinfo=None ):
   res = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    res = dgbkeras.apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities )
+    res = dgbkeras.apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
+                          scaler=None, batch_size=batchsize  )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     res = dgbscikit.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )

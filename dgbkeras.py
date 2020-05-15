@@ -10,6 +10,7 @@
 
 import os
 import re
+import json
 from datetime import datetime
 import numpy as np
 import math
@@ -81,6 +82,9 @@ def getUiModelTypes( learntype ):
 
   return dgbkeys.getNames( ret )
 
+prefercpustr = 'prefercpu'
+defbatchstr = 'defaultbatchsz'
+
 keras_dict = {
   dgbkeys.decimkeystr: False,
   'nbchunk': 10,
@@ -101,6 +105,15 @@ def can_use_gpu():
 def get_cpu_preference():
   from tensorflow import config as tfconfig
   return len(tfconfig.list_physical_devices('GPU')) < 1
+
+def get_keras_infos():
+  ret = {
+    'haskerasgpu': can_use_gpu(),
+    prefercpustr: get_cpu_preference(),
+    'batchsizes': cudacores,
+    defbatchstr: keras_dict['batch']
+   }
+  return json.dumps( ret )
 
 def set_compute_device( prefercpu=get_cpu_preference() ):
   if not prefercpu:
@@ -589,7 +602,10 @@ def transfer( model ):
 
   return model
 
-def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, scaler=None, batch_size=keras_dict['batch'] ):
+def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
+           scaler=None, batch_size=None ):
+  if batch_size == None:
+    batch_size = keras_dict['batch']
   redirect_stdout()
   import keras
   restore_stdout()

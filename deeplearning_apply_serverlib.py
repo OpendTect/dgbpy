@@ -22,37 +22,43 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbscikit
+from dgbpy import dgbscikit, dgbkeras
 
 class ExitCommand(Exception):
     pass
 
 class ModelApplier:
     def __init__(self, modelfnm,isfake=False):
-        self.fnm_ = modelfnm
         self.pars_ = None
         self.fakeapply_ = isfake
         self.scaler_ = None
         self.extscaler_ = None
-        (self.model_,self.info_) = self._open()
+        self.info_ = self._get_info(modelfnm)
+        self.model_ = None
         self.applyinfo_ = None
+        self.batchsize_ = None
         self.debugstr = ''
 
-    def _open(self):
-        modelfnm = self.fnm_
+    def _get_info(self,modelfnm):
+        info = dgbmlio.getInfo( modelfnm, quick=True )
         if self.fakeapply_:
-            info = dgbmlio.getInfo( modelfnm, quick=True )
             info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
-            return (None,info)
-        else:
-            return dgbmlio.getModel( modelfnm, fortrain=False )
-
+        return info
+    
     def setOutputs(self, outputs):
         if self.fakeapply_:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
         (self.scaler_,self.extscaler_) = self.getScaler( outputs )
+        if dgbkeras.prefercpustr in outputs:
+            dgbkeras.set_compute_device( outputs[dgbkeras.prefercpustr] )
+        if dgbkeras.defbatchstr in outputs:
+            self.batchsize_ = outputs[dgbkeras.defbatchstr]
+        if self.fakeapply_:
+            return None
+        modelfnm = self.info_[dgbkeys.filedictstr]
+        (self.model_,self.info_) = dgbmlio.getModel( modelfnm, fortrain=False )
 
     def _usePar(self, pars):
         self.pars_ = pars
@@ -180,7 +186,8 @@ class ModelApplier:
 #        samples = samples/max
 #        samples = samples*255 
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
-                                  scaler=None, applyinfo=self.applyinfo_ )
+                                  scaler=None, applyinfo=self.applyinfo_, \
+                                  batchsize=self.batchsize_ )
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )
