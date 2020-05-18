@@ -146,11 +146,16 @@ class ModelApplier:
         inpshape = self.info_[dgbkeys.inpshapedictstr]
         nrzin = inp.shape[-1]
         vertical =  isinstance(inpshape,int)
+        is2d = False
         if vertical:
             chunksz = 1
             nrzoutsamps = nrzin-inpshape+1
         else:
-            chunksz = inp.shape[2] - inpshape[1] + 1
+            is2d = len(inp.shape) == 3
+            if is2d:
+                chunksz = inp.shape[1] - inpshape[1] + 1
+            else:
+                chunksz = inp.shape[2] - inpshape[1] + 1
             nrzoutsamps = nrzin - inpshape[2] +1
         nroutsamps = nrzoutsamps * chunksz
         samples_shape = dgbhdf5.get_np_shape( inpshape, nrattribs=nrattribs,
@@ -171,8 +176,12 @@ class ModelApplier:
               for zidz in range(nrzoutsamps):
                 loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
             else:
-              for zidz in range(nrzoutsamps):
-                loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
+              if is2d:
+                for zidz in range(nrzoutsamps):
+                  loc_samples[zidz] = inp[:,i:i+nrtrcs+1,zidz:zidz+nrz]                 
+              else:
+                for zidz in range(nrzoutsamps):
+                  loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
 #        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
