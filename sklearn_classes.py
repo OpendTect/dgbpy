@@ -16,7 +16,6 @@ def model_info( modelfnm ):
 
     nfeatures = getattr(model,'n_features_',None)
     noutputs = getattr(model,'n_outputs_',None)
-    nclasses = getattr(model,'n_classes_',None)
     coef = getattr(model,'coef_', None)
     classes = getattr(model,'classes_',None)
     if nfeatures is None:
@@ -27,10 +26,9 @@ def model_info( modelfnm ):
       if coef is not None:
         noutputs = coef.shape[0]
 
-    if nclasses is None:
-      if classes is not None:
-        nclasses = classes.shape[0]
-      elif noutputs is not None:
+    if classes is not None:
+      pass
+    elif esttype is 'classifier' and noutputs is not None:
         classes = [i for i in range(noutputs)]
 
     return (esttype, modtype, module, params, nfeatures, noutputs, classes)
