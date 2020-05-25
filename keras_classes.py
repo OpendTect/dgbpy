@@ -151,3 +151,165 @@ class TrainingSequence(Sequence):
           Y = to_categorical(Y,self._nrclasses)
       return (X, Y, [None])
 
+import importlib
+import pkgutil
+import inspect
+
+from abc import ABC, abstractmethod
+
+class UserModel(ABC):
+  """Abstract base class for user defined Keras machine learning models
+  
+  This module provides support for users to add their own machine learning
+  models to OpendTect.
+
+  It defines an abstract base class. Users derive there own model classes from this base
+  class and implement the _make_model static method to define the structure of the keras model.
+  The users model definition should be saved in a file name with "mlmodel_" as a prefix and be 
+  at the top level of the module search path so it can be discovered.
+  
+  The "mlmodel_" class should also define some class variables describing the class:
+  uiname : str - this is the name that will appear in the user interface
+  uidescription : str - this is a short description which may be displayed to help the user
+  modtype : str - type of model only 'img2img' specifically defined
+
+  Examples
+  --------
+    from dgb.keras_classes import UserModel
+  
+    class myModel(UserModel):
+      uiname = 'mymodel'
+      uidescription = 'short description of model'
+      modtype = 'img2img'
+      
+      def _make_model(self, input_shape, nroutputs, learnrate, data_format):
+        inputs = Input(input_shape)
+        conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
+        conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv1)
+        pool1 = MaxPooling3D(pool,size=(2,2,2))(conv1)
+        ...
+        conv8 = Conv3D(1, (1,1,1,), activation='sigmoid')(conv7)
+      
+        model = Model(inputs=[inputs], outputs=[conv8])
+        model.compile(optimizer = Adam(lr = 1e-4), loss = cross_entropy_balanced, metrics = ['accuracy'])
+        return model
+      
+    
+  """
+  mlmodels = []
+  
+  def __init__(self, ):
+    self._learnrate = None
+    self._nroutputs = None
+    self._data_format = None
+    self._model = None
+
+  @staticmethod
+  def findModels():
+    """Static method that searches the PYTHONPATH for modules containing user
+    defined Keras machine learning models (UserModels).
+    
+    The module name must be prefixed by "mlmodel_". All subclasses of the
+    UserModel base class is each found module will be added to the mlmodels
+    class variable.
+    """
+    
+    mlm = []
+    for _, name, ispkg in pkgutil.iter_modules():
+      if name.startswith('mlmodel_'):
+        module = importlib.import_module(name)
+        clsmembers = inspect.getmembers(module, inspect.isclass)
+        for (_, c) in clsmembers:
+          if issubclass(c, UserModel) & (c is not UserModel):
+            mlm.append(c())
+    return mlm
+  
+  @staticmethod
+  def findName(modname):
+    """Static method that searches the found UserModel's for a match with the
+    uiname class variable
+    
+    Parameters
+    ----------
+    modname : str
+    Name (i.e. uiname) of the UserModel to search for.
+    
+    Returns
+    -------
+    an instance of the class with the first matching name in the mlmodels
+    list or None if no match is found
+    
+    """
+    return next((model for model in UserModel.mlmodels if model.uiname == modname), None)
+  
+  @staticmethod
+  def getNamesByType(modeltype):
+    """Static method that returns a list of uinames of the UserModels filtered by the given
+    model type 
+    
+    Parameters
+    ----------
+    modeltype: str
+    The type of model to filter by - only 'img2img' currently supported
+    
+    Returns
+    -------
+    a list of matching model names (uinames).
+    
+    """
+    return [model.uiname for model in UserModel.mlmodels if model.modtype == modeltype]
+  
+  @abstractmethod
+  def _make_model(self, input_shape, nroutputs, learnrate, data_format = 'channels_first'):
+    """Abstract static method that defines a machine learning model.
+    
+    Must be implemented in the user's derived class
+    
+    Parameters
+    ----------
+    input_shape : tuple
+    Defines input data shape as per Keras requirements
+    nroutputs : int
+    Number of outputs
+    learnrate : float
+    The step size applied at each iteration to move toward a minimum of the loss function
+    data_format: str
+    Either 'channels_first' or 'channels_last'
+    
+    Returns
+    -------
+    a compiled keras model
+    
+    """
+    pass
+
+  def model(self, input_shape, nroutputs, learnrate, data_format = 'channels_first'):
+    """Creates/returns a compiled keras model instance
+    
+    Parameters
+    ----------
+    input_shape : tuple
+    Defines input data shape as per Keras requirements
+    nroutputs : int
+    Number of outputs
+    learnrate : float
+    The step size applied at each iteration to move toward a minimum of the loss function
+    data_format: str
+    Either 'channels_first' or 'channels_last'
+    
+    Returns
+    -------
+    a compiled keras model
+    
+    """
+    
+    newmodel = input_shape != self._model.input_shape or nroutputs != self._nroutputs
+               or learnrate != self._learnrate or data_format != self._data_format
+    if self._model is None or newmodel:
+      self._nroutputs = nroutputs
+      self._learnrate = learnrate
+      self._data_format = data_format
+      self._model = self._make_model(input_shape,nroutputs,learnrate,data_format)
+    return self._model
+  
+UserModel.mlmodels = UserModel.findModels()

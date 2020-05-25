@@ -18,6 +18,7 @@ import math
 from odpy.common import log_msg, get_log_file, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
+import dgbpy.keras_classes as kc
 
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
@@ -75,8 +76,10 @@ def getUiModelTypes( learntype ):
   ret = ()
   if dgbhdf5.isImg2Img(learntype):
     ret += (mltypes[unetidx],)
+    ret += tuple(kc.UserModel.getNamesByType('img2img'))
   else:
     ret += (mltypes[letnetidx],)
+    ret += tuple(kc.UserModel.getNamesByType('other'))
 #    ret += (mltypes[squeezenetidx],)
 #    ret += (mltypes[mobilnetv2idx],)
 
@@ -268,6 +271,10 @@ def getDefaultModel(setup,type=keras_dict['type'],
     return getDefaultUnet(isclassification,model_shape,nroutputs,
                           unetnszs=unetnszs,
                           learnrate=learnrate,data_format=data_format)
+  elif kc.UserModel.findName(type):
+    return kc.UserModel.findName(type).model(model_shape, nroutputs,
+                                             learnrate,
+                                             data_format=data_format)
   else:
     return None
 
