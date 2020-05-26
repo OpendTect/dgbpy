@@ -20,7 +20,6 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
 
-
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
@@ -76,10 +75,12 @@ def getUiModelTypes( learntype ):
   ret = ()
   if dgbhdf5.isImg2Img(learntype):
     ret += (mltypes[unetidx],)
-    ret += tuple(kc.UserModel.getNamesByType('img2img'))
+    for model in kc.UserModel.getNamesByType('img2img'):
+      ret += ((model,),)
   else:
     ret += (mltypes[letnetidx],)
-    ret += tuple(kc.UserModel.getNamesByType('other'))
+    for model in kc.UserModel.getNamesByType('other'):
+      ret += ((model,),)
 #    ret += (mltypes[squeezenetidx],)
 #    ret += (mltypes[mobilnetv2idx],)
 

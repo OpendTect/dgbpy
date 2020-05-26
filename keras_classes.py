@@ -16,7 +16,6 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import dgbkeras
 
-
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,with_augmentation=True):
       self._trainbatch = trainbatch
@@ -303,9 +302,10 @@ class UserModel(ABC):
     
     """
     
-    newmodel = input_shape != self._model.input_shape or nroutputs != self._nroutputs
-               or learnrate != self._learnrate or data_format != self._data_format
-    if self._model is None or newmodel:
+    newmodel = self._model is None or input_shape != self._model.input_shape or \
+                nroutputs != self._nroutputs or learnrate != self._learnrate or \
+                data_format != self._data_format
+    if  newmodel:
       self._nroutputs = nroutputs
       self._learnrate = learnrate
       self._data_format = data_format
