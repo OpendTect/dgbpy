@@ -15,6 +15,7 @@ Log plotting GUI
 import argparse
 
 import pandas as pd
+import numpy as np
 from bokeh.server.server import Server
 from bokeh.layouts import layout, column, row
 from bokeh.models import Button
@@ -50,32 +51,40 @@ def readMarkers( filenm ):
     mrkrs = pd.read_csv( filenm, delimiter='\t')
     return mrkrs;
 
-def readLogs( wellnm, filenm, undefval, reload, args ):
+def readLogs( wellnm, undefval, reload, args ):
     lognames = wellman.getLogNames( wellnm, reload, args )
     logdata = pd.DataFrame()
+    minz = 0
+    maxz = 500
     if not lognames:
-      return (lognames,logdata)
+      return (lognames,logdata, minz, maxz)
 
+    logvals = {}
+    delz = 0
+    first = True
     for nm in lognames:
       ld = wellman.getLog( wellnm, nm, reload, args )
-      lddf = pd.DataFrame( ld ).transpose()
-      lddf.columns = ['MD',nm]
-      if ( logdata.empty ):
-        logdata = lddf
+      logvals[nm] = pd.DataFrame( ld ).transpose()
+      logvals[nm].columns = ['MD',nm]
+      logvals[nm].replace(to_replace=undefval, value=float('NaN'))
+      if first:
+        minz = logvals[nm].iloc[0][0]
+        maxz = logvals[nm].iloc[-1][0]
+        delz = logvals[nm].iloc[1][0] - logvals[nm].iloc[0][0]
+        first = False
       else:
-        logdata = pd.merge( logdata, lddf, on='MD', how='outer', sort=True )
-
-    logdata = logdata.replace(to_replace=undefval, value=float('NaN'))
+        minz = min(logvals[nm].iloc[0][0],minz)
+        maxz = max(logvals[nm].iloc[-1][0],maxz)
+    
+    zidx = np.arange(minz, maxz, delz, dtype=np.float)
+    logdata['MD'] = zidx
+    for nm in lognames:
+      logz = logvals[nm][['MD']].to_numpy().flatten()
+      logv = logvals[nm][[nm]].to_numpy().flatten()
+      logdata[nm] = np.interp(zidx, logz, logv, left=float('NaN'), right=float('NaN'))
+      
     lognames = ['MD'] + lognames
-
-    if ( logdata.empty ):
-      mindepth = 0
-      maxdepth = 500
-    else:
-      mindepth = logdata.iloc[0][0]
-      maxdepth = logdata.iloc[-1][0]
-
-    return (lognames,logdata,mindepth,maxdepth)
+    return (lognames,logdata,minz,maxz)
 
 def updateLogList(val, lst, option = 0): # option = 1 add None
   if (option == 1):
@@ -127,13 +136,13 @@ def logplot_app(doc):
 
   def getMinMaxLogs(loglist):
     minmaxlogs = []
-    for i in range(len(loglist)):
-      minvalue = data[loglist[i]].dropna().min()
-      maxvalue = data[loglist[i]].dropna().max()
+    for lognm in loglist:
+      minvalue = data[lognm].dropna().min()
+      maxvalue = data[lognm].dropna().max()
       extension = (maxvalue - minvalue) / 20
       minvalue = minvalue - extension
       maxvalue =  maxvalue + extension
-      addrow = [loglist[i], minvalue, maxvalue]
+      addrow = [lognm, minvalue, maxvalue]
       minmaxlogs.append(addrow)
     return(minmaxlogs)
 
@@ -142,11 +151,14 @@ def logplot_app(doc):
   plotbutton = Button(label='Update Plot', button_type='success')
   plotbutton.on_click(update)
   markernames = ['None', 'All']
+  showmarkers = True
   if len(markers)>0:
     markernames += list(markers['Name'])
-    plotmarkers = MultiSelect(title='Plot markers:',
-		    value=[markernames[0]],
-		    options=markernames[:])
+    showmarkers = False
+    
+  plotmarkers = MultiSelect(title='Plot markers:',
+                value=[markernames[0]], disabled=showmarkers,
+                options=markernames[:])
 
   inputwellname = TextInput(title='Well name', value=wellnm)
   inputwellname.disabled = True
@@ -180,13 +192,13 @@ def logplot_app(doc):
                     value=shadingtypes[0],
                     options=shadingtypes[:]
                     )
-    shtp.visible = False
+    shtp.visible = True
     rowdict['r2'].append(shtp)
     shlogs = MultiSelect(title='Shading log(s):',
                     value=[loglist[0]],
                     options=loglist[:]
                     )
-    shlogs.visible = False
+    shlogs.visible = True
     rowdict['r3'].append(shlogs)
 
   for i in range(0,5):

@@ -61,15 +61,15 @@ reload = False
 
 wellid = args['wellid'][0]
 blp.wellnm = wellman.getName( wellid, reload, args )
-wlfnm = args['welllogfile'][0]
-wmfnm = args['markerfile'][0]
+wlfnm = getattr(args,'welllogfile',None)
+wmfnm = getattr(args,'markerfile',None)
 
-if ( wlfnm != '' ):
+if wlfnm:
   (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readFromFile( wlfnm, blp.undef )
 else:
   (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readLogs( blp.wellnm, blp.undef, reload, args )
 
-if ( wmfnm != '' ):
+if wmfnm:
   blp.markers = blp.readMarkers( wmfnm )
 
 depthlogstr = blp.headers[0]

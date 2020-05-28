@@ -12,7 +12,7 @@ Log plotting
 
 @author: paul
 """
-
+import numpy as np
 import pandas as pd
 from bokeh.plotting import figure
 from bokeh.palettes import all_palettes
@@ -71,20 +71,58 @@ def create_gridplot(alldata):
     grid = gridplot([plotlist])
     return(grid)
 
-def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
+# convert hexadecimal to RGB tuple
+def hex_to_rgb(hex):
+    red = ''.join(hex.strip('#')[0:2])
+    green = ''.join(hex.strip('#')[2:4])
+    blue = ''.join(hex.strip('#')[4:6])
+    return (int(red, 16), int(green, 16), int(blue,16))
+
+def rgb_from_list(colorname):
+    colordict ={'darkred': [139,0,0],
+                'navy' : [0,0,128],
+                'orange': [255,165,0], 
+                'darkgreen':[0,100,0] , 
+                'black': [0,0,0],
+                'cyan': [[0,255,255]], 
+                'darkslategrey': [47,79,79], 
+                'gold' :[255,215,0], 
+                'lime': [0,255,0], 
+                'magenta': [255,0,255]}
+    return(colordict[colorname])
+
+def get_index(depthdata, firstdepth, lastdepth):
+    nrdepths = len(depthdata)
+    tolerance = 10 * (abs(lastdepth)-abs(firstdepth)) / nrdepths
+    uniqueidx = pd.Index(list(depthdata))
+    firstidx = uniqueidx.get_loc(firstdepth, 
+                                 method='nearest', tolerance = tolerance)
+    lastidx = uniqueidx.get_loc(lastdepth, 
+                                method='nearest', tolerance = tolerance)
+    return(firstidx, lastidx)
+
+def add_shading(plot, scaledlogs, depthdata, inputmindepth,
+                inputmaxdepth, lognames, xrange2, 
                 shadingtype, shadinglogs, linestyles, mypalette,
                 colorfillpalette, colorfill, shadingcolor):
-    leftbound = pd.DataFrame()
-    rightbound = pd.DataFrame()
+    (firstidx, lastidx) = get_index(depthdata, inputmindepth, inputmaxdepth)
+    leftbound = pd.Series()
+    rightbound = pd.Series()
     shadingdifferencelog1 = 'None'
     shadingdifferencelog2 = 'None'
-    firstcurve = scaledlogs.loc[:, shadinglogs[0]]
+    tmpcurve = scaledlogs[shadinglogs[0]][firstidx:lastidx+1]
+    firstcurve = tmpcurve.reset_index()
+    del firstcurve['index']
+    firstcurve = firstcurve.squeeze()
     (minbound, maxbound) = getShadingBounds(firstcurve)
     if (shadingtype == 'Difference 2 logs shading color'):
         if (len(shadinglogs) >= 2):
             shadingdifferencelog1 = shadinglogs[0]
             shadingdifferencelog2 = shadinglogs[1]
-            secondcurve = scaledlogs.loc[:, shadinglogs[1]]
+            tmpcurve = scaledlogs[shadinglogs[1]][firstidx:lastidx+1]
+            secondcurve = tmpcurve.reset_index()
+            del secondcurve['index']
+            secondcurve = secondcurve.squeeze()
             print ("Warning: a difference plot cannot be combined with",
                    "curve plots. Selected curves are ignored.",
                    "Similarly, the shading is applied between the",
@@ -105,55 +143,55 @@ def add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
     if (shadingtype == 'Difference 2 logs shading color'):
         leftbound = firstcurve
         rightbound = secondcurve       
-        plot.line(leftbound, depthdata[:], 
+        plot.line(leftbound, depthdata[firstidx:lastidx+1], 
                   name=shadingdifferencelog1, 
                   line_color=mypalette[-2], 
                   line_width=2,
                   line_dash =  linestyles[-2]) 
-        plot.line(rightbound, depthdata[:], 
+        plot.line(rightbound, depthdata[firstidx:lastidx+1], 
                   name=shadingdifferencelog2, 
                   line_color=mypalette[-1], 
                   line_width=2,
                   line_dash =  linestyles[-1])
-    minvalue = firstcurve.min()
-    maxvalue = firstcurve.max()
+    (minvalue, maxvalue) = (minbound, maxbound)
     scalefactor = (float(255)/(float(maxvalue)-float(minvalue)))
-    color = [None for _ in range(len(firstcurve))]
+    N = lastidx+1 - firstidx
+    M = 255 # width of the RGBA image
+    rgbadata = np.empty((N, M, 4), dtype=np.uint8)
+    (red, green, blue) = rgb_from_list(shadingcolor)
+    (rgbadata[:,:,0],rgbadata[:,:,1], rgbadata[:,:,2]) = (
+                red, green, blue)                          
     if (colorfill == 'palette'):
-         for x in range(len(firstcurve)):
-            value = firstcurve[x] - minvalue
-            color[x] = all_palettes[
-                    colorfillpalette][256][int(value * scalefactor)]
+        for x in range(N):
+            if not (np.isnan(firstcurve[x])):
+                value = firstcurve[x] - minvalue
+                (rgbadata[x,:,0],rgbadata[x,:,1], rgbadata[x,:,2]) = (
+                     hex_to_rgb(
+                     all_palettes[colorfillpalette][256][int(value * scalefactor)])
+                     ) 
+    samplerate = (abs(inputmaxdepth - inputmindepth) / N)
+    dh = N * samplerate
+    dw = abs(maxvalue - minvalue)
+    rgbadata[:,:,3] = 0
+    if (shadingtype == 'Difference 2 logs shading color'):
+        for x in range(N):
+            if not (np.isnan(firstcurve[x])):
+                minvalx = min(leftbound[x], rightbound[x]) - minvalue
+                maxvalx = max(leftbound[x], rightbound[x]) - minvalue
+                rgbadata[x, max(0,int(minvalx * scalefactor)) : 
+                             min(int(maxvalx * scalefactor),M), 3] = 125
     else:
-         for x in range(len(firstcurve)):
-             color[x] = shadingcolor
-
-    if ((len(lognames) >= 2) and
-                (shadinglogs[0] == lognames[1])):
-        for x in range(len(firstcurve)):
-            plot.quad(top=depthdata[x],
-                      bottom=depthdata[x],
-                      left=leftbound[x],
-                      right=rightbound[x],
-                      line_width = 1,
-                      x_range_name = xrange2,
-                      fill_color = color[x],
-                      fill_alpha = 0.2,
-                      line_color = color[x],
-                      line_alpha = 0.2
-                      )
-    else:
-        for x in range(len(firstcurve)):
-            plot.quad(top=depthdata[x],
-                      bottom=depthdata[x],
-                      left=leftbound[x],
-                      right=rightbound[x],
-                      line_width = 1,
-                      fill_color = color[x],
-                      fill_alpha = 0.2,
-                      line_color = color[x],
-                      line_alpha = 0.2
-                      )
+        for x in range(N):
+            if not (np.isnan(firstcurve[x])):
+                minvalx = leftbound[x] - minvalue
+                maxvalx = rightbound[x] - minvalue
+                rgbadata[x, max(0,int(minvalx * scalefactor)) : 
+                              min(int(maxvalx * scalefactor),M), 3] = 125
+    rgbaflip = np.flipud(rgbadata)
+    plot.x_range = Range1d(minvalue , maxvalue)
+    plot.y_range = Range1d(inputmaxdepth, inputmindepth)
+    plot.image_rgba(image=[rgbaflip], 
+                        x=minvalue, y=inputmaxdepth, dw=dw, dh=dh, level="image")    
     return(plot)
 
 def add_markers(plot, markers, plotmarkers, plotmarkersyesno,
@@ -240,15 +278,11 @@ def create_plot(alldata, nr, plotmarkersyesno):
         else:
             print('error: select 2 logs for difference shading')
     depthlogstr = headers[0]
-    depthdata = -data.loc[:, depthlogstr]
+    depthdata = data.loc[:, depthlogstr]
     logwidth = int(alldata['logwidth'].value)
     logheight = int(alldata['logheight'].value)
-    inputmindepth = -float(alldata['inputmindepth'].value)
-    inputmaxdepth = -float(alldata['inputmaxdepth'].value)
-    if (inputmindepth > depthdata.iloc[0]):
-        inputmindepth = depthdata.iloc[0]
-    if (inputmaxdepth < depthdata.iloc[-1]):
-        inputmaxdepth = depthdata.iloc[-1]
+    inputmindepth = float(alldata['inputmindepth'].value)
+    inputmaxdepth = float(alldata['inputmaxdepth'].value)
     depthticks = int(alldata['depthticks'].value)
     depthminorticks = int(alldata['depthminorticks'].value)
     ylabel = depthlogstr
@@ -313,10 +347,10 @@ def create_plot(alldata, nr, plotmarkersyesno):
 #                     output_backend='webgl' // gives weird look when zoomed out
                      )
     ticker = []
-    for i in range(0,-10000,-depthticks):
+    for i in range(0,10000,depthticks):
         ticker.append(i)
     minorticks = []
-    for i in range(0,-10000,-depthminorticks):
+    for i in range(0,10000,depthminorticks):
         minorticks.append(i)
     plot.yaxis.ticker = FixedTicker(ticks=ticker,
                                     minor_ticks = minorticks)
@@ -327,7 +361,6 @@ def create_plot(alldata, nr, plotmarkersyesno):
     plot.title.text = 'Plot ' + str(nr+1)
     plot.y_range = Range1d(inputmaxdepth , inputmindepth) 
     plot.x_range = Range1d(float(minvalues[0]), float(maxvalues[0]))
-
     if (plotmarkersyesno != 'Last'):
         for count, name, minvalue, maxvalue, linestyle, color in zip(counter,
                                       lognames,
@@ -375,9 +408,10 @@ def create_plot(alldata, nr, plotmarkersyesno):
     # shading plots
         if ((shadingtype != 'None') and
             (shadinglogs[0] != 'None')):
-            plot = add_shading(plot, scaledlogs, depthdata, lognames, xrange2,
-                           shadingtype, shadinglogs, linestyles, mypalette,
-                           colorfillpalette, colorfill, shadingcolor)
+            plot = add_shading(plot, scaledlogs, depthdata, inputmindepth,
+                            inputmaxdepth, lognames, xrange2,
+                            shadingtype, shadinglogs, linestyles, mypalette,
+                            colorfillpalette, colorfill, shadingcolor)
 # marker plots
     minval = float(minvalues[0])
     maxval = float(maxvalues[0])
@@ -389,3 +423,4 @@ def create_plot(alldata, nr, plotmarkersyesno):
       plot = add_markers(plot, markers, plotmarkers, plotmarkersyesno,
                        minbound, maxbound)
     return (plot)
+
