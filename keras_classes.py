@@ -155,6 +155,7 @@ import pkgutil
 import inspect
 
 from abc import ABC, abstractmethod
+from keras import backend
 
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
@@ -259,7 +260,7 @@ class UserModel(ABC):
     return [model.uiname for model in UserModel.mlmodels if model.modtype == modeltype]
   
   @abstractmethod
-  def _make_model(self, input_shape, nroutputs, learnrate, data_format = 'channels_first'):
+  def _make_model(self, input_shape, nroutputs, learnrate):
     """Abstract static method that defines a machine learning model.
     
     Must be implemented in the user's derived class
@@ -267,13 +268,11 @@ class UserModel(ABC):
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape as per Keras requirements
+    Defines input data shape in the Keras default format for the current backend
     nroutputs : int
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
-    data_format: str
-    Either 'channels_first' or 'channels_last'
     
     Returns
     -------
@@ -282,26 +281,32 @@ class UserModel(ABC):
     """
     pass
 
-  def model(self, input_shape, nroutputs, learnrate, data_format = 'channels_first'):
+  def model(self, input_shape, nroutputs, learnrate, data_format):
     """Creates/returns a compiled keras model instance
     
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape as per Keras requirements
+    Defines input data shape (by convention in the machine learning plugin this
+    will be 'channels_first' format. 
     nroutputs : int
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
     data_format: str
-    Either 'channels_first' or 'channels_last'
+    The data format used by the machine learning plugin, will generally be 'channels_first'
     
     Returns
     -------
     a compiled keras model
     
     """
-    
+    if data_format != backend.image_data_format():
+      isl = list(input_shape)
+      isl[0] = input_shape[-1]
+      isl[-1] = input_shape[0]
+      input_shape = tuple(isl)
+      
     newmodel = self._model is None or input_shape != self._model.input_shape or \
                 nroutputs != self._nroutputs or learnrate != self._learnrate or \
                 data_format != self._data_format
@@ -309,7 +314,7 @@ class UserModel(ABC):
       self._nroutputs = nroutputs
       self._learnrate = learnrate
       self._data_format = data_format
-      self._model = self._make_model(input_shape,nroutputs,learnrate,data_format)
+      self._model = self._make_model(input_shape,nroutputs,learnrate)
     return self._model
   
 UserModel.mlmodels = UserModel.findModels()
