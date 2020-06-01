@@ -171,7 +171,8 @@ class UserModel(ABC):
   The "mlmodel_" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
-  modtype : str - type of model only 'img2img' specifically defined
+  modtype : str - type of model only either 'img2img' or 'other'
+  dims : str - describes number of input dimensions supported by model, one of '1', '2', '3' or 'any'
 
   Examples
   --------
@@ -243,21 +244,25 @@ class UserModel(ABC):
     return next((model for model in UserModel.mlmodels if model.uiname == modname), None)
   
   @staticmethod
-  def getNamesByType(modeltype):
+  def getNamesByType(model_type='img2img', dims='any'):
     """Static method that returns a list of uinames of the UserModels filtered by the given
-    model type 
+    model type and dimensions
     
     Parameters
     ----------
     modeltype: str
-    The type of model to filter by - only 'img2img' currently supported
+    The type of model to filter by either 'img2img' or 'other'
+    dims: str
+    The dimensions that the model must support
     
     Returns
     -------
     a list of matching model names (uinames).
     
     """
-    return [model.uiname for model in UserModel.mlmodels if model.modtype == modeltype]
+    return [model.uiname for model in UserModel.mlmodels \
+                  if model.modtype == model_type and\
+                    (model.dims == dims or model.dims == 'any')]
   
   @abstractmethod
   def _make_model(self, input_shape, nroutputs, learnrate):

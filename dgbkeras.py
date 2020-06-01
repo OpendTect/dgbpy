@@ -71,15 +71,15 @@ mobilnetv2idx = 3
 def isMobilNetV2( mltype ):
   return mltype == mltypes[mobilnetv2idx][0] or mltype == mltypes[mobilnetv2idx][1]
 
-def getUiModelTypes( learntype ):
+def getUiModelTypes( learntype, ndim ):
   ret = ()
   if dgbhdf5.isImg2Img(learntype):
     ret += (mltypes[unetidx],)
-    for model in kc.UserModel.getNamesByType('img2img'):
+    for model in kc.UserModel.getNamesByType(model_type='img2img', dims=str(ndim)):
       ret += ((model,),)
   else:
     ret += (mltypes[letnetidx],)
-    for model in kc.UserModel.getNamesByType('other'):
+    for model in kc.UserModel.getNamesByType(model_type='other', dims=str(ndim)):
       ret += ((model,),)
 #    ret += (mltypes[squeezenetidx],)
 #    ret += (mltypes[mobilnetv2idx],)
