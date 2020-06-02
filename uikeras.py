@@ -36,7 +36,10 @@ def getSizeStr( sizeinbytes ):
 def getUiPars():
   dict = keras_dict
   learntype = info[dgbkeys.learntypedictstr]
-  ndim = len(info[dgbkeys.inpshapedictstr])
+  if isinstance(info[dgbkeys.inpshapedictstr], int):
+    ndim = 1
+  else:
+    ndim = len(info[dgbkeys.inpshapedictstr])
   modeltypes = getUiModelTypes( learntype, ndim )
   defmodel = modeltypes[0]
   modeltypfld = Select(title='Type',value=defmodel,
