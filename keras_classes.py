@@ -171,7 +171,7 @@ class UserModel(ABC):
   The "mlmodel_" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
-  modtype : str - type of model only either 'img2img' or 'other'
+  modtype : str - type of model only either 'img2img', 'classifier' or 'regressor'
   dims : str - describes number of input dimensions supported by model, one of '1', '2', '3' or 'any'
 
   Examples
@@ -182,6 +182,7 @@ class UserModel(ABC):
       uiname = 'mymodel'
       uidescription = 'short description of model'
       modtype = 'img2img'
+      dims = '3'
       
       def _make_model(self, input_shape, nroutputs, learnrate, data_format):
         inputs = Input(input_shape)
@@ -257,12 +258,15 @@ class UserModel(ABC):
     
     Returns
     -------
-    a list of matching model names (uinames).
+    a list of matching model names (uinames) or None if no match found
     
     """
-    return [model.uiname for model in UserModel.mlmodels \
+    if model_type in ['img2img', 'classifier', 'regressor']:
+      return [model.uiname for model in UserModel.mlmodels \
                   if model.modtype == model_type and\
                     (model.dims == dims or model.dims == 'any')]
+    else:
+      return None
   
   @abstractmethod
   def _make_model(self, input_shape, nroutputs, learnrate):
@@ -307,10 +311,7 @@ class UserModel(ABC):
     
     """
     if data_format != backend.image_data_format():
-      isl = list(input_shape)
-      isl[0] = input_shape[-1]
-      isl[-1] = input_shape[0]
-      input_shape = tuple(isl)
+      input_shape = input_shape[1:] + input_shape[:1]
       
     newmodel = self._model is None or input_shape != self._model.input_shape or \
                 nroutputs != self._nroutputs or learnrate != self._learnrate or \

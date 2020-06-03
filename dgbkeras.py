@@ -79,8 +79,11 @@ def getUiModelTypes( learntype, ndim ):
       ret += ((model,),)
   else:
     ret += (mltypes[letnetidx],)
-    for model in kc.UserModel.getNamesByType(model_type='other', dims=str(ndim)):
+    for model in kc.UserModel.getNamesByType(model_type='classifier', dims=str(ndim)):
       ret += ((model,),)
+    if not dgbhdf5.isSeisClass(learntype):
+      for model in kc.UserModel.getNamesByType(model_type='regressor', dims=str(ndim)):
+        ret += ((model,),)
 #    ret += (mltypes[squeezenetidx],)
 #    ret += (mltypes[mobilnetv2idx],)
 
