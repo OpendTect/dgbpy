@@ -156,6 +156,8 @@ import inspect
 
 from abc import ABC, abstractmethod
 from keras import backend
+import os, sys
+from pathlib import Path
 
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
@@ -215,8 +217,17 @@ class UserModel(ABC):
     UserModel base class is each found module will be added to the mlmodels
     class variable.
     """
-    
+
     mlm = []
+
+    for _, name, ispkg in pkgutil.iter_modules(path=[Path(__file__).parent.absolute()]):
+      if name.startswith("mlmodel_"):
+        module = importlib.import_module('.'.join(['dgbpy',name]))
+        clsmembers = inspect.getmembers(module, inspect.isclass)
+        for (_, c) in clsmembers:
+          if issubclass(c, UserModel) & (c is not UserModel):
+            mlm.append(c())
+        
     for _, name, ispkg in pkgutil.iter_modules():
       if name.startswith('mlmodel_'):
         module = importlib.import_module(name)
