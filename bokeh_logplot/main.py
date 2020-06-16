@@ -31,12 +31,9 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
-datagrp.add_argument( '--wlfile',
-            dest='welllogfile', nargs=1,
-            help='Log file' )
-datagrp.add_argument( '--wmfile',
-            dest='markerfile', nargs=1,
-            help='Marker file' )
+datagrp.add_argument( '--welllogs',
+            dest='welllogs', nargs=1,
+            help='List of well logs to show' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
@@ -61,19 +58,7 @@ reload = False
 
 wellid = args['wellid'][0]
 blp.wellnm = wellman.getName( wellid, reload, args )
-wlfnm = getattr(args,'welllogfile',None)
-wmfnm = getattr(args,'markerfile',None)
-
-if wlfnm:
-  (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readFromFile( wlfnm, blp.undef )
-else:
-  (blp.headers,blp.data,blp.mindepth,blp.maxdepth) = blp.readLogs( blp.wellnm, blp.undef, reload, args )
-
-if wmfnm:
-  blp.markers = blp.readMarkers( wmfnm )
-
-depthlogstr = blp.headers[0]
-blp.loglist = blp.updateLogList(depthlogstr, blp.headers, option = 1)
-blp.logonlylist = blp.updateLogList(depthlogstr, blp.headers, option = 0)
+#blp.logs = args['welllogs']
+blp.logs=['Sonic','Gamma Ray','Density']
 
 StartBokehServer({'/': blp.logplot_app}, args)
