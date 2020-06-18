@@ -11,11 +11,11 @@ Log plotting GUI
 
 """
 import argparse
-import random
 
 import numpy as np
 from bokeh.server.server import Server
 import bokeh.layouts as bl
+import bokeh.models as bm
 import odbokeh as odb
 
 undef = 1e30
@@ -24,15 +24,8 @@ logs = []
 
 def logplot_app(doc):
   well = odb.Well(wellnm)
-  lt = odb.LogTrack(well, 400)
-  for log in logs:
-    color = "#%06x" % random.randint(0,0xFFFFFF)
-    lt.addLog(log, color)
-
-  lt.addMarkers()
-  
-  layout = bl.layout(lt.track, sizing_mode='stretch_height')
-  doc.add_root(layout)
+  ltmgr = odb.LogTrackMgr(well, trackwidth=400, withui=True)
+  doc.add_root(ltmgr.tracklayout)
   doc.title = 'Plot well'
 
 
