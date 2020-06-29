@@ -300,6 +300,7 @@ def getInfo( filenm, quick ):
     while idy < example_sz:
       exidystr = exidxstr+str(idy)+'.'
       collnm = odhdf5.getText(info,exidystr+'Name')
+      collnm = collnm.replace( '/', '_' )
       exxyobj = {
         dbkeydictstr: odhdf5.getText(info, exidystr+'ID' ),
         iddictstr: idy, 
