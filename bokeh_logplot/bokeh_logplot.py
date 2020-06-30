@@ -24,7 +24,7 @@ logs = []
 
 def logplot_app(doc):
   well = odb.Well(wellnm)
-  ltmgr = odb.LogTrackMgr(well, trackwidth=400, withui=True)
+  ltmgr = odb.LogTrackMgr(well, deflogs=logs, trackwidth=400, withui=True)
   doc.add_root(ltmgr.tracklayout)
   doc.title = 'Plot well'
 

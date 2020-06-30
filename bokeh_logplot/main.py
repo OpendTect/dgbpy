@@ -31,12 +31,9 @@ datagrp.add_argument( '--survey',
 datagrp.add_argument( '--well',
             dest='wellid', nargs=1,
             help='Well ID' )
-datagrp.add_argument( '--wlfile',
-            dest='welllogfile', nargs=1,
-            help='Log file' )
-datagrp.add_argument( '--wmfile',
-            dest='markerfile', nargs=1,
-            help='Marker file' )
+datagrp.add_argument( '--welllogs',
+            dest='welllogs', nargs=1, default='0',
+            help='Well log names to display' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
@@ -58,10 +55,10 @@ from odpy import wellman
 import bokeh_logplot as blp
 
 reload = False
-
 wellid = args['wellid'][0]
 blp.wellnm = wellman.getName(wellid, reload, args)
-logs = wellman.getLogNames(blp.wellnm, reload, args)
-blp.logs=[logs[0]]
+lognms = wellman.getLogNames(blp.wellnm, reload, args)
+logidx = list(args.get('welllogs')[0].split(','))
+blp.logs=[lognms[int(i)] for i in logidx]
 
 StartBokehServer({'/': blp.logplot_app}, args)
