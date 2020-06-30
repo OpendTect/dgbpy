@@ -33,7 +33,7 @@ datagrp.add_argument( '--well',
             help='Well ID' )
 datagrp.add_argument( '--welllogs',
             dest='welllogs', nargs=1, default='0',
-            help='Well log names to display' )
+            help='Well log indices to display' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
