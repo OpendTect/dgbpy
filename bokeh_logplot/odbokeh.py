@@ -19,7 +19,7 @@ from bokeh.core.properties import DashPattern
 import math
 import numpy as np
 import random
-from odpy.ranges import niceRange
+from odpy.ranges import niceRange, niceNumber
 
 class Well:
     def __init__(self,wellname):
@@ -182,9 +182,11 @@ class LogTrack:
                              plot_width=self.track_props['plot_width'],
                              sizing_mode='stretch_height',
                              background_fill_color=self.track_props['background_fill_color'],
-                             tools='ypan,ywheel_zoom,reset,hover',
+                             tools='ypan,ywheel_zoom,reset,hover', active_scroll='ywheel_zoom',
                              y_axis_label='Depth (mMD)',
                              tooltips=self.tooltips)
+        box_zoom = bm.BoxZoomTool(dimensions="height")
+        self.track.add_tools(box_zoom)
         self.track.title.text_font_size = '14pt'
         self.track.y_range = bm.Range1d(depths[-1], depths[0],bounds='auto')
         self.track.x_range = bm.Range1d(0, 10)
@@ -235,7 +237,7 @@ class LogTrack:
                           'right': bm.Spinner(title='Right Limit:'),
                          }
         self.log_fields.update(line_props.fields)
-        self.log_fields['log'].on_change('value', self._update_log_ui)
+        self.log_fields['log'].on_change('value', self._update_log_selection)
         self.log_select.js_link('value',self.log_fields['log'], 'options')
         return bl.layout(self.log_fields['log'],
                          self.log_fields['left'],
@@ -327,8 +329,21 @@ class LogTrack:
             break
         return dash
         
-    def _update_log_ui(self, attr, old, new):
+    def _update_log_selection(self, attr, old, new):
+        lognm = new
+        left = self.log_props[lognm]['left']
+        right = self.log_props[lognm]['right']
+        if left is None or right is None:
+            self.addLog(lognm)
+        self._update_log_ui()
+        
+    def _update_log_ui(self):
         lognm = self.log_fields['log'].value
+        left = self.log_props[lognm]['left']
+        right = self.log_props[lognm]['right']
+        nicestep = niceNumber(abs(right-left)/10)
+        self.log_fields['right'].update(step=nicestep)
+        self.log_fields['left'].update(step=nicestep)
         for (key, prop) in self.log_props[lognm].items():
             if key == 'color':
                 self.log_fields[key].update(color=prop)
@@ -430,7 +445,7 @@ class LogTrack:
             if self.tracklayout:
                 self.tracklayout.children[0] = self.track
         elif new==1:
-            self._update_log_ui(None, None, None)
+            self._update_log_ui()
         elif new==2:
             self._update_track_ui()
             
@@ -447,18 +462,20 @@ class LogTrack:
         else:
           return self.track
       
-    def addLog(self, lognm):
+    def _getLogLimits(self, lognm):
         log = self.well.getLog(lognm)
-        limits = None
         left = self.log_props[lognm]['left']
         right = self.log_props[lognm]['right']
-        if left and right:
-            limits = (left, right)
-        else:
+        limits = (left, right)
+        if left is None or right is None:
             limits = niceRange(min(log.data[lognm]), max(log.data[lognm]))
             self.log_props[lognm]['left'] = limits[0]
             self.log_props[lognm]['right'] = limits[-1]
-            
+        return limits
+        
+    def addLog(self, lognm):
+        log = self.well.getLog(lognm)
+        limits = self._getLogLimits(lognm)
         width = self.log_props[lognm]['width']
         color = self.log_props[lognm]['color']
         dash = self.log_props[lognm]['dash']
@@ -487,7 +504,7 @@ class LogTrack:
         if self.withui:
             self.log_select.update(value=showlogs)
             self.log_fields['log'].update(options=showlogs, value=showlogs[0])
-            self._update_log_ui(None,None,None)
+            self._update_log_ui()
             
     def addMarker(self, name, depth, color):
         marker_style = {'line_color': color,
