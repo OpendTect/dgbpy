@@ -74,7 +74,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
 
   def _register(self, port):
     Message().sendObject(self.host, self.port,
-                   'register', {'servicename': self.serviceID,
+                   'bokeh_register', {'servicename': self.serviceID,
                                 'hostname': socket.gethostname(),
                                 'port': port,
                                 'pid': os.getpid()
