@@ -497,7 +497,7 @@ def addInfo( inpfile, plfnm, filenm, infos ):
     if isImg2Img( infos ):
       odhdf5.setArray( dsinfoout, outshapestr, infos[outshapedictstr] )
     else:
-      odhdf5.setAttr( dsinfoout, outshapestr, str(getNrOutputs(infos)))
+      odhdf5.setArray( dsinfoout, outshapestr, getNrOutputs(infos) )
 
   outps = getOutputs( infos )
   odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(len(outps)) )
