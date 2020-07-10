@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import math
 
-from odpy.common import log_msg, get_log_file, redirect_stdout, restore_stdout
+from odpy.common import log_msg, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
@@ -32,12 +32,6 @@ if 'KERAS_WITH_AUGMENTATION' in os.environ:
 
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
-mltypes = (\
-            ('lenet','LeNet - Malenov'),\
-            ('unet','U-Net'),\
-            ('squeezenet','SqueezeNet'),\
-            ('other','MobilNet V2'),\
-          )
 
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
               '288',  '384',  '448',  '480',  '512',  '576',  '640',  '768', \
@@ -52,42 +46,9 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-letnetidx = 0
-def isLeNet( mltype ):
-  return mltype == mltypes[letnetidx][0] or mltype == mltypes[letnetidx][1]
-
-unetidx = 1
-def isUnet( mltype ):
-  return mltype == mltypes[unetidx][0] or mltype == mltypes[unetidx][1]
 unet_smallsz = (2,64)
 unet_mediumsz = (16,512)
 unet_largesz = (32,512)
-
-squeezenetidx = 2
-def isSqueezeNet( mltype ):
-  return mltype == mltypes[squeezenetidx][0] or mltype == mltypes[squeezenetidx][1]
-
-mobilnetv2idx = 3
-def isMobilNetV2( mltype ):
-  return mltype == mltypes[mobilnetv2idx][0] or mltype == mltypes[mobilnetv2idx][1]
-
-def getUiModelTypes( learntype, ndim ):
-  ret = ()
-  if dgbhdf5.isImg2Img(learntype):
-    ret += (mltypes[unetidx],)
-    for model in kc.UserModel.getNamesByType(model_type='img2img', dims=str(ndim)):
-      ret += ((model,),)
-  else:
-    ret += (mltypes[letnetidx],)
-    for model in kc.UserModel.getNamesByType(model_type='classifier', dims=str(ndim)):
-      ret += ((model,),)
-    if not dgbhdf5.isSeisClass(learntype):
-      for model in kc.UserModel.getNamesByType(model_type='regressor', dims=str(ndim)):
-        ret += ((model,),)
-#    ret += (mltypes[squeezenetidx],)
-#    ret += (mltypes[mobilnetv2idx],)
-
-  return dgbkeys.getNames( ret )
 
 prefercpustr = 'prefercpu'
 defbatchstr = 'defaultbatchsz'
@@ -101,7 +62,7 @@ keras_dict = {
   'learnrate': 1e-4,
   'epochdrop': 5,
   'unetnszs': unet_mediumsz,
-  'type': mltypes[letnetidx][0],
+  'type': None,
   'prefercpu': None
 }
 
@@ -145,7 +106,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'epochdrop': epochdrop,
     'type': nntype
   }
-  if isUnet(nntype):
+  if kc.UserModel.isImg2Img(nntype):
     ret.update({'unetnszs': unetnszs})
   if prefercpu == None:
     prefercpu = get_cpu_preference()
@@ -158,7 +119,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
 # input_int: the epoch that is currently being entered
 def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
                       epochs_drop=keras_dict['epochdrop']):
-  from keras.callbacks import (EarlyStopping,LearningRateScheduler)
+  from keras.callbacks import LearningRateScheduler
   def adaptive_lr(input_int):
     drop = 0.5
     return initial_lrate * math.pow(drop,
@@ -255,10 +216,20 @@ def getModelDims( model_shape, data_format ):
     return 0
   return len(ret)
 
+def getModelsByType( learntype, classification, ndim ):
+    if dgbhdf5.isImg2Img(learntype):
+        modtype = kc.UserModel.img2imgtypestr
+    else:
+        if classification or dgbhdf5.isSeisClass( learntype ):
+            modtype = kc.UserModel.classifiertypestr
+        else:
+            modtype = kc.UserModel.regressortypestr
+    return kc.UserModel.getNamesByType(model_type=modtype, dims=str(ndim))
+
 def getDefaultModel(setup,type=keras_dict['type'],
                     unetnszs=keras_dict['unetnszs'],
-                    learnrate=keras_dict['learnrate'],
-                    data_format='channels_first'):
+                     learnrate=keras_dict['learnrate'],
+                     data_format='channels_first'):
   isclassification = setup[dgbhdf5.classdictstr]
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
@@ -268,218 +239,13 @@ def getDefaultModel(setup,type=keras_dict['type'],
   nrattribs = dgbhdf5.getNrAttribs(setup)
   model_shape = get_model_shape( setup[dgbkeys.inpshapedictstr], nrattribs,
                                  attribfirst=data_format=='channels_first' )
-  if isLeNet( type ):
-    return getDefaultLeNet(isclassification,model_shape,nroutputs,
-                           learnrate=learnrate,data_format=data_format)
-  elif isUnet( type ):
-    return getDefaultUnet(isclassification,model_shape,nroutputs,
-                          unetnszs=unetnszs,
-                          learnrate=learnrate,data_format=data_format)
-  elif kc.UserModel.findName(type):
+
+  if kc.UserModel.findName(type):
     return kc.UserModel.findName(type).model(model_shape, nroutputs,
                                              learnrate,
                                              data_format=data_format)
-  else:
-    return None
+  return None
 
-
-def getDefaultLeNet(isclassification,model_shape,nroutputs,
-                    learnrate=keras_dict['learnrate'],
-                    data_format='channels_first'):
-  
-  redirect_stdout()
-  import keras
-  restore_stdout()
-  from tensorflow.keras.layers import (Activation,BatchNormalization,Dense,Flatten)
-  from tensorflow.keras.layers import (Conv1D,Conv2D,Conv3D)
-  from tensorflow.keras.models import Sequential
-  from tensorflow.keras.optimizers import Adam, RMSprop
-
-  input_shape = model_shape
-  if need_channels_last() and data_format == 'channels_first':
-#Tensorflow bug; cannot use channel_first on CPU: crash or no accuracy
-    data_format = 'channels_last'
-    dims = model_shape[1:]
-    input_shape = ( *dims, model_shape[0] )
-
-  filtersz = 50
-  densesz = 10
-
-  nrdims = getModelDims( input_shape, data_format )
-
-  layers = list()
-  if nrdims == 3:
-    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv3D )
-  elif nrdims == 2:
-    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv2D )
-  elif nrdims == 1 or nrdims == 0:
-    layers = getDefaultLeNetND( layers, input_shape, filtersz, data_format, Conv1D )
-  else:
-    return None
-
-  layers.extend([
-    Flatten(),
-    Dense(filtersz,name = 'dense_layer1'),
-    BatchNormalization(),
-    Activation('relu'),
-    Dense(densesz,name = 'attribute_layer'),
-    BatchNormalization(),
-    Activation('relu'),
-    Dense(nroutputs, name='pre-softmax_layer'),
-    BatchNormalization(),
-    Activation('softmax')
-  ])
-  
-  redirect_stdout()
-  model = Sequential( layers )
-  restore_stdout()
-
-# initiate the model compiler options
-  if isclassification:
-    opt = Adam(lr = learnrate)
-    if nroutputs > 2:
-      loss = 'categorical_crossentropy'
-    else:
-      loss = 'binary_crossentropy'
-    metrics = ['accuracy']
-  else:
-    opt = RMSprop(lr=learnrate)
-    from keras import backend as kb
-    def root_mean_squared_error(y_true, y_pred):
-      return kb.sqrt(kb.mean(kb.square(y_pred - y_true)))
-    loss = root_mean_squared_error
-    metrics = ['mean_squared_error']
-
-# Compile the model with the desired optimizer, loss, and metric
-  model.compile(optimizer=opt,loss=loss,metrics=metrics)
-  return model
-
-def getDefaultLeNetND( layers, shape, filtersz, format, conv_clss ):
-  from tensorflow.keras.layers import (Activation,BatchNormalization,Dropout)
-  kernel_sz1 = 5
-  kernel_sz2 = 3
-  stride_sz1 = 4
-  stride_sz2 = 2
-  dropout = 0.2
-  
-  layers.extend([
-    conv_clss(filtersz, kernel_sz1, strides=stride_sz1, padding='same', name='conv_layer1',input_shape=shape,data_format=format),
-    BatchNormalization(),
-    Activation('relu'),
-    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer2',data_format=format),
-    Dropout(dropout),
-    BatchNormalization(),
-    Activation('relu'),
-    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer3',data_format=format),
-    Dropout(dropout),
-    BatchNormalization(),
-    Activation('relu'),
-    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer4',data_format=format),
-    Dropout(dropout),
-    BatchNormalization(),
-    Activation('relu'),
-    conv_clss(filtersz, kernel_sz2, strides=stride_sz2, padding='same', name='conv_layer5',data_format=format)
-  ])
-  return layers
-
-def getDefaultUnet(isclassification,model_shape,nroutputs,
-                    unetnszs=keras_dict['unetnszs'],
-                    learnrate=keras_dict['learnrate'],
-                    data_format='channels_last'):
-  redirect_stdout()
-  import keras
-  restore_stdout()
-  from keras.layers import Input
-  from keras.models import Model
-  from keras.optimizers import Adam
-
-  input_shape = model_shape
-  if data_format == 'channels_first':
-#Tensorflow bug; always bad accuracy, no training
-    data_format = 'channels_last'
-    dims = model_shape[1:]
-    input_shape = ( *dims, model_shape[0] )
-
-  if isclassification:
-    nroutputs = 1
-
-  inputs = Input(input_shape)
-  nrdims = getModelDims( model_shape, data_format )
-  axis = -1
-  from keras.layers import (Conv1D,Conv2D,Conv3D)
-  from keras.layers import (MaxPooling1D,MaxPooling2D,MaxPooling3D)
-  from keras.layers import (UpSampling1D,UpSampling2D,UpSampling3D)
-  if nrdims == 3:
-    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv3D, MaxPooling3D, UpSampling3D )
-  elif nrdims == 2:
-    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv2D, MaxPooling2D, UpSampling2D  )
-  elif nrdims == 1:
-    lastconv = getDefaultUnetND( inputs, unetnszs, data_format, axis, nroutputs, Conv1D, MaxPooling1D, UpSampling1D  )
-  else:
-    return None
-  
-  model = Model(inputs=[inputs], outputs=[lastconv])
-
-  metrics = ['accuracy']
-  opt = Adam(lr = learnrate)
-#  if isclassification:
-#    if nroutputs > 2:
-#      loss = 'categorical_crossentropy'
-#    else:
-#      loss = 'binary_crossentropy'
-#      loss = 'sparse_categorical_crossentropy'
-#      metrics = ['sparse_categorical_accuracy']
-#  else:
-#    loss = 'cross_entropy_balanced'
-  loss = cross_entropy_balanced
-
-  model.compile(optimizer=opt,loss=loss,metrics=metrics)
-  return model
-
-def getDefaultUnetND( inputs, unetnszs, format, axis, nroutputs, conv_clss, pool_clss, upsamp_clss ):
-  from keras.layers import concatenate
-
-  poolsz1 = 2
-  poolsz2 = 2
-  poolsz3 = 2
-  upscalesz = 2
-  filtersz1 = unetnszs[0]
-  filtersz2 = filtersz1 * poolsz2
-  filtersz3 = filtersz2 * poolsz3
-  filtersz4 = unetnszs[1]
-
-  params = dict(kernel_size=3, activation='relu', padding='same', data_format=format)
-
-  conv1 = conv_clss(filtersz1, **params)(inputs)
-  conv1 = conv_clss(filtersz1, **params)(conv1)
-
-  pool1 = pool_clss(pool_size=poolsz1,data_format=format)(conv1)
-
-  conv2 = conv_clss(filtersz2, **params)(pool1)
-  conv2 = conv_clss(filtersz2, **params)(conv2)
-  pool2 = pool_clss(pool_size=poolsz2,data_format=format)(conv2)
-
-  conv3 = conv_clss(filtersz3, **params)(pool2)
-  conv3 = conv_clss(filtersz3, **params)(conv3)
-  pool3 = pool_clss(pool_size=poolsz3,data_format=format)(conv3)
-
-  conv4 = conv_clss(filtersz4, **params)(pool3)
-  conv4 = conv_clss(filtersz4, **params)(conv4)
-
-  up5 = concatenate([upsamp_clss(size=upscalesz,data_format=format)(conv4), conv3], axis=axis)
-  conv5 = conv_clss(filtersz3, **params)(up5)
-  conv5 = conv_clss(filtersz3, **params)(conv5)
-
-  up6 = concatenate([upsamp_clss(size=poolsz2,data_format=format)(conv5), conv2], axis=axis)
-  conv6 = conv_clss(filtersz2, **params)(up6)
-  conv6 = conv_clss(filtersz2, **params)(conv6)
-
-  up7 = concatenate([upsamp_clss(size=poolsz1,data_format=format)(conv6), conv1], axis=axis)
-  conv7 = conv_clss(filtersz1, **params)(up7)
-  conv7 = conv_clss(filtersz1, **params)(conv7)
-
-  conv8 = conv_clss(nroutputs, 1, activation='sigmoid', data_format=format)(conv7)
-  return conv8
 
 def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmentation=withaugmentation):
   redirect_stdout()
@@ -598,7 +364,6 @@ def transfer( model ):
   for layer in layers:
     layer.trainable = False
 
-  ilaystart = 0
   for ilay in range(len(layers)):
     layers[ilay].trainable = True
     laytype = type( layers[ilay] )

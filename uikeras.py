@@ -33,6 +33,13 @@ def getSizeStr( sizeinbytes ):
     ret += str(int(sizeinbytes)) + ' bytes'
   return ret
 
+def getUiModelTypes( learntype, classification, ndim ):
+  ret = ()
+  for model in getModelsByType( learntype, classification, ndim ):
+    ret += ((model,),)
+
+  return dgbkeys.getNames( ret )
+
 def getUiPars():
   dict = keras_dict
   learntype = info[dgbkeys.learntypedictstr]
@@ -40,15 +47,15 @@ def getUiPars():
     ndim = 1
   else:
     ndim = len(info[dgbkeys.inpshapedictstr])
-  modeltypes = getUiModelTypes( learntype, ndim )
+  modeltypes = getUiModelTypes( learntype, info[dgbkeys.classdictstr], ndim )
   defmodel = modeltypes[0]
   modeltypfld = Select(title='Type',value=defmodel,
                        options=modeltypes )
   epochfld = Slider(start=1,end=1000,value=dict['epoch'],
               title='Epochs')
   defbatchsz = keras_dict['batch']
-  if isUnet( defmodel ):
-    defbatchsz = 4
+  if kc.UserModel.isImg2Img( defmodel ):
+      defbatchsz = 4
   batchfld = Select(title='Batch Size',value=str(defbatchsz),options=cudacores)
   lrfld = Slider(start=-10,end=-1,step=1,value=np.log10( dict['learnrate'] ),
                  title='Initial Learning Rate (1e)')

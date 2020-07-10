@@ -156,8 +156,8 @@ import inspect
 
 from abc import ABC, abstractmethod
 from keras import backend
-import os, sys
 from pathlib import Path
+
 
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
@@ -173,17 +173,17 @@ class UserModel(ABC):
   The "mlmodel_" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
-  modtype : str - type of model only either 'img2img', 'classifier' or 'regressor'
+  modtype : str - type of model (must be one of modeltypes)
   dims : str - describes number of input dimensions supported by model, one of '1', '2', '3' or 'any'
 
   Examples
   --------
-    from dgb.keras_classes import UserModel
+    from dgbpy.keras_classes import UserModel
   
     class myModel(UserModel):
       uiname = 'mymodel'
       uidescription = 'short description of model'
-      modtype = 'img2img'
+      modtype = classifiertypestr
       dims = '3'
       
       def _make_model(self, input_shape, nroutputs, learnrate, data_format):
@@ -201,6 +201,11 @@ class UserModel(ABC):
     
   """
   mlmodels = []
+  
+  classifiertypestr = 'classifier'
+  regressortypestr = 'regressor'
+  img2imgtypestr = 'img2img'
+  modeltypes = (classifiertypestr,regressortypestr,img2imgtypestr)
   
   def __init__(self, ):
     self._learnrate = None
@@ -256,28 +261,52 @@ class UserModel(ABC):
     return next((model for model in UserModel.mlmodels if model.uiname == modname), None)
   
   @staticmethod
-  def getNamesByType(model_type='img2img', dims='any'):
-    """Static method that returns a list of uinames of the UserModels filtered by the given
+  def getModelsByType(model_type, dims):
+    """Static method that returns a list of the UserModels filtered by the given
     model type and dimensions
     
     Parameters
     ----------
     modeltype: str
-    The type of model to filter by either 'img2img' or 'other'
+    The type of model to filter by either 'classifier' or 'other'
     dims: str
     The dimensions that the model must support
     
     Returns
     -------
-    a list of matching model names (uinames) or None if no match found
+    a list of matching model or None if no match found
     
     """
-    if model_type in ['img2img', 'classifier', 'regressor']:
-      return [model.uiname for model in UserModel.mlmodels \
+    if model_type in UserModel.modeltypes:
+      return [model for model in UserModel.mlmodels \
                   if model.modtype == model_type and\
                     (model.dims == dims or model.dims == 'any')]
-    else:
-      return None
+    return None
+
+  @staticmethod
+  def getNamesByType(model_type=classifiertypestr, dims='any'):
+      models = UserModel.getModelsByType(model_type,dims)
+      return [model.uiname for model in models]
+  
+  @staticmethod
+  def isModelType( modelnm, modtype ):
+      models = UserModel.getModelsByType( modtype, 'any' )
+      for mod in models:
+          if mod.uiname == modelnm:
+              return True
+      return False
+  
+  @staticmethod
+  def isClassifier( modelnm ):
+      return UserModel.isModelType( modelnm, UserModel.classifiertypestr )
+  
+  @staticmethod
+  def isRegressor( modelnm ):
+      return UserModel.isModelType( modelnm, UserModel.regressortypestr )  
+  
+  @staticmethod
+  def isImg2Img( modelnm ):
+      return UserModel.isModelType( modelnm, UserModel.img2imgtypestr )
   
   @abstractmethod
   def _make_model(self, input_shape, nroutputs, learnrate):

@@ -5,12 +5,14 @@
 #
 # dGB Keras machine learning models in UserModel format
 #
-from dgbpy.keras_classes import UserModel
-import dgbpy.dgbkeras as dgbkeras
+
 from keras.models import *
 from keras.layers import *
 from keras.optimizers import Adam, RMSprop
 from keras import backend as kb
+
+from dgbpy.keras_classes import UserModel
+import dgbpy.dgbkeras as dgbkeras
 
 def root_mean_squared_error(y_true, y_pred):
   return kb.sqrt(kb.mean(kb.square(y_pred - y_true)))
@@ -18,7 +20,7 @@ def root_mean_squared_error(y_true, y_pred):
 class dGB_Unet(UserModel):
   uiname = 'dGB UNet'
   uidescription = 'dGBs Unet img2img Keras model in UserModel form'
-  modtype = 'img2img'
+  modtype = UserModel.img2imgtypestr
   dims = 'any'
   
   def _make_model(self, input_shape, nroutputs, learnrate):
@@ -136,7 +138,7 @@ def dGBLeNet(input_shape, nroutputs):
 class dGB_LeNet_Classifier(UserModel):
   uiname = 'dGB LeNet classifier'
   uidescription = 'dGBs LeNet classifier Keras model in UserModel form'
-  modtype = 'classifier'
+  modtype = UserModel.classifiertypestr
   dims = 'any'
   
   def _make_model(self, input_shape, nroutputs, learnrate):
@@ -153,7 +155,7 @@ class dGB_LeNet_Classifier(UserModel):
 class dGB_LeNet_Regressor(UserModel):
   uiname = 'dGB LeNet regressor'
   uidescription = 'dGBs LeNet regressor Keras model in UserModel form'
-  modtype = 'regressor'
+  modtype = UserModel.regressortypestr
   dims = 'any'
   
   def _make_model(self, input_shape, nroutputs, learnrate):
