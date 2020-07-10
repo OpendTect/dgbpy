@@ -119,30 +119,8 @@ def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
     # return the learning rate (quite arbitrarily decaying)
   return LearningRateScheduler(adaptive_lr)
 
-def cross_entropy_balanced(y_true, y_pred):
-  from keras.models import K
-  from keras.optimizers import tf
-  _epsilon = _to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-  y_pred   = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
-  y_pred   = tf.math.log(y_pred/ (1 - y_pred))
 
-  y_true = tf.cast(y_true, tf.float32)
-  count_neg = tf.reduce_sum(input_tensor=1. - y_true)
-  count_pos = tf.reduce_sum(input_tensor=y_true)
-  beta = count_neg / (count_neg + count_pos)
-  pos_weight = beta / (1 - beta)
-  cost = tf.nn.weighted_cross_entropy_with_logits(logits=y_pred, labels=y_true, pos_weight=pos_weight)
-  cost = tf.reduce_mean(input_tensor=cost * (1 - beta))
-  return tf.compat.v1.where(tf.equal(count_pos, 0.0), 0.0, cost)
-
-def _to_tensor(x, dtype):
-  from keras.optimizers import tf
-  x = tf.convert_to_tensor(value=x)
-  if x.dtype != dtype:
-    x = tf.cast(x, dtype)
-  return x
-
-def getDataFormat( model ):
+def get_data_format( model ):
   layers = model.layers
   for i in range(len(layers)):
     laycfg = layers[i].get_config()
@@ -151,7 +129,7 @@ def getDataFormat( model ):
   return None
 
 def getCubeletShape( model ):
-  data_format = getDataFormat( model )
+  data_format = get_data_format( model )
   if data_format == 'channels_first':
     cubeszs = model.input_shape[2:]
   elif data_format == 'channels_last':
@@ -296,7 +274,7 @@ def updateModelShape( infos, model, forinput ):
     modelshape = model.output_shape
     
   exshape = infos[shapekey]
-  if getDataFormat(model) == 'channels_first':
+  if get_data_format(model) == 'channels_first':
     modelshape = modelshape[2:]
   else:
     modelshape = modelshape[1:-1]
@@ -420,7 +398,7 @@ def adaptToModel( model, samples, sample_data_format='channels_first' ):
   nrdims = len( model.input_shape ) - 2
   nrsamples = samples.shape[0]
   samples_nrdims = len(samples.shape)
-  model_data_format = getDataFormat( model )
+  model_data_format = get_data_format( model )
   modelcubeszs = getCubeletShape( model )
   if sample_data_format == 'channels_first':
     nrattribs = samples.shape[1]
@@ -572,7 +550,7 @@ def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format
 
   nrpts = inp_shape[0]
   cube_shape = (nrpts,)
-  model_data_format = getDataFormat( model )
+  model_data_format = get_data_format( model )
   switchedattribs = model_data_format != ret_data_format
   shapelims = ()
   if model_data_format == 'channels_first':

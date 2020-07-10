@@ -15,6 +15,7 @@ from tensorflow.keras.utils import Sequence, to_categorical
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import dgbkeras
+from dgbpy import keras_fix
 
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,with_augmentation=True):
@@ -23,7 +24,7 @@ class TrainingSequence(Sequence):
       self._model = model
       self._batch_size = batch_size
       self._augmentation = with_augmentation
-      self._channels_format = dgbkeras.getDataFormat(model)
+      self._channels_format = dgbkeras.get_data_format(model)
       self._infos = self._trainbatch[dgbkeys.infodictstr]
       self._data_IDs = []
       if exfilenm == None:
@@ -309,7 +310,7 @@ class UserModel(ABC):
       return UserModel.isModelType( modelnm, UserModel.img2imgtypestr )
   
   @abstractmethod
-  def _make_model(self, input_shape, nroutputs, learnrate):
+  def _make_model(self, input_shape, nroutputs, learnrate, data_format):
     """Abstract static method that defines a machine learning model.
     
     Must be implemented in the user's derived class
@@ -330,14 +331,14 @@ class UserModel(ABC):
     """
     pass
 
-  def model(self, input_shape, nroutputs, learnrate, data_format):
+  def model(self, input_shape, nroutputs, learnrate, data_format=backend.image_data_format()):
     """Creates/returns a compiled keras model instance
     
     Parameters
     ----------
     input_shape : tuple
     Defines input data shape (by convention in the machine learning plugin this
-    will be 'channels_first' format. 
+    will be in the 'channels_first' format by default. 
     nroutputs : int
     Number of outputs
     learnrate : float
@@ -350,8 +351,6 @@ class UserModel(ABC):
     a compiled keras model
     
     """
-    if data_format != backend.image_data_format():
-      input_shape = input_shape[1:] + input_shape[:1]
       
     newmodel = self._model is None or input_shape != self._model.input_shape or \
                 nroutputs != self._nroutputs or learnrate != self._learnrate or \
@@ -359,8 +358,8 @@ class UserModel(ABC):
     if  newmodel:
       self._nroutputs = nroutputs
       self._learnrate = learnrate
-      self._data_format = data_format
-      self._model = self._make_model(input_shape,nroutputs,learnrate)
+      self._model = self._make_model(input_shape,nroutputs,learnrate,data_format)
+      self._data_format = dgbkeras.get_data_format( self._model )
     return self._model
   
 UserModel.mlmodels = UserModel.findModels()
