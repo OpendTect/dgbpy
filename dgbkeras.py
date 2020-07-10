@@ -46,10 +46,6 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-unet_smallsz = (2,64)
-unet_mediumsz = (16,512)
-unet_largesz = (32,512)
-
 prefercpustr = 'prefercpu'
 defbatchstr = 'defaultbatchsz'
 
@@ -61,7 +57,6 @@ keras_dict = {
   'patience': 5,
   'learnrate': 1e-4,
   'epochdrop': 5,
-  'unetnszs': unet_mediumsz,
   'type': None,
   'prefercpu': None
 }
@@ -94,8 +89,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                epochs=keras_dict['epoch'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
-               unetnszs=keras_dict['unetnszs'],nntype=keras_dict['type'],
-               prefercpu=keras_dict['prefercpu']):
+               nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -106,8 +100,6 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'epochdrop': epochdrop,
     'type': nntype
   }
-  if kc.UserModel.isImg2Img(nntype):
-    ret.update({'unetnszs': unetnszs})
   if prefercpu == None:
     prefercpu = get_cpu_preference()
   ret.update({'prefercpu': prefercpu})
@@ -227,7 +219,6 @@ def getModelsByType( learntype, classification, ndim ):
     return kc.UserModel.getNamesByType(model_type=modtype, dims=str(ndim))
 
 def getDefaultModel(setup,type=keras_dict['type'],
-                    unetnszs=keras_dict['unetnszs'],
                      learnrate=keras_dict['learnrate'],
                      data_format='channels_first'):
   isclassification = setup[dgbhdf5.classdictstr]

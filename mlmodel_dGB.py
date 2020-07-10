@@ -23,6 +23,10 @@ class dGB_Unet(UserModel):
   modtype = UserModel.img2imgtypestr
   dims = 'any'
   
+  unet_smallsz = (2,64)
+  unet_mediumsz = (16,512)
+  unet_largesz = (32,512)
+  
   def _make_model(self, input_shape, nroutputs, learnrate):
     ndim = len(input_shape)-1
     conv = pool = upsamp = None
@@ -39,7 +43,7 @@ class dGB_Unet(UserModel):
       pool = MaxPooling1D
       upsamp = UpSampling1D
       
-    unetnszs=(16,512)
+    unetnszs= self.unet_mediumsz
     poolsz1 = 2
     poolsz2 = 2
     poolsz3 = 2
