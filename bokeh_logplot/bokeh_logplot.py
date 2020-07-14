@@ -16,7 +16,7 @@ import numpy as np
 from bokeh.server.server import Server
 import bokeh.layouts as bl
 import bokeh.models as bm
-import odbokeh as odb
+import dgbpy.uibokeh_well as odb
 
 undef = 1e30
 wellnm = 'None'

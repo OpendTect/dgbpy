@@ -17,6 +17,7 @@ import bokeh.layouts as bl
 import bokeh.core.enums as bce
 from bokeh.core.properties import DashPattern
 import math
+import pandas as pd
 import numpy as np
 import random
 from odpy.ranges import niceRange, niceNumber
@@ -26,15 +27,53 @@ class Well:
         self.wellname = wellname
         self.track = None
         self.markers = None
-        self.logcache = {}
+        self.logcache = None
+        self.logdata = None
+        self.logdataview = None
+        self.logdataviewidx = None
+        self.limits = {}
 
     def getLogNames(self):
-        return odwm.getLogNames(self.wellname)
+        if not self.logdata:
+            return odwm.getLogNames(self.wellname)
+        else:
+            return self.logdata.column_names[1:]
     
+    def getLogsFromFile(self, filenm, undefval=1e30):
+        ld = pd.read_csv(filenm, delimiter='\t')
+        ld = ld.replace(to_replace=undefval, value=float('Nan'))
+        self.logdata = bm.ColumnDataSource(ld)
+        self.logdataviewidx = self.logdata.data['index']
+        self.logdataview = bm.CDSView(source=self.logdata, filters=[])
+        return self.logdata
+
+    def getLogLimits(self, lognm):
+        limits = self.limits.get(lognm)
+        if not limits:
+            log = None
+            if not self.logdata:
+                log = self.getLog(lognm).data.get(lognm)
+            else:
+                log = self.logdata.data.get(lognm)
+            limits = niceRange(np.nanmin(log), np.nanmax(log))
+            self.limits[lognm] = limits
+
+        return limits
+
+    def setDepthView(self, mindepth, maxdepth):
+        if self.logdataview:
+            self.logdataviewidx = [idx for idx, z in enumerate(self.logdata.data['MD']) if z>=mindepth and z<=maxdepth]
+            self.logdataview.filters = [bm.IndexFilter(indices=self.logdataviewidx)]
+
+    def setLogLimits(self, lognm, left, right):
+        self.limits[lognm] = [left, right]
+
     def getLog(self, lognm):
-        if lognm not in self.logcache:
+        if (not self.logcache) or (lognm not in self.logcache):
             (depths,logvals) = odwm.getLog(self.wellname, lognm)
-            self.logcache[lognm] = bm.ColumnDataSource({'depths': depths, lognm: logvals})
+            if not self.logcache:
+               self.logcache = {}
+            self.logcache[lognm] = bm.ColumnDataSource({'depth': depths, lognm: logvals})
         return self.logcache[lognm]
 
     def getTrack(self):
@@ -49,7 +88,22 @@ class Well:
         return self.markers
     
     def depthRange(self):
-        return self.getTrack()[0]
+        if self.logdata:
+            return self.getLogLimits('MD')
+        elif self.logcache:
+            depthrange = None
+            first = True
+            for (key, item) in self.logcache.items():
+                zlog = item.data['depth']
+                if first:
+                    first = False
+                    depthrange = [zlog[0], zlog[-1]]
+                else:
+                    depthrange = [min(zlog[0],depthrange[0]), max(zlog[-1],depthrange[-1])]
+
+            return depthrange
+        else:
+            return self.getTrack()[0]
 
 class LogTrackMgr:
     def __init__(self, well, deflogs=None, trackwidth=400, withui=False):
@@ -494,7 +548,7 @@ class LogTrack:
                     }
         self.track.extra_x_ranges[lognm] = bm.Range1d(limits[0], limits[-1])
         self.track.add_layout(bm.LinearAxis(x_range_name=lognm,axis_label=lognm,ticker=limits,**axis_style), 'above')
-        self.track.line(x=lognm, y='depths',x_range_name=lognm,source=log, name=lognm,  **log_style)
+        self.track.line(x=lognm, y='depth',x_range_name=lognm,source=log, name=lognm,  **log_style)
         
     def addLogs(self, logs):
         lognms = self.well.getLogNames()
