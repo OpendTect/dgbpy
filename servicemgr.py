@@ -23,6 +23,7 @@ import tornado.tcpserver
 class ServiceMgr(tornado.tcpserver.TCPServer):
   def __init__(self, cmdserver, ppid, tornadoport, serviceID=None):
     super(ServiceMgr, self).__init__()
+    self.cmdserver = cmdserver
     self.host = None
     self.port = None
     self.serviceID = serviceID
@@ -112,6 +113,11 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
 
   def addAction(self, key, action):
     self._actions[key] = action
+
+  def sendObject(self, objkey, jsonobj):
+      msgobj = {'bokehid': self.serviceID}
+      msgobj.update(jsonobj)
+      Message().sendObjectToAddress(self.cmdserver, objkey, msgobj)
 
     
 class Message:

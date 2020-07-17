@@ -214,7 +214,7 @@ def transform(x_train,scaler):
 
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
-             params=None, outnm=dgbkeys.modelnm, logdir=None, modelin=None,
+             params=None, outnm=dgbkeys.modelnm, logdir=None, clearlogs=False, modelin=None,
              args=None ):
   (model,infos) = (None,None)
   if type == None:
@@ -233,13 +233,14 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
-    logdir = dgbkeras.getLogDir( logdir, args )
+    logdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
     if type == TrainType.New:
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
                                        learnrate=params['learnrate'])
     elif type == TrainType.Transfer:
       model = dgbkeras.transfer( model )
+    print('--Training Started--', flush=True)
     model = dgbkeras.train( model, trainingdp, params=params,
                             trainfile=examplefilenm, logdir=logdir,
                             withaugmentation=dgbkeras.withaugmentation )
@@ -252,6 +253,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if type == TrainType.New:
       model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
                                          params )
+    print('--Training Started--', flush=True)
     model = dgbscikit.train( model, trainingdp )
   else:
     log_msg( 'Unsupported machine learning platform' )

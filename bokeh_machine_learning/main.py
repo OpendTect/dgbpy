@@ -70,7 +70,28 @@ def training_app(doc):
   import logging
   logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
   odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
-  
+
+  class MsgHandler(logging.StreamHandler):
+    def __init__(self, msgstr, servmgr, msgkey, msgjson):
+      logging.StreamHandler.__init__(self)
+      self.msgstr = msgstr
+      self.servmgr = servmgr
+      self.msgkey = msgkey
+      self.msgjson = msgjson
+
+    def emit(self, record):
+      try:
+        logmsg = self.format(record)
+        if self.msgstr in logmsg:
+          doc.add_next_tick_callback(self.sendmsg)
+      except (KeyboardInterrupt, SystemExit):
+          raise
+      except:
+          self.handleError(record)
+      
+    def sendmsg(self):
+      self.servmgr.sendObject(self.msgkey, self.msgjson)
+
   odcommon.log_msg( 'Start training UI')
   
   from os import path
@@ -79,6 +100,7 @@ def training_app(doc):
 
   from bokeh.layouts import column
   from bokeh.models.widgets import Panel, Select, Tabs
+  from bokeh.models import CheckboxGroup
 
   from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)
@@ -106,6 +128,11 @@ def training_app(doc):
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
 
+    mh = MsgHandler('--Training Started--', this_service, 'ml_training_msg',
+                    {'training_started': ''})
+    mh.setLevel(logging.DEBUG)
+    odcommon.proclog_logger.addHandler(mh)
+
     trainpanel = Panel(title=traintabnm)
     parameterspanel = Panel(title=paramtabnm)
     mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
@@ -115,6 +142,8 @@ def training_app(doc):
     ML_PLFS.append( uisklearn.getPlatformNm(True) )
 
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
+    tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
+                                   active=[], visible=True)
 
     info = None
     keraspars = None
@@ -184,7 +213,12 @@ def training_app(doc):
     this_service.addAction('BokehParChg', procArgChgCB )
       
     def mlchgCB( attrnm, old, new):
+      nonlocal tensorboardfld
       selParsGrp( new )
+      if new==uikeras.getPlatformNm(True)[0]:
+          tensorboardfld.visible = True
+      else:
+          tensorboardfld.visible = False
 
     def getParsGrp( platformnm ):
       for platform,parsgroup in zip(ML_PLFS,parsgroups):
@@ -199,12 +233,7 @@ def training_app(doc):
       doc.clear()
       parameterspanel.child = column( parsgrp, parsbackbut )
       doc.add_root(mainpanel)
-      dgbservmgr.Message().sendObjectToAddress(
-                 args['bsmserver'],
-                 'ml_training_msg',
-                 {'platform_change': platformnm,
-                  'bokehid': args['bokehid']
-                 })
+      this_service.sendObject('ml_training_msg', {'platform_change': platformnm})
 
     def getUiParams():
       parsgrp = getParsGrp( platformfld.value )
@@ -235,6 +264,7 @@ def training_app(doc):
         mldir = args['mldir']
         if mldir != None and len(mldir)>0:
           dict.update({'logdir': mldir[0]})
+          dict.update({'cleanlogdir': len(tensorboardfld.active)!=0})
       dict.update({dgbkeys.learntypedictstr: traintype.name})
       return ret
 
@@ -243,11 +273,7 @@ def training_app(doc):
       nonlocal doabort
       doabort = False
       if cb == None:
-        dgbservmgr.Message().sendObjectToAddress( args['bsmserver'],
-                             'ml_training_msg',
-                             {'training can start request': '',
-                             'bokehid': args['bokehid']
-                             })
+        this_service.sendObject('ml_training_msg', {'training can start request': ''})
         return True
       elif cb == False:
         doabort = True
@@ -265,12 +291,9 @@ def training_app(doc):
                                 modelnm )
       cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                               scriptargs['dict'], scriptargs['odargs'] )
-      dgbservmgr.Message().sendObjectToAddress(
-                 args['bsmserver'],
-                 'ml_training_msg',
-                 {'training_started': '',
-                  'bokehid': args['bokehid']
-                 })
+
+      if platformfld.value == uikeras.getPlatformNm():
+          this_service.sendObject('ml_training_msg', {'start tensorboard': ''})
 
       return execCommand( cmdtorun, background=True )
 
@@ -306,13 +329,7 @@ def training_app(doc):
           odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
           odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
         else:
-          dgbservmgr.Message().sendObjectToAddress(
-                     args['bsmserver'],
-                     'ml_training_msg',
-                     {
-                       'training_finished': '',
-                       'bokehid': args['bokehid']
-                     })
+          this_service.sendObject('ml_training_msg', {'training_finished': ''})
         rectrainingcb[uibokeh.timerkey] = None
         trainingcb[uibokeh.timerkey] = None
         return (False,rectrainingcb)
@@ -320,7 +337,7 @@ def training_app(doc):
 
     platformfld.on_change('value',mlchgCB)
     buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
-    trainpanel.child = column( platformfld, buttonsgrp )
+    trainpanel.child = column( platformfld, tensorboardfld, buttonsgrp )
 
     def initWin():
       mllearntype = info[dgbkeys.learntypedictstr]

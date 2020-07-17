@@ -64,18 +64,16 @@ if __name__ == '__main__':
   traintype = None
   if dgbkeys.learntypedictstr in dict:
     traintype = dgbmlapply.TrainType[ dict[dgbkeys.learntypedictstr] ]
-  model = None
-  if 'model' in dict:
-    model = dict['model']
-  logdir = None
-  if 'logdir' in dict:
-    logdir = dict['logdir']
+  model = dict.get('model', None)
+  logdir = dict.get('logdir', None)
+  clearlogs = dict.get('cleanlogdir', False)
   try:
     success = dgbmlapply.doTrain( args['h5file'].name,
                                   platform=dict['platform'],
                                   type=traintype,
                                   params=dict['parameters'],
                                   logdir=logdir,
+                                  clearlogs=clearlogs,
                                   modelin=model,
                                   outnm=dict['output'],
                                   args=args )

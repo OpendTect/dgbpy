@@ -14,6 +14,7 @@ import json
 from datetime import datetime
 import numpy as np
 import math
+from pathlib import Path
 
 from odpy.common import log_msg, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
@@ -136,10 +137,28 @@ def getCubeletShape( model ):
     cubeszs = model.input_shape[1:-1]
   return cubeszs
 
-def getLogDir( basedir, args ):
-  logdir = basedir
-  if not withtensorboard or logdir == None or not os.path.exists(logdir):
+def rm_tree(pth):
+    pth = Path(pth)
+    for child in pth.glob('*'):
+        if child.is_file():
+            child.unlink()
+        else:
+            rm_tree(child)
+    pth.rmdir()
+
+def getLogDir( examplenm, basedir, clearlogs, args ):
+  if not withtensorboard or basedir == None or not Path(basedir).exists():
     return None
+  logdir = Path(basedir) / Path(examplenm).stem
+  if logdir.exists():
+      if clearlogs:
+         for child in logdir.glob('*'):
+            rm_tree(child)
+  else:
+      try:
+         logdir.mkdir()
+      except:
+         return None
 
   if dgbkeys.surveydictstr in args:
     jobnm = args[dgbkeys.surveydictstr][0] + '_run'
@@ -148,10 +167,10 @@ def getLogDir( basedir, args ):
 
   nrsavedruns = 0
   with os.scandir(logdir) as it:
-    for entry in it:
+    for entry in logdir.iterdir():
       if entry.name.startswith(jobnm) and entry.is_dir():
         nrsavedruns += 1
-  logdir = os.path.join( logdir, jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ) )
+  logdir = logdir / Path(jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ))
   return logdir
 
 def get_model_shape( shape, nrattribs, attribfirst=True ):
