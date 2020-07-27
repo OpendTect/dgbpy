@@ -161,10 +161,20 @@ def training_app(doc):
       keraspars = uikeras.getUiPars()
       sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
       parsgroups = (keraspars,sklearnpars)
+      if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+        platformfld.visible = False
+      else:
+        platformfld.visible = True
+
 
     def updateUI():
       nonlocal info
       nonlocal keraspars
+      nonlocal platformfld
+      if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+        platformfld.visible = False
+      else:
+        platformfld.visible = True
       keraspars['uiobjects']['dodecimatefld'].active = []
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
