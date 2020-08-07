@@ -272,7 +272,7 @@ class CrossplotLogTracks:
                       'major_tick_line_width': width,
                       'major_tick_line_alpha': alpha,
                       'major_tick_in': 0,
-                      'axis_label_standoff': -10
+                      'axis_label_standoff': 0
                      }
         log_style = {'line_color': color,
                      'line_width': width,
@@ -477,15 +477,17 @@ class Crossplot:
                                   active_drag='box_zoom',
                                   toolbar_location='above',
                                   title='vs',
+                                  min_width=300,
+                                  min_height=300,
                                   x_range=(0,10), y_range=(0,10))
         self.xplotfig.title.text_font_size = '14pt'
         self.xplotfig.on_event(Reset, self.resetCB)
-        self.xhistfig = bp.figure(plot_height=200,
+        self.xhistfig = bp.figure(plot_height=100,
                                   sizing_mode='stretch_width',
                                   toolbar_location=None,
                                   x_range=self.xplotfig.x_range,
                                   y_range=(0,10))
-        self.yhistfig = bp.figure(plot_width=200,
+        self.yhistfig = bp.figure(plot_width=100,
                                   sizing_mode='stretch_height',
                                   toolbar_location=None,
                                   y_range=self.xplotfig.y_range,
@@ -766,7 +768,7 @@ def crossplot_app(doc):
     lognms = well.getLogNames()
 
     xplcontrols = CrossplotControls(well)
-    xpllogs = CrossplotLogTracks(well, lognms[1:3])
+    xpllogs = CrossplotLogTracks(well, lognms[1:3], 200)
     xplplots = Crossplot(well, lognms[1:3])
     xplcontrols.fields['xlog'].update(value=lognms[1])
     xplcontrols.fields['ylog'].update(value=lognms[2])

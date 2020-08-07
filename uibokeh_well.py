@@ -182,10 +182,12 @@ class LogTrackMgr:
 
 class LinePropertyWidget:
     def __init__(self):
-        self.fields = {'width': bm.Spinner(title='Line Width:',low=0,high=5, step=1, width_policy='min'),
+        self.fields = {'width': bm.Spinner(title='Line Width:',low=0,high=5, step=1,
+                                           width_policy='min'),
                        'color': bm.ColorPicker(title='Line Color:', width_policy='min'),
-                       'dash': bm.Select(title='Line Style:', options=list(bce.DashPattern), width_policy='min')
-                      }
+                       'dash':  bm.Select(title='Line Draw Style:', options=list(bce.DashPattern),
+                                          width_policy='min')
+                       }
         self.layout = bl.row(list(self.fields.values()))
         
 class GridPropertyWidget:
@@ -302,8 +304,10 @@ class LogTrack:
       
     def _initui(self):
         lognames = self.well.getLogNames()
-        self.log_select = bm.MultiSelect(title="Logs:", options=lognames, align='center')
-        self.marker_select = bm.MultiSelect(title="Markers:", options=self.well.getMarkers().data['name'], align='center')
+        self.log_select = bm.MultiSelect(title="Logs:", options=lognames, align='center',
+                                         height_policy='max')
+        self.marker_select = bm.MultiSelect(title="Markers:", options=self.well.getMarkers().data['name'],
+                                            align='center', height_policy='max')
         
         self.track_fields['plot_width'] = bm.Spinner(title='Plot Width(px):', value=self.track_props['plot_width'])
         self.track_fields['background_fill_color'] = bm.ColorPicker(title='Track Background Color:', color=self.track_props['background_fill_color'])
