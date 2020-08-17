@@ -165,12 +165,14 @@ scikit_dict = {
 if hasXGBoost():
   from xgboost import XGBRFRegressor
   defregressor = XGBRFRegressor()
-  scikit_dict['ensemblepars'].update({ 'xg': {
+  xgpars = {
       'lr': defregressor.learning_rate,
-      'maxdep': defregressor.max_depth,
+      'maxdep': scikit_dict['ensemblepars']['xg']['maxdep'],
       'est': defregressor.n_estimators,
-      }
-  })
+  }
+  if defregressor.max_depth != None:
+    xgpars.update({'maxdep': defregressor.max_depth})
+  scikit_dict['ensemblepars'].update({'xg': xgpars})
 
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
