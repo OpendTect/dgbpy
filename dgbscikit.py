@@ -364,7 +364,7 @@ def getDefaultModel( setup, params=scikit_dict ):
         model = XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
       else:
         model = XGBRFRegressor(objective='reg:squarederror',n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
-    elif modelname == 'Multi-Layer Perception':
+    elif modelname == 'Multi-Layer Perceptron':
       lay1 = params['lay1']
       lay2 = params['lay2']
       lay3 = params['lay3']
