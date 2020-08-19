@@ -83,6 +83,14 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
     ret += (i,)
   return ret
 
+def isRegression( info ):
+  return not isClassification( info )
+
+def isClassification( info ):
+  if instance(info, dict):
+    return info[classdictstr]
+  return info == classdatavalstr
+
 def isSeisClass( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == seisclasstypestr

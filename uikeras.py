@@ -48,6 +48,15 @@ def getUiPars():
   else:
     ndim = len(info[dgbkeys.inpshapedictstr])
   modeltypes = getUiModelTypes( learntype, info[dgbkeys.classdictstr], ndim )
+  if len(modeltypes)==0:
+    divfld = Div(text="""No Keras models found for this workflow.""")
+    parsgrp = column(divfld)
+    return {'grp': parsgrp,
+            'uiobjects':{
+              'divfld': divfld
+            }
+           }
+  
   defmodel = modeltypes[0]
   modeltypfld = Select(title='Type',value=defmodel,
                        options=modeltypes )

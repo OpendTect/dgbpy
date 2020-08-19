@@ -158,7 +158,24 @@ import inspect
 from abc import ABC, abstractmethod
 from keras import backend
 from pathlib import Path
+from enum import Enum
 
+class DataPredType(Enum):
+  Continuous = 'Continuous Data'
+  Classification = 'Classification Data'
+  Segmentation = 'Segmentation'
+  Any = 'Any'
+
+class OutputType(Enum):
+  Pixel = 1
+  Image = 2
+  Any = 3
+    
+class DimType(Enum):
+  D1 = 1
+  D2 = 2
+  D3 = 3
+  Any = 4
 
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
@@ -174,18 +191,20 @@ class UserModel(ABC):
   The "mlmodel_" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
-  modtype : str - type of model (must be one of modeltypes)
-  dims : str - describes number of input dimensions supported by model, one of '1', '2', '3' or 'any'
+  predtype : DataPredType enum - type of prediction (must be member of DataPredType enum)
+  outtype: OutputType enum - output shape type (OutputType.Pixel or OutputType.Image)
+  dimtype : DimType enum - the input dimensions supported by model (must be member of DimType enum)
 
   Examples
   --------
-    from dgbpy.keras_classes import UserModel
+    from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
   
     class myModel(UserModel):
       uiname = 'mymodel'
       uidescription = 'short description of model'
-      modtype = classifiertypestr
-      dims = '3'
+      predtype = DataPredType.Classification
+      outtype = OutputType.Pixel
+      dimtype = DimType.D3
       
       def _make_model(self, input_shape, nroutputs, learnrate, data_format):
         inputs = Input(input_shape)
@@ -202,11 +221,6 @@ class UserModel(ABC):
     
   """
   mlmodels = []
-  
-  classifiertypestr = 'classifier'
-  regressortypestr = 'regressor'
-  img2imgtypestr = 'img2img'
-  modeltypes = (classifiertypestr,regressortypestr,img2imgtypestr)
   
   def __init__(self, ):
     self._learnrate = None
@@ -262,15 +276,17 @@ class UserModel(ABC):
     return next((model for model in UserModel.mlmodels if model.uiname == modname), None)
   
   @staticmethod
-  def getModelsByType(model_type, dims):
+  def getModelsByType(pred_type, out_type, dim_type):
     """Static method that returns a list of the UserModels filtered by the given
-    model type and dimensions
+    prediction, output and dimension types
     
     Parameters
     ----------
-    modeltype: str
-    The type of model to filter by either 'classifier' or 'other'
-    dims: str
+    pred_type: DataPredType enum
+    The prediction type of the model to filter by
+    out_type: OutputType enum
+    The output shape type of the model to filter by
+    dim_type: DimType enum
     The dimensions that the model must support
     
     Returns
@@ -278,20 +294,30 @@ class UserModel(ABC):
     a list of matching model or None if no match found
     
     """
-    if model_type in UserModel.modeltypes:
+    if isinstance(pred_type, DataPredType) and isinstance(out_type, OutputType) and\
+       isinstance(dim_type, DimType) :
       return [model for model in UserModel.mlmodels \
-                  if model.modtype == model_type and\
-                    (model.dims == dims or model.dims == 'any')]
+          if (model.predtype == pred_type or pred_type == DataPredType.Any) and\
+	     (model.outtype == out_type or out_type == OutputType.Any) and\
+             (model.dimtype == dim_type or model.dimtype == DimType.Any)]
     return None
 
   @staticmethod
-  def getNamesByType(model_type=classifiertypestr, dims='any'):
-      models = UserModel.getModelsByType(model_type,dims)
+  def getNamesByType(pred_type, out_type, dim_type):
+      models = UserModel.getModelsByType(pred_type, out_type, dim_type)
       return [model.uiname for model in models]
   
   @staticmethod
-  def isModelType( modelnm, modtype ):
-      models = UserModel.getModelsByType( modtype, 'any' )
+  def isPredType( modelnm, pred_type ):
+      models = UserModel.getModelsByType( pred_type, OutputType.Any, DimType.Any )
+      for mod in models:
+          if mod.uiname == modelnm:
+              return True
+      return False
+  
+  @staticmethod
+  def isOutType( modelnm, out_type ):
+      models = UserModel.getModelsByType( DataPredType.Any, out_type, DimType.Any )
       for mod in models:
           if mod.uiname == modelnm:
               return True
@@ -299,15 +325,15 @@ class UserModel(ABC):
   
   @staticmethod
   def isClassifier( modelnm ):
-      return UserModel.isModelType( modelnm, UserModel.classifiertypestr )
+      return UserModel.isPredType( modelnm, DataPredType.Classification )
   
   @staticmethod
   def isRegressor( modelnm ):
-      return UserModel.isModelType( modelnm, UserModel.regressortypestr )  
+      return UserModel.isPredType( modelnm, DataPredType.Continuous )  
   
   @staticmethod
   def isImg2Img( modelnm ):
-      return UserModel.isModelType( modelnm, UserModel.img2imgtypestr )
+      return UserModel.isOutType( modelnm, OutputType.Image )
   
   @abstractmethod
   def _make_model(self, input_shape, nroutputs, learnrate, data_format):

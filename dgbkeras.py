@@ -206,14 +206,14 @@ def getModelDims( model_shape, data_format ):
   return len(ret)
 
 def getModelsByType( learntype, classification, ndim ):
+    predtype = kc.DataPredType.Continuous
+    outtype = kc.OutputType.Pixel
+    dimtype = kc.DimType(ndim)
     if dgbhdf5.isImg2Img(learntype):
-        modtype = kc.UserModel.img2imgtypestr
-    else:
-        if classification or dgbhdf5.isSeisClass( learntype ):
-            modtype = kc.UserModel.classifiertypestr
-        else:
-            modtype = kc.UserModel.regressortypestr
-    return kc.UserModel.getNamesByType(model_type=modtype, dims=str(ndim))
+        outtype = kc.OutputType.Image
+    if classification or dgbhdf5.isSeisClass( learntype ):
+            predtype = kc.DataPredType.Classification
+    return kc.UserModel.getNamesByType(pred_type=predtype, out_type=outtype, dim_type=dimtype)
 
 def getDefaultModel(setup,type=keras_dict['type'],
                      learnrate=keras_dict['learnrate'],

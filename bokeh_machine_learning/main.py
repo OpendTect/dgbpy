@@ -162,9 +162,9 @@ def training_app(doc):
       sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
       parsgroups = (keraspars,sklearnpars)
       if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-        platformfld.visible = False
+        platformfld.disabled = True
       else:
-        platformfld.visible = True
+        platformfld.disabled = False
 
 
     def updateUI():
@@ -172,9 +172,9 @@ def training_app(doc):
       nonlocal keraspars
       nonlocal platformfld
       if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-        platformfld.visible = False
+        platformfld.disabled = True
       else:
-        platformfld.visible = True
+        platformfld.disabled = False
       keraspars['uiobjects']['dodecimatefld'].active = []
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
@@ -295,8 +295,12 @@ def training_app(doc):
     def doTrain( trainedfnm ):
       if len(trainedfnm) < 1:
         return False
+      if platformfld.value==uikeras.getPlatformNm() and 'divfld' in keraspars['uiobjects']:
+            odcommon.log_msg('\nNo Keras models found for this workflow.')
+            return False
       
       modelnm = trainedfnm
+          
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
                                 modelnm )
       cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \

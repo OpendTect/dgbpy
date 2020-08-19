@@ -11,7 +11,7 @@ from keras.layers import *
 from keras.optimizers import Adam, RMSprop
 from keras import backend as kb
 
-from dgbpy.keras_classes import UserModel
+from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
 import dgbpy.dgbkeras as dgbkeras
 
 def _to_tensor(x, dtype):
@@ -43,8 +43,9 @@ def cross_entropy_balanced(y_true, y_pred):
 class dGB_Unet(UserModel):
   uiname = 'dGB UNet'
   uidescription = 'dGBs Unet img2img Keras model in UserModel form'
-  modtype = UserModel.img2imgtypestr
-  dims = 'any'
+  predtype = DataPredType.Classification
+  outtype = OutputType.Image
+  dimtype = DimType.Any
   
   unet_smallsz = (2,64)
   unet_mediumsz = (16,512)
@@ -188,8 +189,9 @@ def dGBLeNet(model_shape, nroutputs, data_format):
 class dGB_LeNet_Classifier(UserModel):
   uiname = 'dGB LeNet classifier'
   uidescription = 'dGBs LeNet classifier Keras model in UserModel form'
-  modtype = UserModel.classifiertypestr
-  dims = 'any'
+  predtype = DataPredType.Classification
+  outtype = OutputType.Pixel
+  dimtype = DimType.Any
   
   def _make_model(self, input_shape, nroutputs, learnrate, data_format):
     model = dGBLeNet(input_shape, nroutputs, data_format)
@@ -205,8 +207,9 @@ class dGB_LeNet_Classifier(UserModel):
 class dGB_LeNet_Regressor(UserModel):
   uiname = 'dGB LeNet regressor'
   uidescription = 'dGBs LeNet regressor Keras model in UserModel form'
-  modtype = UserModel.regressortypestr
-  dims = 'any'
+  predtype = DataPredType.Continuous
+  outtype = OutputType.Pixel
+  dimtype = DimType.Any
   
   def _make_model(self, input_shape, nroutputs, learnrate, data_format):
     model = dGBLeNet(input_shape, nroutputs, data_format)
