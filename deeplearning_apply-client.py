@@ -67,11 +67,15 @@ loggrp.add_argument( '--server-syslog',
 parser.add_argument( '--fakeapply', dest='fakeapply', action='store_true',
                      default=False,
                      help="applies a numpy average instead of the model" )
+parser.add_argument( '--local', dest='localserv', action='store_true',
+                     default=False,
+                     help="use a local network socket connection" )
 
 
 args = vars(parser.parse_args())
 initLogging( args )
 modelfnm = args['modelfile'].name
+local = args['localserv']
 
 servscriptfp =  path.join(path.dirname(__file__),'deeplearning_apply-server.py')
 servercmd = list()
@@ -90,6 +94,8 @@ if args['servsysout'].name != '<stdout>':
   servercmd.append( args['servsysout'].name )
 if args['fakeapply']:
   servercmd.append( '--fakeapply' )
+if local:
+  servercmd.append( '--local' )
 
 serverproc = oscommand.execCommand( servercmd, True )
 time.sleep( 2 )
@@ -140,8 +146,13 @@ def create_request(action, value=None):
     )
 
 def req_connection(host, port, request):
-  addr = (host, port)
-  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  if local:
+    addr = str(port)
+    sockfam = socket.AF_UNIX
+  else:
+    addr = (host, port)
+    sockfam = socket.AF_INET
+  sock = socket.socket(sockfam, socket.SOCK_STREAM)
   sock.setblocking(True)
   sock.connect_ex(addr)
   events = selectors.EVENT_READ | selectors.EVENT_WRITE

@@ -46,6 +46,9 @@ loggrp.add_argument( '--syslog',
 parser.add_argument( '--fakeapply', dest='fakeapply', action='store_true',
                      default=False,
                      help="applies a numpy average instead of the model" )
+parser.add_argument( '--local', dest='localserv', action='store_true',
+                     default=False,
+                     help="use a local network socket connection" )
 
 args = vars(parser.parse_args())
 from odpy.common import *
@@ -56,18 +59,31 @@ redirect_stdout()
 import selectors
 import socket
 sel = selectors.DefaultSelector()
+local = args['localserv']
 host,port = args['addr'], args['port']
-lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+if local:
+  addr = str(port)
+  try:
+    os.unlink(addr)
+  except OSError:
+    if os.path.exists(addr):
+      raise
+  host = 'LOCAL'
+  sockfam = socket.AF_UNIX
+else:
+  addr = (host, port)
+  sockfam = socket.AF_INET
+lsock = socket.socket(sockfam, socket.SOCK_STREAM)
 # Avoid bind() exception: OSError: [Errno 48] Address already in use
 #lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try:
-  lsock.bind((host, port))
+  lsock.bind(addr)
   lsock.listen()
 except Exception as e:
   log_msg( 'Connection error for port', port, 'on host', host )
   log_msg( e )
   raise e
-std_msg("listening on", (host, port))
+std_msg("listening on", addr)
 lsock.setblocking(True)
 sel.register(lsock, selectors.EVENT_READ, data=None)
 
