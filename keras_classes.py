@@ -10,6 +10,7 @@
 
 
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.utils import Sequence, to_categorical
 
 import dgbpy.keystr as dgbkeys
@@ -344,7 +345,8 @@ class UserModel(ABC):
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape in the Keras default format for the current backend
+    Defines input data shape in the Keras default data_format for the current backend.
+    For the TensorFlow backend the default data_format is 'channels_last'
     nroutputs : int
     Number of outputs
     learnrate : float
@@ -357,34 +359,37 @@ class UserModel(ABC):
     """
     pass
 
-  def model(self, input_shape, nroutputs, learnrate, data_format=backend.image_data_format()):
+  def model(self, input_shape, nroutputs, learnrate, data_format='channels_first'):
     """Creates/returns a compiled keras model instance
     
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape (by convention in the machine learning plugin this
-    will be in the 'channels_first' format by default. 
+    Defines input data shape arranged as per the data_format setting. 
     nroutputs : int
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
     data_format: str
-    The data format used by the machine learning plugin, will generally be 'channels_first'
+    The data format used. The machine learning plugin uses 'channels_first' data_format.
     
     Returns
     -------
     a compiled keras model
     
     """
+    modshape = input_shape
+    if data_format=='channels_first' and tf.keras.backend.image_data_format()=='channels_last':
+      modshape = (*input_shape[1:], input_shape[0])
+    elif data_format=='channels_last' and tf.keras.backend.image_data_format()=='channels_first':
+      modshape = (input_shape[-1], *input_shape[0:-1])
       
-    newmodel = self._model is None or input_shape != self._model.input_shape or \
-                nroutputs != self._nroutputs or learnrate != self._learnrate or \
-                data_format != self._data_format
+    newmodel = self._model is None or modshape != self._model.input_shape or \
+                nroutputs != self._nroutputs or learnrate != self._learnrate
     if  newmodel:
       self._nroutputs = nroutputs
       self._learnrate = learnrate
-      self._model = self._make_model(input_shape,nroutputs,learnrate,data_format)
+      self._model = self._make_model(modshape,nroutputs,learnrate)
       self._data_format = dgbkeras.get_data_format( self._model )
     return self._model
   

@@ -40,25 +40,9 @@ def cross_entropy_balanced(y_true, y_pred):
   cost = tf.reduce_mean(input_tensor=cost * (1 - beta))
   return tf.compat.v1.where(tf.equal(count_pos, 0.0), 0.0, cost)
 
-class dGB_Unet(UserModel):
-  uiname = 'dGB UNet'
-  uidescription = 'dGBs Unet img2img Keras model in UserModel form'
-  predtype = DataPredType.Classification
-  outtype = OutputType.Image
-  dimtype = DimType.Any
-  
-  unet_smallsz = (2,64)
-  unet_mediumsz = (16,512)
-  unet_largesz = (32,512)
-  
-  def _make_model(self, model_shape, nroutputs, learnrate, data_format):
-    
+def dGBUNet(model_shape, nroutputs, predtype):
     input_shape = model_shape
-    if data_format == 'channels_first':
-      #Tensorflow bug; always bad accuracy, no training
-      data_format = 'channels_last'
-      dims = model_shape[1:]
-      input_shape = ( *dims, model_shape[0] )
+    data_format = 'channels_last'
       
     ndim = dgbkeras.getModelDims( model_shape, data_format )
     
@@ -76,7 +60,11 @@ class dGB_Unet(UserModel):
       pool = MaxPooling1D
       upsamp = UpSampling1D
       
-    unetnszs= self.unet_mediumsz
+    unet_smallsz = (2,64)
+    unet_mediumsz = (16,512)
+    unet_largesz = (32,512)
+
+    unetnszs= unet_mediumsz
     poolsz1 = 2
     poolsz2 = 2
     poolsz3 = 2
@@ -118,28 +106,58 @@ class dGB_Unet(UserModel):
     conv7 = conv(filtersz1, **params)(up7)
     conv7 = conv(filtersz1, **params)(conv7)
     
-    conv8 = conv(nroutputs, 1, activation='sigmoid', data_format=data_format)(conv7)
-    
+    if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
+      conv8 = conv(nroutputs, 1, activation='linear', data_format=data_format)(conv7)
+    else:
+      conv8 = conv(nroutputs, 1, activation='sigmoid', data_format=data_format)(conv7)
+      
     model = Model(inputs=[inputs], outputs=[conv8])
-    
-    model.compile(optimizer = Adam(lr = learnrate), loss = cross_entropy_balanced, metrics = ['accuracy'])
+    return model
+
+class dGB_UnetSeg(UserModel):
+  uiname = 'dGB UNet Segmentation'
+  uidescription = 'dGBs Unet image segmentation'
+  predtype = DataPredType.Classification
+  outtype = OutputType.Image
+  dimtype = DimType.Any
+  
+  def _make_model(self, model_shape, nroutputs, learnrate):
+    model = dGBUNet(model_shape, nroutputs, self.predtype)
+    if nroutputs<=2:
+      loss = cross_entropy_balanced
+    else:
+      loss = 'sparse_categorical_crossentropy'
+
+    model.compile(optimizer = Adam(lr = learnrate), loss = loss, metrics = ['accuracy'])
 
     return model
   
-def dGBLeNet(model_shape, nroutputs, data_format):
+class dGB_UnetReg(UserModel):
+  uiname = 'dGB UNet Regression'
+  uidescription = 'dGBs Unet image regression'
+  predtype = DataPredType.Continuous
+  outtype = OutputType.Image
+  dimtype = DimType.Any
+  
+  def _make_model(self, model_shape, nroutputs, learnrate):
+    model = dGBUNet(model_shape, nroutputs, self.predtype)
+    model.compile(optimizer = Adam(lr = learnrate), loss = 'mse', metrics = ['mae'])
+    return model
+  
+def dGBLeNet(model_shape, nroutputs, predtype):
     
   input_shape = model_shape
-  if dgbkeras.need_channels_last() and data_format == 'channels_first':
-      #Tensorflow bug; cannot use channel_first on CPU: crash or no accuracy
-      data_format = 'channels_last'
-      dims = model_shape[1:]
-      input_shape = ( *dims, model_shape[0] )
+  data_format = 'channels_last'
+  bnaxis = -1
+  if not dgbkeras.need_channels_last():
+  #Prefer channels_first data_format for efficiency if supported
+  # CPU training requires channels_last format due to TensorFlow bug
+      data_format = 'channels_first'
+      input_shape = (model_shape[-1], *model_shape[0:-1])
+      bnaxis = 0
       
   ndim = dgbkeras.getModelDims(model_shape, data_format)
-  axis = -1
-  if data_format == 'channels_first':
-    axis = 1
-  
+
   conv = None
   if ndim==3:
     conv = Conv3D
@@ -158,31 +176,36 @@ def dGBLeNet(model_shape, nroutputs, data_format):
 
   inputs = Input(input_shape)
   conv1 = conv(filtersz, kernel_sz1, strides=stride_sz1, padding='same', data_format=data_format)(inputs)
-  conv1 = BatchNormalization(axis=axis)(conv1)
+  conv1 = BatchNormalization(axis=bnaxis)(conv1)
   conv1 = Activation('relu')(conv1)
   conv2 = conv(filtersz, kernel_sz2, strides=stride_sz2, padding='same', data_format=data_format)(conv1)
   conv2 = Dropout(dropout)(conv2)
-  conv2 = BatchNormalization(axis=axis)(conv2)
+  conv2 = BatchNormalization(axis=bnaxis)(conv2)
   conv2 = Activation('relu')(conv2)
   conv3 = conv(filtersz, kernel_sz2, strides=stride_sz2, padding='same', data_format=data_format)(conv2)
   conv3 = Dropout(dropout)(conv3)
-  conv3 = BatchNormalization(axis=axis)(conv3)
+  conv3 = BatchNormalization(axis=bnaxis)(conv3)
   conv3 = Activation('relu')(conv3)
   conv4 = conv(filtersz, kernel_sz2, strides=stride_sz2, padding='same', data_format=data_format)(conv3)
   conv4 = Dropout(dropout)(conv4)
-  conv4 = BatchNormalization(axis=axis)(conv4)
+  conv4 = BatchNormalization(axis=bnaxis)(conv4)
   conv4 = Activation('relu')(conv4)
   conv5 = conv(filtersz, kernel_sz2, strides=stride_sz2, padding='same', data_format=data_format)(conv4)
   dense1 = Flatten()(conv5)
   dense1 = Dense(filtersz)(dense1)
-  dense1 = BatchNormalization(axis=axis)(dense1)
+  dense1 = BatchNormalization(axis=bnaxis)(dense1)
   dense1 = Activation('relu')(dense1)
   dense2 = Dense(densesz)(dense1)
-  dense2 = BatchNormalization(axis=axis)(dense2)
+  dense2 = BatchNormalization(axis=bnaxis)(dense2)
   dense2 = Activation('relu')(dense2)
-  dense3 = Dense(nroutputs)(dense2)
-  dense3 = BatchNormalization(axis=axis)(dense3)
-  dense3 = Activation('softmax')(dense3)
+  dense3 = None
+  if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
+    dense3 = Dense(nroutputs, activation='linear')(dense2)
+  else:
+    dense3 = Dense(nroutputs)(dense2)
+    dense3 = BatchNormalization(axis=bnaxis)(dense3)
+    dense3 = Activation('softmax')(dense3)
+    
   model = Model(inputs=[inputs], outputs=[dense3])
   return model
         
@@ -193,8 +216,8 @@ class dGB_LeNet_Classifier(UserModel):
   outtype = OutputType.Pixel
   dimtype = DimType.Any
   
-  def _make_model(self, input_shape, nroutputs, learnrate, data_format):
-    model = dGBLeNet(input_shape, nroutputs, data_format)
+  def _make_model(self, input_shape, nroutputs, learnrate):
+    model = dGBLeNet(input_shape, nroutputs, self.predtype)
     
     loss = 'binary_crossentropy'
     if nroutputs>2:
@@ -211,10 +234,10 @@ class dGB_LeNet_Regressor(UserModel):
   outtype = OutputType.Pixel
   dimtype = DimType.Any
   
-  def _make_model(self, input_shape, nroutputs, learnrate, data_format):
-    model = dGBLeNet(input_shape, nroutputs, data_format)
+  def _make_model(self, input_shape, nroutputs, learnrate):
+    model = dGBLeNet(input_shape, nroutputs, self.predtype)
       
-    model.compile(optimizer=RMSprop(lr=learnrate), loss=root_mean_squared_error, metrics=[root_mean_squared_error])
+    model.compile(optimizer=Adam(lr=learnrate), loss='mse', metrics=['mae'])
     
     return model
     
