@@ -154,7 +154,7 @@ def dGBLeNet(model_shape, nroutputs, predtype):
   # CPU training requires channels_last format due to TensorFlow bug
       data_format = 'channels_first'
       input_shape = (model_shape[-1], *model_shape[0:-1])
-      bnaxis = 0
+      bnaxis = 1
       
   ndim = dgbkeras.getModelDims(model_shape, data_format)
 
