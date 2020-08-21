@@ -278,7 +278,10 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
               validation_data=validate_datagen,callbacks=callbacks)
     restore_stdout()
 
-  keras.utils.print_summary( model, print_fn=log_msg )
+  try:
+    keras.utils.print_summary( model, print_fn=log_msg )
+  except:
+    pass
   infos = updateModelShape( infos, model, True )
   infos = updateModelShape( infos, model, False )
 
