@@ -50,15 +50,24 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     pass
 #    self.stop()
 
-  def _is_port_in_use(self, port):
+  def _is_port_in_use(self, port, local_ip):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-      return s.connect_ex(('127.0.0.1', port)) == 0
+      if s.connect_ex(('127.0.0.1', port)) == 0:
+        return True
+      retval = False
+      try:
+        retval = s.connect_ex((local_ip, port)) == 0
+      except:
+        pass
+      return retval
     
   def _startServer(self, tornadoport, attempts=20):
     port = max(self.port+1,tornadoport+1)
+    hostname = socket.gethostname()
+    local_ip = socket. gethostbyname( hostname )
     while attempts:
       attempts -=1
-      if self._is_port_in_use(port):
+      if self._is_port_in_use(port,local_ip):
         port += 1
         continue
       try:
