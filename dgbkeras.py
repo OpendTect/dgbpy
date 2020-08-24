@@ -323,7 +323,7 @@ def updateModelShape( infos, model, forinput ):
 def save( model, outfnm ):
   try:
     model.save( outfnm, save_format='h5' )
-  except Exception as e:
+  except Exception:
     model.save( outfnm )
 
 def load( modelfnm, fortrain ):
@@ -384,16 +384,17 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
 
   if withpred:
     if isclassification:
-      if not (doprobabilities or withconfidence):
+      if not (doprobabilities or withconfidence) and hasattr(model, 'predict_classes'):
         try:
           res = model.predict_classes( samples, batch_size=batch_size )
         except AttributeError:
-          res = model.predict( samples, batch_size=batch_size )
+          pass
     else:
       res = model.predict( samples, batch_size=batch_size )
-    res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
-    ret.update({dgbkeys.preddictstr: res})
- 
+    if res != None:
+      res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
+      ret.update({dgbkeys.preddictstr: res})
+
   if isclassification and (doprobabilities or withconfidence or (withpred and len(ret)<1)):
     allprobs = model.predict( samples, batch_size=batch_size )
     allprobs = adaptFromModel(model,False,allprobs,inp_shape,ret_data_format=data_format)
