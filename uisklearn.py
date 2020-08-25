@@ -82,7 +82,7 @@ def getEnsembleGrp():
 
 def getNNGrp():
   dict = scikit_dict
-  nntyp = Select(title='Model',value = 'Multi-Layer Perception',options=getUiNNTypes() )
+  nntyp = Select(title='Model',value = 'Multi-Layer Perceptron',options=getUiNNTypes() )
   itrparfld = Slider(start=10,end=1000,value=dict['nnpars']['maxitr'],title='Max Iteration')
   lay1parfld = Slider(start=1,end=200,value=50,title='Layer 1')
   lay2parfld = Slider(start=1,end=50,value=dict['nnpars']['lay2'],
