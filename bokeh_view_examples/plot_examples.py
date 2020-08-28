@@ -33,7 +33,7 @@ def load_data(plotparams):
     datadict = dgbmlio.getTrainingDataByInfo(info, dsetsel={ surveynm: {collnm: [cubenr]} } )
     xdata = datadict[dgbkeys.xtraindictstr][0,iattr]
     ydata = datadict[dgbkeys.ytraindictstr][0]
-    if len(ydata.shape) == 1:
+    if len(ydata.shape) == 1 or iattr >= len(ydata):
         ydata = ydata[0]
     else:
         ydata = ydata[iattr]
