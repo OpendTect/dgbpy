@@ -369,19 +369,29 @@ def transfer( model ):
 
   return model
 
-def apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
-           scaler=None, batch_size=None ):
+def apply( model, samples, isclassification, withpred, withprobs, \
+           withconfidence, doprobabilities, scaler=None, batch_size=None ):
   if batch_size == None:
     batch_size = keras_dict['batch']
   redirect_stdout()
   import keras
   restore_stdout()
   ret = {}
-  res = None
+           
   inp_shape = samples.shape
   data_format = 'channels_first'
   samples = adaptToModel( model, samples, sample_data_format=data_format )
+  model_outshape = model.output_shape
+  if len(model_outshape) <= 2:
+    nroutputs = model_outshape[-1]
+  else:
+    model_data_format = get_data_format( model )
+    if model_data_format == 'channels_first':
+      nroutputs = model_outshape[1]
+    else:
+      nroutputs = model_outshape[-1]
 
+  res = None
   if withpred:
     if isclassification:
       if not (doprobabilities or withconfidence) and hasattr(model, 'predict_classes'):
@@ -389,22 +399,23 @@ def apply( model, samples, isclassification, withpred, withprobs, withconfidence
           res = model.predict_classes( samples, batch_size=batch_size )
         except AttributeError:
           pass
-    else:
+    if not isinstance( res, np.ndarray ):
       res = model.predict( samples, batch_size=batch_size )
-    if res != None:
-      res = adaptFromModel(model,isclassification,res,inp_shape,ret_data_format=data_format)
+      res = adaptFromModel(model,res,inp_shape,ret_data_format=data_format)
       ret.update({dgbkeys.preddictstr: res})
 
-  if isclassification and (doprobabilities or withconfidence or (withpred and len(ret)<1)):
-    allprobs = model.predict( samples, batch_size=batch_size )
-    allprobs = adaptFromModel(model,False,allprobs,inp_shape,ret_data_format=data_format)
+  if isclassification and (doprobabilities or withconfidence or withpred):
+    if len(ret)<1:
+      allprobs = model.predict( samples, batch_size=batch_size )
+      allprobs = adaptFromModel(model,allprobs,inp_shape,ret_data_format=data_format)
+    else:
+      allprobs = ret[dgbkeys.preddictstr]
     indices = None
-    if withpred or withconfidence:
+    if withconfidence or nroutputs>1:
       N = 2
       indices = np.argpartition(allprobs,-N,axis=0)[-N:]
-    if withpred:
-      res = indices[-1:]
-      ret.update({dgbkeys.preddictstr: res})
+    if withpred and isinstance( indices, np.ndarray ):
+      ret.update({dgbkeys.preddictstr: indices[-1:]})
     if doprobabilities and len(withprobs) > 0:
       res = np.copy(allprobs[withprobs])
       ret.update({dgbkeys.probadictstr: res})
@@ -563,13 +574,10 @@ def adaptToModel( model, samples, sample_data_format='channels_first' ):
       return ret
   return samples
 
-def adaptFromModel( model, isclassification, samples, inp_shape, ret_data_format ):
+def adaptFromModel( model, samples, inp_shape, ret_data_format ):
   nrdims = len( model.output_shape )
   if nrdims == 2:
-    if isclassification:
-      return samples
-    else:
-      return samples.transpose()
+    return samples.transpose()
 
   nrpts = inp_shape[0]
   cube_shape = (nrpts,)
