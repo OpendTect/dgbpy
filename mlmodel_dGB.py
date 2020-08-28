@@ -107,9 +107,15 @@ def dGBUNet(model_shape, nroutputs, predtype):
     conv7 = conv(filtersz1, **params)(conv7)
     
     if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
-      conv8 = conv(nroutputs, 1, activation='linear', data_format=data_format)(conv7)
+      activation = 'linear'
     else:
-      conv8 = conv(1, 1, activation='sigmoid', data_format=data_format)(conv7)
+      if nroutputs == 2:
+        nrout = 1
+        activation = 'sigmoid'
+      else:
+        nrout = nroutputs
+        activation = 'softmax'
+    conv8 = conv(nrout, 1, activation=activation, data_format=data_format)(conv7)
       
     model = Model(inputs=[inputs], outputs=[conv8])
     return model
@@ -126,7 +132,7 @@ class dGB_UnetSeg(UserModel):
     if nroutputs<=2:
       loss = cross_entropy_balanced
     else:
-      loss = 'sparse_categorical_crossentropy'
+      loss = 'categorical_crossentropy'
 
     model.compile(optimizer = Adam(lr = learnrate), loss = loss, metrics = ['accuracy'])
 

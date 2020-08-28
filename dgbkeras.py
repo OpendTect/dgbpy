@@ -382,6 +382,7 @@ def apply( model, samples, isclassification, withpred, withprobs, \
   data_format = 'channels_first'
   samples = adaptToModel( model, samples, sample_data_format=data_format )
   model_outshape = model.output_shape
+  img2img = len(model_outshape) > 2
   if len(model_outshape) <= 2:
     nroutputs = model_outshape[-1]
   else:
@@ -411,11 +412,17 @@ def apply( model, samples, isclassification, withpred, withprobs, \
     else:
       allprobs = ret[dgbkeys.preddictstr]
     indices = None
-    if withconfidence or nroutputs>1:
+    if withconfidence or not img2img or (img2img and nroutputs>2):
       N = 2
-      indices = np.argpartition(allprobs,-N,axis=0)[-N:]
+      if img2img:
+        indices = np.argpartition(allprobs,-N,axis=1)[:,-N:]
+      else:
+        indices = np.argpartition(allprobs,-N,axis=0)[-N:]
     if withpred and isinstance( indices, np.ndarray ):
-      ret.update({dgbkeys.preddictstr: indices[-1:]})
+      if img2img:
+        ret.update({dgbkeys.preddictstr: indices[:,-1:]})
+      else:
+        ret.update({dgbkeys.preddictstr: indices[-1:]})
     if doprobabilities and len(withprobs) > 0:
       res = np.copy(allprobs[withprobs])
       ret.update({dgbkeys.probadictstr: res})
