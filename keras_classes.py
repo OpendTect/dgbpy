@@ -347,7 +347,7 @@ class UserModel(ABC):
     input_shape : tuple
     Defines input data shape in the Keras default data_format for the current backend.
     For the TensorFlow backend the default data_format is 'channels_last'
-    nroutputs : int
+    nroutputs : int (number of discrete classes for a classification)
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
@@ -366,7 +366,7 @@ class UserModel(ABC):
     ----------
     input_shape : tuple
     Defines input data shape arranged as per the data_format setting. 
-    nroutputs : int
+    nroutputs : int (number of discrete classes for a classification)
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function

@@ -109,7 +109,7 @@ def dGBUNet(model_shape, nroutputs, predtype):
     if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
       conv8 = conv(nroutputs, 1, activation='linear', data_format=data_format)(conv7)
     else:
-      conv8 = conv(nroutputs, 1, activation='sigmoid', data_format=data_format)(conv7)
+      conv8 = conv(1, 1, activation='sigmoid', data_format=data_format)(conv7)
       
     model = Model(inputs=[inputs], outputs=[conv8])
     return model
@@ -240,8 +240,4 @@ class dGB_LeNet_Regressor(UserModel):
     model.compile(optimizer=Adam(lr=learnrate), loss='mse', metrics=['mae'])
     
     return model
-    
-    
-    
-    
-      
+
