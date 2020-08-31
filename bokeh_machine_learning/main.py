@@ -98,7 +98,7 @@ def training_app(doc):
   import psutil
   from functools import partial
 
-  from bokeh.layouts import column
+  from bokeh.layouts import column, row
   from bokeh.models.widgets import Panel, Select, Tabs
   from bokeh.models import CheckboxGroup
 
@@ -179,6 +179,18 @@ def training_app(doc):
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
     makeUI(examplefilenm)
+
+    def resetUiFields(cb):
+      nonlocal keraspars
+      nonlocal sklearnpars
+      platformnm = platformfld.value
+      if platformnm == uikeras.getPlatformNm():
+        keraspars = uikeras.getUiPars(keraspars)
+      elif platformnm == uisklearn.getPlatformNm():
+        sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr], sklearnpars)
+        
+    parsresetbut = uibokeh.getButton('Reset', callback_fn=resetUiFields)
+      
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
@@ -241,7 +253,7 @@ def training_app(doc):
       if parsgrp == None:
         return
       doc.clear()
-      parameterspanel.child = column( parsgrp, parsbackbut )
+      parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
       doc.add_root(mainpanel)
       this_service.sendObject('ml_training_msg', {'platform_change': platformnm})
 
