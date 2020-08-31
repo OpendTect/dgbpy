@@ -107,6 +107,7 @@ def dGBUNet(model_shape, nroutputs, predtype):
     conv7 = conv(filtersz1, **params)(conv7)
     
     if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
+      nrout = nroutputs
       activation = 'linear'
     else:
       if nroutputs == 2:
