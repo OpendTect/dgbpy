@@ -333,7 +333,7 @@ def getUiPars(isclassification, uipars=None):
       'nngrp': getNNGrp(),
       'svmgrp': getSVMGrp()
     }
-    modelsgrp = (uiobjs['lineargrp'], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
+    modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
     uiobjs['modeltyp'].on_change('value',partial(modelChgCB,cb=uiobjs['modeltyp'],modelsgrp=modelsgrp))
     pars = [uiobjs['modeltyp']]
     ensemblepars = [uiobjs['ensemblegrp']['uiobjects']['ensembletyp'], \
@@ -366,7 +366,7 @@ def getUiPars(isclassification, uipars=None):
 
 
     if isclassification:
-      pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'], uiobjs['lineargrp']['uiobjects']['solvertyp']])
+      pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'], uiobjs[linearkey]['uiobjects']['solvertyp']])
     else:
       pars.extend([uiobjs[linearkey]['uiobjects']['lineartyp']])
     pars.extend(ensemblepars)
