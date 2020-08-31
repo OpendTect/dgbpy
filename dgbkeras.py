@@ -143,8 +143,14 @@ def rm_tree(pth):
         if child.is_file():
             child.unlink()
         else:
-            rm_tree(child)
-    pth.rmdir()
+            try:
+              rm_tree(child)
+            except OSError:
+              pass
+    try:
+      pth.rmdir()
+    except OSError:
+      pass
 
 def getLogDir( examplenm, basedir, clearlogs, args ):
   if not withtensorboard or basedir == None or not Path(basedir).exists():
