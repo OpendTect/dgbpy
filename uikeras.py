@@ -40,7 +40,7 @@ def getUiModelTypes( learntype, classification, ndim ):
 
   return dgbkeys.getNames( ret )
 
-def getUiPars():
+def getUiPars(uipars=None):
   dict = keras_dict
   learntype = info[dgbkeys.learntypedictstr]
   if isinstance(info[dgbkeys.inpshapedictstr], int):
@@ -56,57 +56,52 @@ def getUiPars():
               'divfld': divfld
             }
            }
-  
   defmodel = modeltypes[0]
-  modeltypfld = Select(title='Type',value=defmodel,
-                       options=modeltypes )
-  epochfld = Slider(start=1,end=1000,value=dict['epoch'],
-              title='Epochs')
   defbatchsz = keras_dict['batch']
+  estimatedsz = info[dgbkeys.estimatedsizedictstr]
   if kc.UserModel.isImg2Img( defmodel ):
       defbatchsz = 4
-  batchfld = Select(title='Batch Size',value=str(defbatchsz),options=cudacores)
-  lrfld = Slider(start=-10,end=-1,step=1,value=np.log10( dict['learnrate'] ),
-                 title='Initial Learning Rate (1e)')
-  edfld = Slider(start=1,end=100,value=100*dict['epochdrop']/epochfld.value,
-                 title='Epoch drop (%)', step=0.1)
-  patiencefld = Slider(start=1,end=100,value=dict['patience'],
-                title='Patience')
-  dodecimatefld = CheckboxGroup( labels=['Decimate input'], active=[] )
-  chunkfld = Slider(start=1,end=100,value=dict['nbchunk'],
-                    title='Number of Chunks')
-  sizefld = None
-  estimatedsz = info[dgbkeys.estimatedsizedictstr]
-  if estimatedsz != None:
-    sizefld = Div( text=getSizeStr( estimatedsz ) )
-  decimateCB( dodecimatefld.active,chunkfld,sizefld )
-  dodecimatefld.on_click(partial(decimateCB,chunkfld=chunkfld,sizefld=sizefld))
-  try:
-    chunkfld.value_throttled = chunkfld.value
-    chunkfld.on_change('value_throttled',partial(chunkfldCB, sizefld))
-  except AttributeError:
-    log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
-    pass
-  kerashasgpu = can_use_gpu()
-  rundevicefld = CheckboxGroup( labels=['Train on GPU'], active=[0], visible=kerashasgpu )
-  parsgrp = column(modeltypfld, \
-                   batchfld,epochfld,patiencefld,lrfld,edfld,sizefld,dodecimatefld, \
-                   chunkfld,rundevicefld)
-  return {
-    'grp' : parsgrp,
-    'uiobjects': {
-      'modeltypfld': modeltypfld,
-      'dodecimatefld': dodecimatefld,
-      'sizefld': sizefld,
-      'chunkfld': chunkfld,
-      'epochfld': epochfld,
-      'batchfld': batchfld,
-      'patiencefld': patiencefld,
-      'lrfld': lrfld,
-      'edfld': edfld,
-      'rundevicefld': rundevicefld
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {
+      'modeltypfld': Select(title='Type', options=modeltypes),
+      'batchfld': Select(title='Batch Size',options=cudacores),
+      'epochfld': Slider(start=1,end=1000, title='Epochs'),
+      'patiencefld': Slider(start=1,end=100, title='Patience'),
+      'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
+      'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1),
+      'sizefld': None,
+      'dodecimatefld': CheckboxGroup( labels=['Decimate input']),
+      'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
+      'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
-  }
+    if estimatedsz:
+      uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
+    uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
+    try:
+      uiobjs['chunkfld'].value_throttled = uiobjs['chunkfld'].value
+      uiobjs['chunkfld'].on_change('value_throttled',partial(chunkfldCB, uiobjs['sizefld']))
+    except AttributeError:
+      log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
+      pass
+    parsgrp = column(*list(uiobjs.values()))
+    uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
+  else:
+    uiobjs = uipars['uiobjects']
+    
+  uiobjs['modeltypfld'].value = defmodel
+  uiobjs['batchfld'].value = str(defbatchsz)
+  uiobjs['epochfld'].value = dict['epoch']
+  uiobjs['patiencefld'].value = dict['patience']
+  uiobjs['lrfld'].value = np.log10(dict['learnrate'])
+  uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value
+  if estimatedsz:
+    uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  uiobjs['dodecimatefld'].active = []
+  uiobjs['chunkfld'].value = dict['nbchunk']
+  uiobjs['rundevicefld'].active = [0]
+  decimateCB( uiobjs['dodecimatefld'].active,uiobjs['chunkfld'],uiobjs['sizefld'] )
+  return uipars
 
 def chunkfldCB(sizefld,attr,old,new):
   if sizefld == None:
