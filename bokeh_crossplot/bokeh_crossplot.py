@@ -63,7 +63,7 @@ class LogRangeWidget:
     def show(self, yn):
         for field in self.fields.items():
             field.visible = yn
-        
+
     def reset(self):
         if self.fields['range'].active==0:
             depths = self.well.depthRange()
@@ -75,7 +75,7 @@ class LogRangeWidget:
             self.fields['mrkupper'].update(value=0)
             self.fields['mrklower'].update(value=-1)
         self.depthChg(None, None, None)
-        
+
     def rangeTypeChg(self, attr, old, new):
         if new is 0:
             self.fields['mrkupper'].visible = self.fields['mrklower'].visible = False
@@ -87,7 +87,7 @@ class LogRangeWidget:
             self.fields['zupper'].update(value=0)
             self.fields['zlower'].update(value=0)
         self.depthChg(None, None, None)
-            
+
     def depthChg(self, attr, old, new):
         depths = list(self.well.depthRange())
         if self.fields['range'].active==0:
@@ -101,24 +101,24 @@ class LogRangeWidget:
             if mrklower!='<End of Data>':
                 depths[1] = markers['depth'][markers['name'].index(mrklower)]+self.fields['zlower'].value
         self.well.setDepthView(min(depths), max(depths))
-            
+
 class ColorMapWidget:
     def __init__(self, title='Color Map' ):
         self.cmaps = []
         for (key,val) in bpal.all_palettes.items():
             if 256 in list(val.keys()):
                 self.cmaps += [key]
-        self.cmaps.sort()       
+        self.cmaps.sort()
         self.fields = {'colormap': bm.Select(title=title, value='Viridis', options=self.cmaps)}
         self.layout = self.fields['colormap']
-            
+
 class CrossplotControls:
     def __init__(self, well):
         self.well = well
         self.logrange = None
         self.fields = {}
         self._initui()
-        
+
     def _initui(self):
         width = 300
         lognms = self.well.getLogNames()
@@ -153,7 +153,7 @@ class CrossplotControls:
                                 width=width,
                                 width_policy='fixed'
                                 )
-                        
+
 class CrossplotLogTracks:
     def __init__(self, well, logs, width=300):
         self.well = well
@@ -173,7 +173,7 @@ class CrossplotLogTracks:
         self._init_logs(logs)
         self.marker_props = None
         self._init_markers()
-        
+
     def _inittrack(self):
         depths = self.well.depthRange()
         self.datatrack = bp.figure(title='Crossplot Logs',
@@ -190,14 +190,14 @@ class CrossplotLogTracks:
         box_select = bm.BoxSelectTool(dimensions="height")
         self.datatrack.add_tools(box_zoom)
         self.datatrack.add_tools(box_select)
-        self.datatrack.title.text_font_size = '14pt'
+        self.datatrack.title.text_font_size = '12pt'
         self.datatrack.y_range = bm.Range1d(depths[-1], depths[0],bounds='auto')
         self.datatrack.x_range = bm.Range1d(0, 10)
         self.datatrack.xaxis.visible = False
         self.datatrack.on_event(Reset, self.resetCB)
         self.datatrack.on_event(MouseWheel, self.resetCB)
         self.datatrack.on_event(PanEnd, self.resetCB)
-        
+
         self.disptrack = bp.figure(title='Color/Size Logs',
                              plot_width=self.track_props['plot_width'],
                              sizing_mode='stretch_height',
@@ -209,7 +209,7 @@ class CrossplotLogTracks:
                              reset_policy=bce.ResetPolicy.event_only)
         self.disptrack.add_tools(box_zoom)
         self.disptrack.add_tools(box_select)
-        self.disptrack.title.text_font_size = '14pt'
+        self.disptrack.title.text_font_size = '12pt'
         self.disptrack.y_range = self.datatrack.y_range
         self.disptrack.x_range = bm.Range1d(0, 10)
         self.disptrack.xaxis.visible = False
@@ -238,17 +238,17 @@ class CrossplotLogTracks:
                                                         visible=False),
                                        'Label': bm.Label(x=xr.start,y=depth,text=name,
                                                          text_color=color,render_mode='canvas',
-                                                         visible=False)
+                                                         text_font_size='8pt',visible=False)
                                       }
             self.datatrack.add_layout(self.marker_props[name]['Line'])
             self.datatrack.add_layout(self.marker_props[name]['Label'])
-        
+
     def resetCB(self,ev):
         if isinstance(ev, Reset):
             depths = self.well.depthRange()
             self.datatrack.y_range.update(start=depths[-1], end=depths[0])
             self.well.logdata.selected.indices = []
-            
+
         lognm = self.log_props['xlog']['log']
         if not lognm:
             return
@@ -257,7 +257,7 @@ class CrossplotLogTracks:
         if not lognm:
             return
         self.updateLog(lognm, 'ylog')
-        
+
     def addLog(self, lognm, logtype='xlog'):
         width = self.log_props[logtype]['style']['line_width']
         color = self.log_props[logtype]['style']['line_color']
@@ -304,33 +304,33 @@ class CrossplotLogTracks:
         if not self.log_props[logtype]['axis']:
             self.addLog(lognm, logtype)
             return
-        
+
         limits = self.well.getLogLimits(lognm)
         track = self.datatrack
         if logtype is 'sizelog' or logtype is 'colorlog':
             track = self.disptrack
-        
+
         track.extra_x_ranges[logtype].update(start=limits[0], end=limits[-1])
         self.log_props[logtype]['axis'].update(axis_label=lognm, ticker=limits)
         self.log_props[logtype]['line'].glyph.update(x=lognm)
         self.log_props[logtype]['line'].visible = self.log_props[logtype]['visible']
         self.log_props[logtype]['axis'].visible = self.log_props[logtype]['visible']
         self.log_props[logtype]['log'] = lognm
-        
+
 
     def showLog(self, logtype, yn):
         self.log_props[logtype]['visible'] = yn
         self.log_props[logtype]['line'].visible = self.log_props[logtype]['visible']
         self.log_props[logtype]['points'].visible = self.log_props[logtype]['visible']
         self.log_props[logtype]['axis'].visible = self.log_props[logtype]['visible']
-    
+
     def show_markers(self, show):
         for (name,item) in self.marker_props.items():
             if name=='style':
                 continue
             item['Line'].visible = show
             item['Label'].visible = show
-        
+
     def _init_log_props(self):
         self.log_props['xlog'] = {'axis': None,
                                   'line': None,
@@ -407,8 +407,8 @@ class CrossplotLogTracks:
         self.track_props['log_minor_dash'] = self.linedash2str(tmp.xgrid.minor_grid_line_dash)
         self.track_props['z_major_dash'] = self.linedash2str(tmp.ygrid.grid_line_dash)
         self.track_props['z_minor_dash'] = self.linedash2str(tmp.ygrid.minor_grid_line_dash)
-        
-        
+
+
     def linedash2str(self, linedash):
         dash = 'solid'
         for (key, value) in DashPattern._dash_patterns.items():
@@ -416,7 +416,7 @@ class CrossplotLogTracks:
                 dash = key
                 break
         return dash
-    
+
     def apply_track_props(self, track):
         track.update(plot_width=self.track_props['plot_width'])
         track.update(background_fill_color=self.track_props['background_fill_color'])
@@ -470,7 +470,7 @@ class Crossplot:
         self._init_props()
         self._initui(lognms)
         self.setLogs(lognms)
-        
+
     def _initui(self, lognms):
         self.xplotfig = bp.figure(sizing_mode='stretch_both',
                                   tools='pan, box_zoom, lasso_select, box_select, hover, reset',
@@ -480,7 +480,7 @@ class Crossplot:
                                   min_width=300,
                                   min_height=300,
                                   x_range=(0,10), y_range=(0,10))
-        self.xplotfig.title.text_font_size = '14pt'
+        self.xplotfig.title.text_font_size = '12pt'
         self.xplotfig.on_event(Reset, self.resetCB)
         self.xhistfig = bp.figure(plot_height=100,
                                   sizing_mode='stretch_width',
@@ -493,26 +493,29 @@ class Crossplot:
                                   y_range=self.xplotfig.y_range,
                                   y_axis_location='right',
                                   x_range=(0,10))
+        self.yhistfig.xaxis.major_label_orientation='vertical'
         self.colorbarfig = bp.figure(plot_width=self.yhistfig.plot_width,
-                                     plot_height=self.xhistfig.plot_height,
+                                     plot_height=self.yhistfig.plot_height,
                                      toolbar_location=None,
                                      title_location='right',
                                      outline_line_alpha=0.0)
-        
+        self.colorbarfig.title.text_font_size = '10pt'
+        self.colorbarfig.title.align='center'
+        self.colorbarfig.title.text_font_style='normal'
+
         limits = self.well.getLogLimits(lognms[0])
         self.colorbarmapper = linear_cmap(field_name=lognms[0],
                                           palette=bpal.all_palettes[self.props['ColorMap']][256],
                                           low=limits[0], high=limits[-1])
 
         self.colorbar = bm.ColorBar(color_mapper=self.colorbarmapper['transform'],
-                                    **self.props['ColorBar'], location=(int(self.yhistfig.plot_width/2),0))
+                                    **self.props['ColorBar'], location=(0,0))
         self.colorbarfig.add_layout(self.colorbar, 'center')
         self.colorbarfig.visible = False
-        
+
         self.setLogs(lognms)
-        self.layout = bl.gridplot([[self.xplotfig, self.yhistfig],[self.xhistfig, self.colorbarfig]],
+        self.layout = bl.gridplot([[self.xplotfig, self.colorbarfig, self.yhistfig],[self.xhistfig, None, None]],
                                   merge_tools=False)
-        
     def _init_props(self):
         self.props = {'Histograms': {'Bins': 40, 'Fill': 'darkgray'},
                       'X log': {'line_color': 'darkorange', 'line_width': 2},
@@ -531,7 +534,7 @@ class Crossplot:
                                      'Robust': {'line_color': 'cornflowerblue', 'line_width': 3}
                                     },
                       'Legend': {},
-                      'ColorBar': {'width': 20}
+                      'ColorBar': {'width': 15, 'label_standoff': 6}
                       }
 
     def resetCB(self, ev):
@@ -548,7 +551,7 @@ class Crossplot:
     def updateTitle(self):
         text = '%s vs %s' % (self.xplotfig.yaxis.axis_label, self.xplotfig.xaxis.axis_label)
         self.xplotfig.title.update(text=text)
-        
+
     def setLogs(self, lognms):
         if len(lognms)<2:
             return
@@ -578,7 +581,7 @@ class Crossplot:
 
         self.set_xlog(lognms[0])
         self.set_ylog(lognms[1])
-        
+
     def set_xlog(self, lognm):
         self.xplotfig.xaxis.update(axis_label=lognm)
         self.bubblepoints.glyph.update(x=lognm)
@@ -587,7 +590,7 @@ class Crossplot:
         self.xplotfig.x_range.end=limits[-1]
         self.set_xhistogram(lognm)
         self.updateTitle()
-    
+
     def set_ylog(self, lognm):
         self.xplotfig.yaxis.update(axis_label=lognm)
         self.bubblepoints.glyph.update(y=lognm)
@@ -625,13 +628,13 @@ class Crossplot:
         self.props['ColorMap'] = cmap
         if self.colormapper:
             self.set_colorlog(self.colormapper['field'])
-                
+
     def set_sizemap(self, szmap):
         self.props['SizeMap'] = szmap
         if self.sizemapper:
             self.set_sizelog(self.sizemapper['field'])
-                
-        
+
+
     def set_colorlog(self, lognm):
         if lognm=='None':
             self.colormapper = None
@@ -665,14 +668,14 @@ class Crossplot:
                                                               y=self.props['SizeMap'])
                           }
         self.bubblepoints.glyph.update(size=self.sizemapper)
-        
+
     def show_regression(self, show, selectedonly=False):
         if show:
             self.set_regression(selectedonly)
         self.regression['Standard'].visible = show
         self.regression['Robust'].visible = show
         self.legend.visible = show
-        
+
     def set_regression(self, selectedonly=False):
         xlognm = self.xplotfig.xaxis.axis_label
         ylognm = self.xplotfig.yaxis.axis_label
@@ -701,15 +704,15 @@ class Crossplot:
         lbl = 'Robust: {} = {} * {:.4f} + {:.4f}'.format(ylognm, xlognm, rs.estimator_.coef_[0],
                                                          rs.estimator_.intercept_)
         self.legend.items[1].label = value(lbl)
-                
-                
-            
+
+
+
 
 def update_xlog(attr, old, new, track, controls, xplot):
     track.updateLog(new, 'xlog')
     xplot.set_xlog(new)
     xplot.show_regression(len(controls.fields['regression'].active)!=0)
-    
+
 def update_ylog(attr, old, new, track, controls, xplot):
     track.updateLog(new, 'ylog')
     xplot.set_ylog(new)
@@ -724,7 +727,7 @@ def update_colorlog(attr, old, new, track, controls, xplot):
         track.showLog('colorlog', True)
         controls.fields['colormap'].visible = True
     xplot.set_colorlog(new)
-    
+
 def update_sizelog(attr, old, new, track, controls, xplot):
     if new=='None':
         track.showLog('sizelog', False)
@@ -734,7 +737,7 @@ def update_sizelog(attr, old, new, track, controls, xplot):
         track.showLog('sizelog', True)
         controls.fields['sizemap'].visible = True
     xplot.set_sizelog(new)
-        
+
 def update_colormap(attr, old, new, xplot):
     xplot.set_colormap(new)
 
@@ -749,7 +752,7 @@ def update_regression(attr, old, new, controls, xplot):
     show = len(controls.fields['regression'].active)!=0
     selonly = len(controls.fields['selected'].active)!=0
     xplot.show_regression(show, selonly)
-    
+
 def view_change(attr, old, new, controls, xplot):
     show = len(controls.fields['regression'].active)!=0 and len(new)!=0
     selonly = len(controls.fields['selected'].active)!=0
@@ -798,7 +801,7 @@ def crossplot_app(doc):
                                                              xplot=xplplots))
     xplcontrols.fields['sizemap'].on_change('value', partial(update_sizemap,
                                                              xplot=xplplots))
-    
+
     xplcontrols.fields['markers'].on_change('active', partial(update_markers,
                                                               track=xpllogs,
                                                               controls=xplcontrols))
@@ -808,7 +811,7 @@ def crossplot_app(doc):
     xplcontrols.fields['selected'].on_change('active', partial(update_regression,
                                                                controls=xplcontrols,
                                                                xplot=xplplots))
-    
+
     well.logdataview.on_change('filters', partial(view_change, controls=xplcontrols,
                                                   xplot=xplplots))
     well.logdata.selected.on_change('indices', partial(sel_change, controls=xplcontrols,
@@ -818,14 +821,14 @@ def crossplot_app(doc):
 
     doc.add_root(layout)
     doc.title = "Crossplot well logs"
-  
-  
+
+
 def main():
   global wellnm, wellfile
-  
+
   wellnm = 'F03-2'
   wellfile = '~/wl_od.dat'
-  
+
   server = Server({'/' : crossplot_app})
   server.start()
   server.io_loop.add_callback(server.show, "/")
