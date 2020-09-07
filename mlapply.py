@@ -223,12 +223,13 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     (model,infos) = dgbmlio.getModel( modelin, fortrain=True )
 
   trainingdp = None
+  validation_split = 0.2 #Params?
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     if params == None:
       params = dgbkeras.getParams()
     dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
-    validation_split = 0.2 #Params?
+    
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scale=True, force=False,
                                         nbchunks=params['nbchunk'],
@@ -249,7 +250,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbscikit.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
-                                        scale=True, force=False )
+                                        scale=True, force=False,
+                                        split=validation_split )
     if type == TrainType.New:
       model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
                                          params )

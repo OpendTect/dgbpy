@@ -394,14 +394,33 @@ def getDefaultModel( setup, params=scikit_dict ):
 
 def train(model, trainingdp):
   x_train = trainingdp[dgbkeys.xtraindictstr]
-  y_train = trainingdp[dgbkeys.ytraindictstr]
+  y_train = trainingdp[dgbkeys.ytraindictstr].ravel()
   printProcessTime( 'Training with scikit-learn', True, print_fn=log_msg )
+  log_msg( '\nTraining on', len(y_train), 'samples' )
+  log_msg( 'Validate on', len(trainingdp[dgbkeys.yvaliddictstr]), 'samples\n' )
   redirect_stdout()
   model.verbose = 51
-  ret = model.fit(x_train,y_train.ravel())
+  ret = model.fit(x_train,y_train)
   restore_stdout()
   printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
+  assessQuality( model, trainingdp )
   return ret
+
+def assessQuality( model, trainingdp ):
+  if not dgbkeys.yvaliddictstr in trainingdp:
+    return
+  try:
+    x_validate = trainingdp[dgbkeys.xvaliddictstr]
+    y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
+    y_predicted = model.predict(x_validate)
+    if trainingdp[dgbkeys.infodictstr][dgbkeys.classdictstr]:
+      cc = np.sum( y_predicted==y_validate) / len(y_predicted)
+    else:
+      cc = np.corrcoef( y_predicted, y_validate )[0,1]
+    log_msg( '\nCorrelation coefficient with validation data: ', "%.4f" % cc, '\n' )
+  except Exception as e:
+    log_msg( '\nCannot compute model quality:' )
+    log_msg( repr(e) )
 
 def save( model, outfnm, save_type=defsavetype ):
   h5file = odhdf5.openFile( outfnm, 'w' )
