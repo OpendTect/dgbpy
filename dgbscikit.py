@@ -15,6 +15,7 @@ import json
 import joblib
 import numpy as np
 import pickle
+from pathlib import PurePosixPath, PureWindowsPath
 
 import sklearn
 from sklearn.preprocessing import StandardScaler
@@ -28,7 +29,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.svm import SVC, SVR
 
-from odpy.common import log_msg, redirect_stdout, restore_stdout
+from odpy.common import log_msg, redirect_stdout, restore_stdout, isWin
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
@@ -420,6 +421,38 @@ def save( model, outfnm, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
+def translateFnm( modfnm, modelfnm ):
+  posidxh5fp = PurePosixPath( modelfnm )
+  winh5fp = PureWindowsPath( modelfnm )
+  posixmodfp = PurePosixPath( modfnm )
+  winmodfp = PureWindowsPath( modfnm )
+  if isWin():
+    moddir = winh5fp.parent
+    modbasefnm = winmodfp.name
+    modlocfnm = PureWindowsPath( moddir ).joinpath( PureWindowsPath(modbasefnm))
+    if os.path.exists(modlocfnm):
+      modfnm = modlocfnm
+    else:
+      moddir = posidxh5fp.parent
+      modbasefnm = posixmodfp.name
+      modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
+      if os.path.exists(modlocfnm):
+        modfnm = modlocfnm
+  else:
+    moddir = posidxh5fp.parent
+    modbasefnm = posixmodfp.name
+    modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
+    if os.path.exists(modlocfnm):
+      modfnm = modlocfnm
+    else:
+      moddir = winh5fp.parent
+      modbasefnm = winmodfp.name
+      modlocfnm = PureWindowsPath( moddir).joinpath(PureWindowsPath(modbasefnm))
+      modlocfnm = modlocfnm.as_posix()
+      if os.path.exists(modlocfnm):
+        modfnm = modlocfnm
+  return modfnm
+
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
@@ -432,11 +465,7 @@ def load( modelfnm ):
   savetype = odhdf5.getText( modelgrp, 'type' )
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
-    modbasefnm = os.path.basename( modfnm )
-    moddir = os.path.dirname( modelfnm )
-    modlocfnm = os.path.join( moddir, modbasefnm )
-    if os.path.exists( modlocfnm ):
-      modfnm = modlocfnm
+    modfnm = translateFnm( modfnm, modelfnm )
     model = joblib.load( modfnm )
   elif savetype == savetypes[1]:
     modeldata = modelgrp['object']
