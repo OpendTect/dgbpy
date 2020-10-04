@@ -24,16 +24,16 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
   def __init__(self, cmdserver, ppid, tornadoport, serviceID=None):
     super(ServiceMgr, self).__init__()
     self.cmdserver = cmdserver
-    self.host = None
-    self.port = None
+    self.cmdhost = None
+    self.cmdport = None
     self.serviceID = serviceID
     if '@' in cmdserver:
       info = cmdserver.split('@')
       cmdserver = info[1]
     if ':' in cmdserver:
       info = cmdserver.split(':')
-      self.host = info[0]
-      self.port = int(info[1])
+      self.cmdhost = info[0]
+      self.cmdport = int(info[1])
 
     self._parentproc = None
     if ppid > 0:
@@ -62,30 +62,34 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       return retval
     
   def _startServer(self, tornadoport, attempts=20):
-    port = max(self.port+1,tornadoport+1)
+    address = 'localhost'
+    port = max(self.cmdport+1,tornadoport+1)
     hostname = socket.gethostname()
-    local_ip = socket. gethostbyname( hostname )
+    local_ip = socket.gethostbyname( hostname )
     while attempts:
       attempts -=1
       if self._is_port_in_use(port,local_ip):
+        odcommon.std_msg( 'Port in use:', port )
         port += 1
         continue
       try:
-        self.listen(port)
-        self._register(port)
+        self.listen(port,address=address)
+        self._register(port,address)
         return
       except OSError as ex:
 # using error code since the error string is translated in current locale
         if '10048' in str(ex):
+          odcommon.std_msg( 'Failed to listen to port:', port )
           port += 1
         else:
           raise ex
     raise Exception("Failed to find available port");
 
-  def _register(self, port):
-    Message().sendObject(self.host, self.port,
+  def _register(self, port, address):
+#    odcommon.std_msg( 'Registering with port', port, 'and address', address )
+    Message().sendObject(self.cmdhost, self.cmdport,
                    'bokeh_register', {'servicename': self.serviceID,
-                                'hostname': socket.gethostname(),
+                                'hostname': address,
                                 'port': port,
                                 'pid': os.getpid()
                                 })
@@ -106,6 +110,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
         inpacket = Packet(odhdr + packetbody)
         resp_packet = self._processPacket(inpacket)
         await stream.write(resp_packet.packet)
+        stream.close()
       except StreamClosedError:
         break
       
@@ -169,6 +174,7 @@ class Message:
     client = tornado.tcpclient.TCPClient()
     stream = await client.connect(host, port)
     await stream.write(packet.packet)
+    stream.close()
 
 
 class Packet:
