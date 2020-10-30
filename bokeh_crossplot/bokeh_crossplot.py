@@ -473,7 +473,7 @@ class Crossplot:
 
     def _initui(self, lognms):
         self.xplotfig = bp.figure(sizing_mode='stretch_both',
-                                  tools='pan, box_zoom, lasso_select, box_select, hover, reset',
+                                  tools='hover, pan, box_zoom, lasso_select, box_select, reset',
                                   active_drag='box_zoom',
                                   toolbar_location='above',
                                   title='vs',
@@ -552,6 +552,34 @@ class Crossplot:
         text = '%s vs %s' % (self.xplotfig.yaxis.axis_label, self.xplotfig.xaxis.axis_label)
         self.xplotfig.title.update(text=text)
 
+    def updateTooltips(self):
+        xlognm = self.xplotfig.xaxis.axis_label
+        ylognm = self.xplotfig.yaxis.axis_label
+        zlognm = None
+        if self.colormapper:
+          zlognm = self.colormapper['field']
+        if self.sizemapper:
+          zlognm = self.sizemapper['field']
+
+        if zlognm:
+          self.xplotfig.tools[0].tooltips = [
+                                              ( zlognm, '@{%s}' % zlognm ),
+                                              ( xlognm, '$x' ),
+                                              ( ylognm, """$y
+                                              <style>
+                                                  .bk-tooltip>div:not(:first-child) {display:none;}
+                                              </style>""")
+                                            ]
+        else :
+          self.xplotfig.tools[0].tooltips = [
+                                              ( xlognm, '$x' ),
+                                              ( ylognm, """$y
+                                              <style>
+                                                  .bk-tooltip>div:not(:first-child) {display:none;}
+                                              </style>""")
+                                            ]
+
+
     def setLogs(self, lognms):
         if len(lognms)<2:
             return
@@ -590,6 +618,7 @@ class Crossplot:
         self.xplotfig.x_range.end=limits[-1]
         self.set_xhistogram(lognm)
         self.updateTitle()
+        self.updateTooltips()
 
     def set_ylog(self, lognm):
         self.xplotfig.yaxis.update(axis_label=lognm)
@@ -599,6 +628,7 @@ class Crossplot:
         self.xplotfig.y_range.end=limits[-1]
         self.set_yhistogram(lognm)
         self.updateTitle()
+        self.updateTooltips()
 
     def set_xhistogram(self, lognm):
         log = np.array(self.well.logdata.data.get(lognm))
@@ -645,6 +675,7 @@ class Crossplot:
             self.bubblepoints.glyph.update(**bpsettings)
             if self.colorbar:
                 self.colorbarfig.visible = False
+            self.updateTooltips()
             return
         limits = self.well.getLogLimits(lognm)
         self.colormapper = linear_cmap(field_name=lognm,
@@ -656,11 +687,13 @@ class Crossplot:
                                                 palette=bpal.all_palettes[self.props['ColorMap']][256])
         self.colorbarfig.title.text = lognm
         self.colorbarfig.visible=True
+        self.updateTooltips()
 
     def set_sizelog(self, lognm):
         if lognm=='None':
             self.sizemapper = None
             self.bubblepoints.glyph.update(size=self.props['Bubbleplot']['size'])
+            self.updateTooltips()
             return
         limits = self.well.getLogLimits(lognm)
         self.sizemapper = {'field': lognm,
@@ -668,6 +701,7 @@ class Crossplot:
                                                               y=self.props['SizeMap'])
                           }
         self.bubblepoints.glyph.update(size=self.sizemapper)
+        self.updateTooltips()
 
     def show_regression(self, show, selectedonly=False):
         if show:
