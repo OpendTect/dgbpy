@@ -31,10 +31,10 @@ def logplot_app(doc):
 
 def main():
   global wellnm, logs
-  
+
   wellnm = 'F03-2'
   logs = ['Sonic','Gamma Ray','P-Impedance_rel']
-  
+
   server = Server({'/' : logplot_app})
   server.start()
   server.io_loop.add_callback(server.show, "/")
