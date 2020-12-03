@@ -55,11 +55,53 @@ def getLogGrp(uipars=None):
 def getEnsembleGrp(uipars=None):
   uiobjs = {}
   rfgrp = {}
-  if not uipars:
+  xgdtgrp = None
+  xgrfgrp = None
+  if uipars:
+    uiobjs  = uipars['uiobjects']
+    if hasXGBoost():
+      xgdtgrp = {'uiobjects': {'depparfldxgdt': uiobjs['depparfldxgdt'],
+                               'estparfldxgdt': uiobjs['estparfldxgdt'],
+                               'lrparfldxgdt': uiobjs['lrparfldxgdt'],}, }
+      xgrfgrp = {'uiobjects': {'depparfldxgrf': uiobjs['depparfldxgrf'],
+                               'estparfldxgrf': uiobjs['estparfldxgrf'],
+                               'lrparfldxgrf': uiobjs['lrparfldxgrf'],}, }
+    rfgrp = {'uiobjects': {'depparfldrf': uiobjs['depparfldrf'],
+                           'estparfldrf': uiobjs['estparfldrf'],},}
+    gbgrp = {'uiobjects': {'depparfldgb': uiobjs['depparfldgb'],
+                           'estparfldgb': uiobjs['estparfldgb'], 
+                           'lrparfldgb': uiobjs['lrparfldgb'],}, }
+    adagrp = {'uiobjects': {'estparfldada': uiobjs['estparfldada'],
+                            'lrparfldada': uiobjs['lrparfldada'],}, }
+    if hasXGBoost():
+      getXGDTGrp(xgdtgrp)
+      getXGRFGrp(xgrfgrp)
+    getRFGrp(rfgrp)
+    getGBGrp(gbgrp)
+    getAdaGrp(adagrp)
+  else:
+    if hasXGBoost():
+      xgdtgrp = getXGDTGrp()
+      xgrfgrp = getXGRFGrp()
     rfgrp = getRFGrp()
     gbgrp = getGBGrp()
     adagrp = getAdaGrp()
-    uiobjs = {'ensembletyp': Select(title='Model', options=getUiEnsembleTypes()),
+    uiobjs = {'ensembletyp': Select(title='Model',
+                             options=getUiEnsembleTypes())}
+    if hasXGBoost():
+      xggrpuiobjs = xgdtgrp['uiobjects']
+      uiobjs.update({
+                      'depparfldxgdt': xggrpuiobjs['depparfldxgdt'],
+                      'estparfldxgdt': xggrpuiobjs['estparfldxgdt'],
+                      'lrparfldxgdt': xggrpuiobjs['lrparfldxgdt'],
+                    })
+      xggrpuiobjs = xgrfgrp['uiobjects']
+      uiobjs.update({
+                      'depparfldxgrf': xggrpuiobjs['depparfldxgrf'],
+                      'estparfldxgrf': xggrpuiobjs['estparfldxgrf'],
+                      'lrparfldxgrf': xggrpuiobjs['lrparfldxgrf'],
+                    })
+    uiobjs.update({
               'depparfldrf': rfgrp['uiobjects']['depparfldrf'],
               'estparfldrf': rfgrp['uiobjects']['estparfldrf'],
               'depparfldgb': gbgrp['uiobjects']['depparfldgb'],
@@ -67,40 +109,17 @@ def getEnsembleGrp(uipars=None):
               'lrparfldgb': gbgrp['uiobjects']['lrparfldgb'],
               'estparfldada': adagrp['uiobjects']['estparfldada'],
               'lrparfldada': adagrp['uiobjects']['lrparfldada'],
-              }
-    ensemblegrp = (rfgrp,gbgrp,adagrp)
+              })
     if hasXGBoost():
-      xggrp = getXGGrp()
-      ensemblegrp += (xggrp,)
-      xggrpuiobjs = xggrp['uiobjects']
-      uiobjs.update({
-                      'depparfldxg': xggrpuiobjs['depparfldxg'],
-                      'estparfldxg': xggrpuiobjs['estparfldxg'],
-                      'lrparfldxg': xggrpuiobjs['lrparfldxg'],
-                    })
+      ensemblegrp = (xgdtgrp,xgrfgrp)
+    ensemblegrp += (rfgrp,gbgrp,adagrp,)
     uiobjs['ensembletyp'].on_change('value',partial(ensembleChgCB,cb=uiobjs['ensembletyp'],ensemblegrp=ensemblegrp))
-    uipars = {'uiobjects': uiobjs, 'name': regmltypes[1][1],}      
-  else:
-    uiobjs  = uipars['uiobjects']
-    rfgrp = {'uiobjects': {'depparfldrf': uiobjs['depparfldrf'], 'estparfldrf': uiobjs['estparfldrf'],},}
-    gbgrp = {'uiobjects': {'depparfldgb': uiobjs['depparfldgb'],
-                           'estparfldgb': uiobjs['estparfldgb'], 
-                           'lrparfldgb': uiobjs['lrparfldgb'],},
-            }
-    adagrp = {'uiobjects': {'estparfldada': uiobjs['estparfldada'],
-                            'lrparfldada': uiobjs['lrparfldada'],}
-             }
-    getRFGrp(rfgrp)
-    getGBGrp(gbgrp)
-    getAdaGrp(adagrp)
-    if hasXGBoost():
-      xggrp = {'uiobjects': {'depparfldxg': uiobjs['depparfldxg'],
-                             'estparfldxg': uiobjs['estparfldxg'],
-                             'lrparfldxg': uiobjs['lrparfldxg'],},
-              }
-      getXGGrp(xggrp)
+    uipars = {'uiobjects': uiobjs, 'name': regmltypes[1][1],}
     
-  uiobjs['ensembletyp'].value = 'Random Forests'
+  if hasXGBoost():
+    uiobjs['ensembletyp'].value = 'XGBoost: (Decision Tree)'
+  else:
+    uiobjs['ensembletyp'].value = 'Random Forests'
   return uipars
 
 def getNNGrp(uipars=None):
@@ -232,8 +251,9 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
   # set default visibility
   if new == 'Ensemble':
     ret['ensembletyp'].visible = True
-    ret['depparfldrf'].visible = True
-    ret['estparfldrf'].visible = True
+    ret['estparfldxgdt'].visible = True
+    ret['depparfldxgdt'].visible = True
+    ret['lrparfldxgdt'].visible = True
   elif new == 'SVM':
     ret['svmtyp'].visible = True
     ret['kernel'].visible = True
@@ -244,13 +264,48 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
       ret['lay4parfld'].visible = False
       ret['lay5parfld'].visible = False
 
+def getXGDTGrp(uipars=None):
+  if not hasXGBoost():
+    return None
+  dict = scikit_dict['ensemblepars']['xgdt']
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'estparfldxgdt': Slider(start=10,end=1000,step=10,title='Estimators'),
+              'depparfldxgdt': Slider(start=10,end=200,step=10,title='Max Depth'),
+              'lrparfldxgdt': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'), }
+    uipars = {'uiobjects': uiobjs,}
+  else:
+    uiobjs = uipars['uiobjects']
+    
+  uiobjs['estparfldxgdt'].value = dict['est']
+  uiobjs['depparfldxgdt'].value = dict['maxdep']
+  uiobjs['lrparfldxgdt'].value = dict['lr']
+  return uipars
+
+def getXGRFGrp(uipars=None):
+  if not hasXGBoost():
+    return None
+  dict = scikit_dict['ensemblepars']['xgrf']
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'estparfldxgrf': Slider(start=10,end=1000,step=10,title='Estimators'),
+              'depparfldxgrf': Slider(start=10,end=200,step=10,title='Max Depth'),
+              'lrparfldxgrf': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'), }
+    uipars = {'uiobjects': uiobjs,}
+  else:
+    uiobjs = uipars['uiobjects']
+    
+  uiobjs['estparfldxgrf'].value = dict['est']
+  uiobjs['depparfldxgrf'].value = dict['maxdep']
+  uiobjs['lrparfldxgrf'].value = dict['lr']
+  return uipars
+
 def getRFGrp(uipars=None):
   dict = scikit_dict['ensemblepars']['rf']
   uiobjs = {}
   if not uipars:
     uiobjs = {'estparfldrf': Slider(start=10, end=1000, step=10, title='Estimators'),
-              'depparfldrf': Slider(start=10, end=200, step=10, title='Max Depth'),
-              }
+              'depparfldrf': Slider(start=10, end=200, step=10, title='Max Depth'), }
     uipars = {'uiobjects': uiobjs}
   else:
     uiobjs = uipars['uiobjects']
@@ -263,16 +318,15 @@ def getGBGrp(uipars=None):
   dict = scikit_dict['ensemblepars']['gb']
   uiobjs = {}
   if not uipars:
-    uiobjs = {'depparfldgb': Slider(start=1,end=100,step=1,title='Max Depth'),
-              'estparfldgb': Slider(start=10,end=500,step=10,title='Estimators'),
-              'lrparfldgb': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'),
-              }
+    uiobjs = {'estparfldgb': Slider(start=10,end=500,step=10,title='Estimators'),
+              'depparfldgb': Slider(start=1,end=100,step=1,title='Max Depth'),
+              'lrparfldgb': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'), }
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
     
-  uiobjs['depparfldgb'].value = dict['maxdep']
   uiobjs['estparfldgb'].value = dict['est']
+  uiobjs['depparfldgb'].value = dict['maxdep']
   uiobjs['lrparfldgb'].value = dict['lr']
   return uipars
 
@@ -289,25 +343,6 @@ def getAdaGrp(uipars=None):
     
   uiobjs['estparfldada'].value = dict['est']
   uiobjs['lrparfldada'].value = dict['lr']
-  return uipars
-
-def getXGGrp(uipars=None):
-  if not hasXGBoost():
-    return None
-  dict = scikit_dict['ensemblepars']['xg']
-  uiobjs = {}
-  if not uipars:
-    uiobjs = {'depparfldxg': Slider(start=10,end=200,step=10,title='Max Depth'),
-              'estparfldxg': Slider(start=10,end=1000,step=10,title='Estimators'),
-              'lrparfldxg': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'),
-              }
-    uipars = {'uiobjects': uiobjs,}
-  else:
-    uiobjs = uipars['uiobjects']
-    
-  uiobjs['depparfldxg'].value = dict['maxdep']
-  uiobjs['estparfldxg'].value = dict['est']
-  uiobjs['lrparfldxg'].value = dict['lr']
   return uipars
 
 def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
@@ -336,7 +371,19 @@ def getUiPars(isclassification, uipars=None):
     modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
     uiobjs['modeltyp'].on_change('value',partial(modelChgCB,cb=uiobjs['modeltyp'],modelsgrp=modelsgrp))
     pars = [uiobjs['modeltyp']]
-    ensemblepars = [uiobjs['ensemblegrp']['uiobjects']['ensembletyp'], \
+    ensemblepars = [uiobjs['ensemblegrp']['uiobjects']['ensembletyp']]
+    if hasXGBoost():
+      xgdtpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgdt'], \
+                  uiobjs['ensemblegrp']['uiobjects']['depparfldxgdt'], \
+                  uiobjs['ensemblegrp']['uiobjects']['lrparfldxgdt'], \
+                 ]
+      xgrfpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgrf'], \
+                  uiobjs['ensemblegrp']['uiobjects']['depparfldxgrf'], \
+                  uiobjs['ensemblegrp']['uiobjects']['lrparfldxgrf'], \
+                 ]
+      ensemblepars.extend( xgdtpars )
+      ensemblepars.extend( xgrfpars )
+    ensemblepars.extend([
                     uiobjs['ensemblegrp']['uiobjects']['estparfldrf'], \
                     uiobjs['ensemblegrp']['uiobjects']['depparfldrf'], \
                     uiobjs['ensemblegrp']['uiobjects']['estparfldgb'], \
@@ -344,11 +391,7 @@ def getUiPars(isclassification, uipars=None):
                     uiobjs['ensemblegrp']['uiobjects']['lrparfldgb'], \
                     uiobjs['ensemblegrp']['uiobjects']['estparfldada'], \
                     uiobjs['ensemblegrp']['uiobjects']['lrparfldada'], \
-                   ]
-    xgpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxg'], \
-              uiobjs['ensemblegrp']['uiobjects']['depparfldxg'], \
-              uiobjs['ensemblegrp']['uiobjects']['lrparfldxg'], \
-             ]
+                   ] )
     nnpars = [uiobjs['nngrp']['uiobjects']['nntyp'], \
               uiobjs['nngrp']['uiobjects']['itrparfld'], \
               uiobjs['nngrp']['uiobjects']['lrparfld'], \
@@ -364,14 +407,12 @@ def getUiPars(isclassification, uipars=None):
                uiobjs['svmgrp']['uiobjects']['degree'] \
               ]
 
-
     if isclassification:
-      pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'], uiobjs[linearkey]['uiobjects']['solvertyp']])
+      pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'],
+                   uiobjs[linearkey]['uiobjects']['solvertyp']])
     else:
       pars.extend([uiobjs[linearkey]['uiobjects']['lineartyp']])
     pars.extend(ensemblepars)
-    if hasXGBoost():
-      pars.extend(xgpars)
     pars.extend(nnpars)
     pars.extend(svmpars)
     parsgrp = column(*pars)
@@ -405,7 +446,17 @@ def getUiParams( sklearnpars ):
                        solver=parmobj['solvertyp'].value)
   if modeltype.value == 'Ensemble':
     parmobj = sklearngrp['ensemblegrp']['uiobjects']
-    if parmobj['ensembletyp'].value == 'Random Forests':
+    if parmobj['ensembletyp'].value == 'XGBoost: (Decision Tree)':
+      return getEnsembleParsXGDT( modelname=parmobj['ensembletyp'].value,
+                                  maxdep=parmobj['depparfldxgdt'].value,
+                                  est=parmobj['estparfldxgdt'].value,
+                                  lr=parmobj['lrparfldxgdt'].value )
+    elif parmobj['ensembletyp'].value == 'XGBoost: (Random Forests)':
+      return getEnsembleParsXGRF( modelname=parmobj['ensembletyp'].value,
+                                  maxdep=parmobj['depparfldxgrf'].value,
+                                  est=parmobj['estparfldxgrf'].value,
+                                  lr=parmobj['lrparfldxgrf'].value )
+    elif parmobj['ensembletyp'].value == 'Random Forests':
       return getEnsembleParsRF( modelname=parmobj['ensembletyp'].value,
                                 maxdep=parmobj['depparfldrf'].value,
                                 est=parmobj['estparfldrf'].value)
@@ -418,11 +469,6 @@ def getUiParams( sklearnpars ):
       return getEnsembleParsAda( modelname=parmobj['ensembletyp'].value,
                                  est=parmobj['estparfldada'].value,
                                  lr=parmobj['lrparfldada'].value)
-    elif parmobj['ensembletyp'].value == 'XGBoost: (Random Forests)':
-      return getEnsembleParsXG( modelname=parmobj['ensembletyp'].value,
-                                maxdep=parmobj['depparfldxg'].value,
-                                est=parmobj['estparfldxg'].value,
-                                lr=parmobj['lrparfldxg'].value )
   elif modeltype.value == 'Neural Network':
     parmobj = sklearngrp['nngrp']['uiobjects']
     return getNNPars( modelname=parmobj['nntyp'].value,

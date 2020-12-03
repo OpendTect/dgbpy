@@ -27,13 +27,17 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 #from sklearn.multioutput import MultiOutputRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC, LinearSVR
 
 from odpy.common import log_msg, redirect_stdout, restore_stdout, isWin
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
+from multiprocessing import cpu_count
+
+tot_cpu = cpu_count()
+n_cpu = tot_cpu
 
 def hasXGBoost():
   try:
@@ -57,13 +61,13 @@ classmltypes = (\
           )
 lineartypes = [ ('oslq','Ordinary Least Squares') ]
 logistictypes = [ ('log','Logistic Regression Classifier') ]
-ensembletypes = [\
-                  ('randfor','Random Forests'),\
-                  ('gbc','Gradient Boosting'),\
-                  ('ada','Adaboost'),\
-                ]
+ensembletypes = []
 if hasXGBoost():
-  ensembletypes.append( ('xgb','XGBoost: (Random Forests)') )
+  ensembletypes.append( ('xgbdt','XGBoost: (Decision Tree)') )
+  ensembletypes.append( ('xgbrf','XGBoost: (Random Forests)') )
+ensembletypes.append( ('randfor','Random Forests') )
+ensembletypes.append( ('gbc','Gradient Boosting') )
+ensembletypes.append( ('ada','Adaboost') )
 
 nntypes = [ ('mlp','Multi-Layer Perceptron') ]
 svmtypes = [ ('svm','Support Vector Machine') ]
@@ -128,6 +132,16 @@ def getDefaultNNKernel( uiname=True ):
 
 scikit_dict = {
   'ensemblepars': {
+    'xgdt': {
+      'lr': 1,
+      'maxdep': 1,
+      'est': 1
+      },
+    'xgrf': {
+      'lr': 1,
+      'maxdep': 1,
+      'est': 1
+      },
     'rf': {
       'maxdep': 50, #default: None, but we prefer less
       'est': RandomForestRegressor().n_estimators
@@ -141,11 +155,6 @@ scikit_dict = {
       'est': AdaBoostRegressor().n_estimators,
       'lr': AdaBoostRegressor().learning_rate
       },
-    'xg': {
-      'lr': 1,
-      'maxdep': 1,
-      'est': 1
-      }
     },
   'nnpars': {
     'maxitr': MLPRegressor().max_iter,
@@ -164,16 +173,28 @@ scikit_dict = {
     }
 }
 if hasXGBoost():
-  from xgboost import XGBRFRegressor
-  defregressor = XGBRFRegressor()
-  xgpars = {
-      'lr': defregressor.learning_rate,
-      'maxdep': scikit_dict['ensemblepars']['xg']['maxdep'],
-      'est': defregressor.n_estimators,
+  from xgboost import XGBRegressor, XGBRFRegressor
+  defdtregressor = XGBRegressor()
+  xgdtpars = {
+    'lr': scikit_dict['ensemblepars']['xgdt']['lr'],
+    'maxdep': scikit_dict['ensemblepars']['xgdt']['maxdep'],
+    'est': defdtregressor.n_estimators,
   }
-  if defregressor.max_depth != None:
-    xgpars.update({'maxdep': defregressor.max_depth})
-  scikit_dict['ensemblepars'].update({'xg': xgpars})
+  if defdtregressor.learning_rate != None:
+    xgdtpars.update({'lr': defdtregressor.learning_rate})
+  if defdtregressor.max_depth != None:
+    xgdtpars.update({'maxdep': defdtregressor.max_depth})
+  scikit_dict['ensemblepars'].update({'xgdt': xgdtpars})
+
+  defrfregressor = XGBRFRegressor()
+  xgrfpars = {
+      'lr': defrfregressor.learning_rate,
+      'maxdep': scikit_dict['ensemblepars']['xgrf']['maxdep'],
+      'est': defrfregressor.n_estimators,
+  }
+  if defrfregressor.max_depth != None:
+    xgrfpars.update({'maxdep': defrfregressor.max_depth})
+  scikit_dict['ensemblepars'].update({'xgrf': xgrfpars})
 
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
@@ -188,6 +209,30 @@ def getLogPars( modelname='Logistic Regression Classifier',solver=None):
     'decimation': False,
     'modelname': modelname,
     'solver': solver
+    }
+
+def getEnsembleParsXGDT( modelname='XGBoost: (Decision Tree)',
+                       maxdep=scikit_dict['ensemblepars']['xgdt']['maxdep'],
+                       est=scikit_dict['ensemblepars']['xgdt']['est'],
+                       lr=scikit_dict['ensemblepars']['xgdt']['lr'] ):
+  return {
+    'decimation': False,
+    'maxdep' : maxdep,
+    'est': est,
+    'lr': lr,
+    'modelname': modelname
+    }
+
+def getEnsembleParsXGRF( modelname='XGBoost: (Random Forests)',
+                       maxdep=scikit_dict['ensemblepars']['xgrf']['maxdep'],
+                       est=scikit_dict['ensemblepars']['xgrf']['est'],
+                       lr=scikit_dict['ensemblepars']['xgrf']['lr'] ):
+  return {
+    'decimation': False,
+    'maxdep' : maxdep,
+    'est': est,
+    'lr': lr,
+    'modelname': modelname
     }
 
 def getEnsembleParsRF( modelname='Random Forests',
@@ -217,18 +262,6 @@ def getEnsembleParsAda( modelname='Adaboost',
                         lr=scikit_dict['ensemblepars']['ada']['lr'] ):
   return {
     'decimation': False,
-    'est': est,
-    'lr': lr,
-    'modelname': modelname
-    }
-
-def getEnsembleParsXG( modelname='XGBoost: (Random Forests)',
-                       maxdep=scikit_dict['ensemblepars']['xg']['maxdep'],
-                       est=scikit_dict['ensemblepars']['xg']['est'],
-                       lr=scikit_dict['ensemblepars']['xg']['lr'] ):
-  return {
-    'decimation': False,
-    'maxdep' : maxdep,
     'est': est,
     'lr': lr,
     'modelname': modelname
@@ -334,6 +367,24 @@ def getDefaultModel( setup, params=scikit_dict ):
     elif modelname == 'Logistic Regression Classifier':
       solvernm = dgbkeys.getNameFromUiName( solvertypes, params['solver'] )
       model = LogisticRegression(solver=solvernm,n_jobs=-1)
+    elif modelname == 'XGBoost: (Decision Tree)':
+      from xgboost import XGBClassifier, XGBRegressor
+      learning_rate = params['lr']
+      max_depth = params['maxdep']
+      n_estimators = params['est']
+      if isclassification:
+        model = XGBClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=n_cpu)
+      else:
+        model = XGBRegressor(objective='reg:squarederror',n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=n_cpu)
+    elif modelname == 'XGBoost: (Random Forests)':
+      from xgboost import XGBRFClassifier, XGBRFRegressor
+      learning_rate = params['lr']
+      max_depth = params['maxdep']
+      n_estimators = params['est']
+      if isclassification:
+        model = XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=n_cpu)
+      else:
+        model = XGBRFRegressor(objective='reg:squarederror',n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=n_cpu)
     elif modelname == 'Random Forests':
       n_estimators = params['est']
       max_depth = params['maxdep']
@@ -356,15 +407,6 @@ def getDefaultModel( setup, params=scikit_dict ):
         model = AdaBoostClassifier(n_estimators=n_estimators,learning_rate=learning_rate)
       else:
         model = AdaBoostRegressor(n_estimators=n_estimators,learning_rate=learning_rate)
-    elif modelname == 'XGBoost: (Random Forests)':
-      from xgboost import XGBRFClassifier, XGBRFRegressor
-      learning_rate = params['lr']
-      max_depth = params['maxdep']
-      n_estimators = params['est']
-      if isclassification:
-        model = XGBRFClassifier(n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
-      else:
-        model = XGBRFRegressor(objective='reg:squarederror',n_estimators=n_estimators,max_depth=max_depth,learning_rate=learning_rate,n_jobs=-1)
     elif modelname == 'Multi-Layer Perceptron':
       lay1 = params['lay1']
       lay2 = params['lay2']
@@ -386,7 +428,7 @@ def getDefaultModel( setup, params=scikit_dict ):
       if isclassification:
         model = SVC(kernel=kernel,degree=degree)
       else:
-        model = SVR(kernel=kernel,degree=degree)
+        model = LinearSVR(kernel=kernel,degree=degree)
   except Exception as e:
     log_msg( 'Exception:', e )
     raise e
