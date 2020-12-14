@@ -8,7 +8,7 @@
 # various tools machine learning using Keras platform
 #
 
-
+from datetime import datetime, timedelta
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence, to_categorical
@@ -19,10 +19,14 @@ from dgbpy import dgbkeras
 from dgbpy import keras_fix
 
 class TrainingSequence(Sequence):
-  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,with_augmentation=True):
+  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
+               with_augmentation=True,tempnm=None):
       self._trainbatch = trainbatch
       self._forvalid = forvalidation
       self._model = model
+      self._nrdone = -1
+      self._tempnm = tempnm
+      self._lastsaved = datetime.now()
       self._batch_size = batch_size
       self._augmentation = with_augmentation
       self._channels_format = dgbkeras.get_data_format(model)
@@ -46,7 +50,8 @@ class TrainingSequence(Sequence):
       nbchunks = len(infos[dgbkeys.trainseldicstr])
       if nbchunks > 1:
           from dgbpy import mlapply as dgbmlapply
-          trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos, flatten=False,
+          trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos,
+                                                 flatten=False,
                                                  scale=True, ichunk=ichunk )
       else:
           trainbatch = self._trainbatch
@@ -97,6 +102,12 @@ class TrainingSequence(Sequence):
       return True
 
   def on_epoch_end(self):
+      self._nrdone = self._nrdone+1
+      if self._tempnm != None and self._nrdone > 0:
+          now = datetime.now()
+          if now - self._lastsaved > timedelta(minutes=10):
+              dgbkeras.save( self._model, self._tempnm )
+              self._lastsaved = now
       self._indexes = np.arange(len(self._data_IDs))
       np.random.shuffle(self._indexes)
       

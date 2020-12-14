@@ -12,7 +12,7 @@ from enum import Enum
 import numpy as np
 import os
 
-from odpy.common import log_msg
+from odpy.common import log_msg, get_log_file
 from odpy.oscommand import printProcessTime
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -226,6 +226,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   validation_split = 0.2 #Params?
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
+    import tempfile
     if params == None:
       params = dgbkeras.getParams()
     dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
@@ -241,10 +242,26 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                        learnrate=params['learnrate'])
     elif type == TrainType.Transfer:
       model = dgbkeras.transfer( model )
+
+    tempmodelnm = None
+    logfnm = get_log_file()
+    if logfnm != None:
+      tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
+      tempmodelnm = tempmodelfnm.name + '.h5'
+      tempmodelfnm = None
     print('--Training Started--', flush=True)
-    model = dgbkeras.train( model, trainingdp, params=params,
-                            trainfile=examplefilenm, logdir=logdir,
-                            withaugmentation=dgbkeras.withaugmentation )
+    try:
+      model = dgbkeras.train( model, trainingdp, params=params,
+                              trainfile=examplefilenm, logdir=logdir,
+                              withaugmentation=dgbkeras.withaugmentation,
+                              tempnm=tempmodelnm )
+    except ResourceExhaustedError:
+      model = dgbmlio.getModel( tempmodelnm, True )
+    try:
+      if os.path.exists(tempmodelnm):
+        os.remove( tempmodelnm )
+    except:
+      pass
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:

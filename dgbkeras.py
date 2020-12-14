@@ -241,7 +241,8 @@ def getDefaultModel(setup,type=keras_dict['type'],
   return None
 
 
-def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmentation=withaugmentation):
+def train(model,training,params=keras_dict,trainfile=None,logdir=None,
+          withaugmentation=withaugmentation,tempnm=None):
   redirect_stdout()
   import keras
   from keras.callbacks import EarlyStopping
@@ -264,7 +265,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,withaugmen
                                batch_size=batchsize,\
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
-  train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
+  train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   for ichunk in range(nbchunks):
