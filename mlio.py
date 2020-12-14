@@ -210,7 +210,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
-  dgbhdf5.addInfo( inpfnm, platform, outfnm, infos )
+  dgbhdf5.addInfo( inpfnm, platform, outfnm, infos, model.__class__.__name__ )
   log_msg( 'Model saved.' )
 
 def getModel( modelfnm, fortrain=False ):

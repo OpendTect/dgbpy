@@ -488,7 +488,7 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
-def addInfo( inpfile, plfnm, filenm, infos ):
+def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
   h5filein = odhdf5.openFile( inpfile, 'r' )
   h5fileout = odhdf5.openFile( filenm, 'r+' )
   dsinfoin = odhdf5.getInfoDataSet( h5filein )
@@ -499,6 +499,7 @@ def addInfo( inpfile, plfnm, filenm, infos ):
   h5filein.close()
   odhdf5.setAttr( dsinfoout, versionstr, str(1) )
   odhdf5.setAttr( dsinfoout, 'Model.Type', plfnm )
+  odhdf5.setAttr( dsinfoout, 'Model.Class', clssnm )
   if plfnm == kerasplfnm:
     #The model size may be smaller than from the example data
     odhdf5.setArray( dsinfoout, inpshapestr, infos[inpshapedictstr] )
