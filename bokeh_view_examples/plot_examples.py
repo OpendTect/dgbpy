@@ -71,7 +71,7 @@ def plot_slices(plotparams):
             for i in range(dim):
                 nr = slicepos[i]
                 titlepart2 = titlelist[i]
-                title = titlepart1 + titlepart2 + str(nr)
+                title = titlepart1 + titlepart2 + str(nr+1)
                 flipped = np.flipud(data[i])
                 key = 'plot'+str(i)
                 n = flipped.shape[0]
@@ -97,7 +97,7 @@ def plot_slices(plotparams):
                 titlepart1 = ' Target '
             nr = cubenr + 1
             titlepart2 = titlelist[0]
-            title = titlepart1 + titlepart2 + str(nr)
+            title = titlepart1 + 'image ' + str(nr)
             flipped = np.flipud(data[0])
             n = flipped.shape[0]
             m = flipped.shape[1]
@@ -121,7 +121,7 @@ def plot_slices(plotparams):
             classnr = yslices
             sectionnr = slicepos[i]
             title = titlelist[i] \
-                     + str(sectionnr) + '; output: ' \
+                     + str(sectionnr+1) + '; output: ' \
                      + str(info[dgbkeys.classnmdictstr][classnr])
             flipped = np.flipud(data[i])
             key = 'plot'+str(i)

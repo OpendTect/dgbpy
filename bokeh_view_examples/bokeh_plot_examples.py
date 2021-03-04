@@ -114,6 +114,9 @@ def exampleplot_app(doc):
         titlelist = ['z-slice ']
         dim = 2
     initpos = np.divide(shape,2).astype(np.int).tolist()
+    for  i in range(len(initpos)):
+        if initpos[i]>0:
+            initpos[i] -= 1
     defzoom = np.floor( 200/np.max(shape) )
     if defzoom < 1:
         defzoom = 1
@@ -144,9 +147,9 @@ def exampleplot_app(doc):
     possliders = None
     cubeslider = Slider(start=1, end=2, value=1, title='Cubelet Number')
     if dim == 3:
-        inlslider = Slider(start=1, end=shape[0], value=initpos[0], title='Inline Number')
-        crlslider = Slider(start=1, end=shape[1], value=initpos[1], title='Crossline Number')
-        zslider = Slider(start=1, end=shape[-1], value=initpos[-1], title='Z-slice Number')
+        inlslider = Slider(start=1, end=shape[0], value=initpos[0]+1, title='Inline Number')
+        crlslider = Slider(start=1, end=shape[1], value=initpos[1]+1, title='Crossline Number')
+        zslider = Slider(start=1, end=shape[-1], value=initpos[-1]+1, title='Z-slice Number')
         possliders = (cubeslider,inlslider,crlslider,zslider)
     elif dim == 2:
         cubeslider.title = 'Image Number'
