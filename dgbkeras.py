@@ -221,6 +221,19 @@ def getModelsByType( learntype, classification, ndim ):
             predtype = kc.DataPredType.Classification
     return kc.UserModel.getNamesByType(pred_type=predtype, out_type=outtype, dim_type=dimtype)
 
+def getModelsByInfo( infos ):
+    shape = infos[dgbkeys.inpshapedictstr]
+    if isinstance(shape,int):
+        ndim = 1
+    else:
+        ndim = len(shape)-1
+    modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
+                                   infos[dgbhdf5.classdictstr], 
+                                   ndim )
+    if len(modelstypes) < 1:
+        return None
+    return modelstypes[0]
+
 def getDefaultModel(setup,type=keras_dict['type'],
                      learnrate=keras_dict['learnrate'],
                      data_format='channels_first'):
@@ -229,6 +242,10 @@ def getDefaultModel(setup,type=keras_dict['type'],
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
     nroutputs = dgbhdf5.getNrOutputs( setup )
+  if len(kc.UserModel.mlmodels) < 1:
+    kc.UserModel.mlmodels = kc.UserModel.findModels()
+  if type==None:
+      type = getModelsByInfo( setup )
 
   nrattribs = dgbhdf5.getNrAttribs(setup)
   model_shape = get_model_shape( setup[dgbkeys.inpshapedictstr], nrattribs,
