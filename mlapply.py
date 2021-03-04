@@ -255,7 +255,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                               trainfile=examplefilenm, logdir=logdir,
                               withaugmentation=dgbkeras.withaugmentation,
                               tempnm=tempmodelnm )
-    except ResourceExhaustedError:
+    except MemoryError:
       model = dgbmlio.getModel( tempmodelnm, True )
     try:
       if os.path.exists(tempmodelnm):
@@ -373,5 +373,5 @@ def split( arrays, ratio ):
   if len(arrays) < 1:
     return None
   nrpts = len(arrays[0])
-  idxs = np.random.shuffle( np.arange(np.int64(nrpts)) )
+  np.random.shuffle( np.arange(np.int64(nrpts)) )
 

@@ -25,7 +25,7 @@ def getInfo( filenm, quick=False ):
 
 def datasetCount( dsets ):
   if dgbkeys.datasetdictstr in dsets:
-    dsets = infos[dgbkeys.datasetdictstr]
+    dsets = dsets[dgbkeys.datasetdictstr]
   ret = {}
   totsz = 0
   for groupnm in dsets:
