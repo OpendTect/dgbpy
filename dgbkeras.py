@@ -298,8 +298,23 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
       log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
 
     redirect_stdout()
-    model.fit(x=train_datagen,epochs=params['epoch'],\
-              validation_data=validate_datagen,callbacks=callbacks)
+    x_validate, y_validate, validation_batch_size = \
+                            get_validation_data( validate_datagen )
+    try:
+      model.fit(x=train_datagen,epochs=params['epoch'],\
+              validation_data=(x_validate,y_validate,[None]),
+              validation_batch_size=validation_batch_size,
+              callbacks=callbacks)
+    except TypeError:
+      try:
+        model.fit(x=train_datagen,epochs=params['epoch'],\
+                  validation_data=validate_datagen,callbacks=callbacks)
+      except InvalidArgumentError:
+        model.fit(x=train_datagen,epochs=params['epoch'],\
+                  validation_data=(x_validate,y_validate,[None]),
+                  callbacks=callbacks)
+
+            
     restore_stdout()
 
   try:
@@ -421,17 +436,17 @@ def apply( model, samples, isclassification, withpred, withprobs, \
     if isclassification:
       if not (doprobabilities or withconfidence) and hasattr(model, 'predict_classes'):
         try:
-          res = model.predict_classes( samples, batch_size=batch_size )
+          res = model.predict_classes( x=samples, batch_size=batch_size )
         except AttributeError:
           pass
     if not isinstance( res, np.ndarray ):
-      res = model.predict( samples, batch_size=batch_size )
+      res = model.predict( x=samples, batch_size=batch_size )
       res = adaptFromModel(model,res,inp_shape,ret_data_format=data_format)
       ret.update({dgbkeys.preddictstr: res})
 
   if isclassification and (doprobabilities or withconfidence or withpred):
     if len(ret)<1:
-      allprobs = model.predict( samples, batch_size=batch_size )
+      allprobs = model.predict( x=samples, batch_size=batch_size )
       allprobs = adaptFromModel(model,allprobs,inp_shape,ret_data_format=data_format)
     else:
       allprobs = ret[dgbkeys.preddictstr]
@@ -762,3 +777,16 @@ def need_channels_last():
     if len(gpudevs) > 0:
       return False
   return True
+
+def get_validation_data( trainseq ):
+    x_data = list()
+    y_data = list()
+    for i in range(len(trainseq)):
+        (x,y,z) = trainseq.__getitem__(i)
+        if len(x) > 0 and len(y) > 0:
+            x_data.append( x )
+            y_data.append( y )
+    x_data = np.concatenate( x_data )
+    y_data = np.concatenate( y_data )
+    batch_size = trainseq._batch_size
+    return (x_data,y_data,batch_size)
