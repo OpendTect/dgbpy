@@ -131,85 +131,53 @@ def getCubeLets( infos, collection, groupnm ):
     outdtype = np.uint8
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   group = h5file[groupnm]
-  dsetnms = list(group.keys())
 
   firstcollnm = next(iter(collection))
   hasdata = None
-  if firstcollnm in group:
-    allcubelets = list()
-    alloutputs = list()
-    for collnm in collection:
-      x_data = group[collnm][xdatadictstr]
-      y_data = group[collnm][ydatadictstr]
-      dsetnms = collection[collnm]
-      nrpts = len(dsetnms)
-      inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+  allcubelets = list()
+  alloutputs = list()
+  for collnm in collection:
+    if not collnm in group:
+      continue
+    grp = group[collnm]
+    if not xdatadictstr in grp or not ydatadictstr in grp:
+      continue
+    x_data = grp[xdatadictstr]
+    y_data = grp[ydatadictstr]
+    dsetnms = collection[collnm]
+    nrpts = len(dsetnms)
+    if nrpts < 1:
+      continue
+    inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+    if img2img:
+      outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
+    if len(x_data) == nrpts and len(y_data) == nrpts:
+      cubelets = np.resize( x_data, inparrshape ).astype( np.float32 )
       if img2img:
-        outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
-      if len(x_data) == nrpts and len(y_data) == nrpts:
-        cubelets = np.resize( x_data, inparrshape ).astype( np.float32 )
-        if img2img:
-          output = np.resize( y_data, outarrshape ).astype( outdtype )
-        else:
-          output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
+        output = np.resize( y_data, outarrshape ).astype( outdtype )
       else:
-        cubelets = np.empty( inparrshape, np.float32 )
-        if img2img:
-          output = np.empty( outarrshape, outdtype )
-        else:
-          output = np.empty( (nrpts,nroutputs), outdtype )
-        for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
-          dset = x_data[dsetnm]
-          odset = y_data[dsetnm]
-          cubelets[idx] = np.resize( dset, cubelets[idx].shape )
-          if img2img:
-            output[idx] = np.resize( odset, output[idx].shape )
-          else:
-            output[idx] = np.asarray( odset )
-      if nrpts > 0:
-        allcubelets.append( cubelets )
-        alloutputs.append( output )
-    if len(allcubelets) > 0:
-      cubelets = np.concatenate( allcubelets )
-      hasdata = True
-    if len(alloutputs) > 0:
-      output = np.concatenate( alloutputs )
-  else:
-    allcubelets = list()
-    alloutputs = list()
-    for collnm in collection:
-      dsetnms = collection[collnm]
-      nrpts = len(dsetnms)
-      inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+        output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
+    else:
       cubelets = np.empty( inparrshape, np.float32 )
       if img2img:
-        outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
         output = np.empty( outarrshape, outdtype )
       else:
         output = np.empty( (nrpts,nroutputs), outdtype )
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
-        dset = group[dsetnm]
+        dset = x_data[dsetnm]
+        odset = y_data[dsetnm]
+        cubelets[idx] = np.resize( dset, cubelets[idx].shape )
         if img2img:
-          try:
-            cubelets[idx] = np.resize(dset[:-1],cubelets[idx].shape)
-            output[idx] = np.resize(dset[-1],output[idx].shape)
-          except Exception as e:
-            cubelets[idx] = np.zeros( cubelets[idx].shape, cubelets.dtype )
-            output[idx] = np.zeros( output[idx].shape, output[idx].dtype )
+          output[idx] = np.resize( odset, output[idx].shape )
         else:
-          cubelets[idx] = np.resize(dset,cubelets[idx].shape)
-          if isclass :
-            output[idx] = odhdf5.getIArray( dset, valuestr )
-          else:
-            output[idx] = odhdf5.getDArray( dset, valuestr )
-      if nrpts > 0:
-        allcubelets.append( cubelets )
-        alloutputs.append( output )
-    if len(allcubelets) > 0:
-      cubelets = np.concatenate( allcubelets )
-      hasdata = True
-    if len(alloutputs) > 0:
-      output = np.concatenate( alloutputs )
+          output[idx] = np.asarray( odset )
+    allcubelets.append( cubelets )
+    alloutputs.append( output )
+  if len(allcubelets) > 0:
+    cubelets = np.concatenate( allcubelets )
+    hasdata = True
+  if len(alloutputs) > 0:
+    output = np.concatenate( alloutputs ) 
   h5file.close()
   if not hasdata:
     return {}
