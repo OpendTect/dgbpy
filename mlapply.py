@@ -220,7 +220,6 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   if type == None:
     type = TrainType.New
   if type != TrainType.New:
-    log_msg('Model input:', modelin )
     (model,infos) = dgbmlio.getModel( modelin, fortrain=True )
 
   trainingdp = None
