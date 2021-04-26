@@ -20,6 +20,7 @@ from odpy.common import log_msg, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
+from dgbpy.mlmodel_dGB import root_mean_squared_error, cross_entropy_balanced
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 withtensorboard = True
@@ -264,6 +265,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
   import keras
   from keras.callbacks import EarlyStopping
   from dgbpy.keras_classes import TrainingSequence
+  import tensorflow as tf
   restore_stdout()
   
   infos = training[dgbkeys.infodictstr]
@@ -309,11 +311,16 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
       try:
         model.fit(x=train_datagen,epochs=params['epoch'],\
                   validation_data=validate_datagen,callbacks=callbacks)
-      except InvalidArgumentError:
+      except tf.errors.InvalidArgumentError:
         model.fit(x=train_datagen,epochs=params['epoch'],\
                   validation_data=(x_validate,y_validate,[None]),
                   callbacks=callbacks)
-
+      except Exception as e:
+        log_msg('')
+        log_msg('Training failed because of insufficient memory')
+        log_msg('Try to lower the batch size and restart the training')
+        log_msg('')
+        raise e
             
     restore_stdout()
 
@@ -367,9 +374,13 @@ def save( model, outfnm ):
 
 def load( modelfnm, fortrain ):
   redirect_stdout()
+  dgb_defs = {
+    'cross_entropy_balanced': cross_entropy_balanced,
+    'root_mean_squared_error': root_mean_squared_error,
+  }
   from tensorflow.keras.models import load_model
   try:
-    ret = load_model( modelfnm, compile=fortrain )
+    ret = load_model( modelfnm, compile=fortrain, custom_objects=dgb_defs )
   except ValueError:
     configfile = os.path.splitext( modelfnm )[0] + '.json'
     if not os.path.isfile(configfile):
@@ -379,10 +390,10 @@ def load( modelfnm, fortrain ):
       model_json = json.load(f)
     from keras.models import model_from_json
     try:
-      ret = model_from_json(model_json)
+      ret = model_from_json(model_json, custom_objects=dgb_defs)
     except TypeError:
       model_json_str = json.dumps( model_json )
-      ret = model_from_json( model_json_str )
+      ret = model_from_json( model_json_str, custom_objects=dgb_defs )
     ret.load_weights(modelfnm)
       
   restore_stdout()
