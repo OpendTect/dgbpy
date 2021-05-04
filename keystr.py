@@ -82,6 +82,7 @@ seisproptypestr = 'Property Prediction from Seismics'
 typestr = 'Type'
 valuestr = 'Value'
 versionstr = 'Version'
+disclaimerstr = 'Disclaimer, IP Rights and Permission-to-Use'
 
 def getNames( lst, uinames=True ):
   idx = -1
