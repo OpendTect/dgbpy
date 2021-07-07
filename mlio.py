@@ -133,19 +133,30 @@ def getSomeDatasets( dslist, decim=None ):
     for groupnm in dset:
       group = dset[groupnm]
       setgrp = {}
-      for inp in group:
-        dsetnms = group[inp].copy()
+      if len(group) > 0 and isinstance(group[0],int):
+        dsetnms = group.copy()
         nrpts = int(len(dsetnms)*decim)
         np.random.shuffle( dsetnms )
         del dsetnms[nrpts:]
-        setgrp[inp] = dsetnms
-      sret[groupnm] = setgrp
+        sret[groupnm] = dsetnms
+      else:
+        for inp in group:
+          dsetnms = group[inp].copy()
+          nrpts = int(len(dsetnms)*decim)
+          np.random.shuffle( dsetnms )
+          del dsetnms[nrpts:]
+          setgrp[inp] = dsetnms
+        sret[groupnm] = setgrp
     ret[dsetnm] = sret
   return ret
 
 def getTrainingData( filenm, decim=False ):
   infos = getInfo( filenm )
-  return getTrainingDataByInfo( infos )
+  dsets = infos[dgbkeys.datasetdictstr]
+  if decim:
+      dsets = getSomeDatasets( dsets, decim )
+  
+  return getTrainingDataByInfo( infos, dsetsel=dsets )
 
 def getTrainingDataByInfo( info, dsetsel=None ):
   examples = dgbhdf5.getDatasets( info, dsetsel )
