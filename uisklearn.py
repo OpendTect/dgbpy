@@ -111,8 +111,9 @@ def getEnsembleGrp(uipars=None):
               'lrparfldada': adagrp['uiobjects']['lrparfldada'],
               })
     if hasXGBoost():
-      ensemblegrp = (xgdtgrp,xgrfgrp)
-    ensemblegrp += (rfgrp,gbgrp,adagrp,)
+      ensemblegrp = (xgdtgrp,xgrfgrp,rfgrp,gbgrp,adagrp)
+    else:
+      ensemblegrp = (rfgrp,gbgrp,adagrp)
     uiobjs['ensembletyp'].on_change('value',partial(ensembleChgCB,cb=uiobjs['ensembletyp'],ensemblegrp=ensemblegrp))
     uipars = {'uiobjects': uiobjs, 'name': regmltypes[1][1],}
     
