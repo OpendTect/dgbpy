@@ -30,7 +30,7 @@ traingrp.add_argument( '--modelfnm',
             dest='model', nargs=1,
             type=argparse.FileType('r'),
             help='Input model file name' )
-traingrp.add_argument( '--transfer', dest='transfer',
+traingrp.add_argument( '--transfer', '--Transfer', dest='transfer',
             action='store_true', default=False,
             help='Do transfer training' )
 traingrp.add_argument( '--mldir',
@@ -88,12 +88,12 @@ def training_app(doc):
           raise
       except:
           self.handleError(record)
-      
+
     def sendmsg(self):
       self.servmgr.sendObject(self.msgkey, self.msgjson)
 
   odcommon.log_msg( 'Start training UI')
-  
+
   from os import path
   import psutil
   from functools import partial
@@ -121,9 +121,9 @@ def training_app(doc):
         traintype = dgbmlapply.TrainType.Transfer
       else:
         traintype = dgbmlapply.TrainType.Resume
-        
+
   trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
-  
+
   with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],args['port'],args['bokehid']) as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
@@ -188,9 +188,9 @@ def training_app(doc):
         keraspars = uikeras.getUiPars(keraspars)
       elif platformnm == uisklearn.getPlatformNm():
         sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr], sklearnpars)
-        
+
     parsresetbut = uibokeh.getButton('Reset', callback_fn=resetUiFields)
-      
+
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
@@ -231,9 +231,9 @@ def training_app(doc):
             uikeras.info = info
             doc.add_next_tick_callback(partial(updateUI))
       return dict()
-     
+
     this_service.addAction('BokehParChg', procArgChgCB )
-      
+
     def mlchgCB( attrnm, old, new):
       nonlocal tensorboardfld
       selParsGrp( new )
@@ -281,7 +281,7 @@ def training_app(doc):
       dict = ret['dict']
       if model != None:
         dict.update({'model': model})
-          
+
       if 'mldir' in args:
         mldir = args['mldir']
         if mldir != None and len(mldir)>0:
@@ -310,9 +310,9 @@ def training_app(doc):
       if platformfld.value==uikeras.getPlatformNm() and 'divfld' in keraspars['uiobjects']:
             odcommon.log_msg('\nNo Keras models found for this workflow.')
             return False
-      
+
       modelnm = trainedfnm
-          
+
       scriptargs = getProcArgs( platformfld.value, getUiParams(), \
                                 modelnm )
       cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
@@ -376,5 +376,5 @@ def training_app(doc):
       doc.title = 'Machine Learning'
 
     initWin()
-  
+
 StartBokehServer({'/': training_app}, args)
