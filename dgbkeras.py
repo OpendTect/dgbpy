@@ -289,8 +289,15 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
-    if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
-      continue
+    try:
+      if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
+        continue
+    except Exception as e:
+      log_msg('')
+      log_msg('Data loading failed because of insufficient memory')
+      log_msg('Try to lower the batch size and restart the training')
+      log_msg('')
+      raise e
 
     if batchsize == 1:
       log_msg( 'Training on', len(train_datagen), 'samples' )
@@ -298,6 +305,13 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
     else:
       log_msg( 'Training on', len(train_datagen), 'batches of', batchsize, 'samples' )
       log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
+
+    if  len(train_datagen) < 1 or len(validate_datagen) < 1:
+      log_msg('')
+      log_msg('There is not enough data to train on')
+      log_msg('Extract more data and restart')
+      log_msg('')
+      raise TypeError
 
     redirect_stdout()
     x_validate, y_validate, validation_batch_size = \

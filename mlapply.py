@@ -255,8 +255,10 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                               trainfile=examplefilenm, logdir=logdir,
                               withaugmentation=dgbkeras.withaugmentation,
                               tempnm=tempmodelnm )
-    except MemoryError:
-      model = dgbmlio.getModel( tempmodelnm, True )
+    except (TypeError,MemoryError) as e:
+      if os.path.exists(tempmodelnm):
+        model = dgbmlio.getModel( tempmodelnm, True )
+        raise e
     try:
       if os.path.exists(tempmodelnm):
         os.remove( tempmodelnm )
