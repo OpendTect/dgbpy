@@ -19,15 +19,15 @@ from dgbpy import mlio as dgbmlio
 def load_data(plotparams):
     slicepos = plotparams['slicepos']
     inlnr = slicepos[0]
-    crlnr = slicepos[1]
-    znr = slicepos[-1]
+    crlnr = -(slicepos[1]+1)
+    znr = -(slicepos[-1]+1)
     cubenr = plotparams['cubeidx']
     iattr = plotparams['attribidx']
     info = plotparams[dgbkeys.infodictstr]
     surveynm = plotparams[dgbkeys.surveydictstr]
     collnm = plotparams[dgbkeys.collectdictstr]
     learntype = info[dgbkeys.learntypedictstr]
-    
+
     xslices = [] # inline, crossline, zslice from input cubelet
     yslices = [] # inline, crossline, zslice from target cubelet
     datadict = dgbmlio.getTrainingDataByInfo(info, dsetsel={ surveynm: {collnm: [cubenr]} } )
@@ -47,7 +47,7 @@ def load_data(plotparams):
     elif learntype == dgbkeys.seisclasstypestr:
         yslices = ydata
     return (xslices, yslices)
- 
+
 # plot a list of loaded slices
 def plot_slices(plotparams):
     (xslices, yslices) = load_data(plotparams)
@@ -68,19 +68,22 @@ def plot_slices(plotparams):
             if t == 1:
                 data = yslices
                 titlepart1 = ' Target '
+            maxval = max(np.amax(data[0]), np.amax(data[1]))
+            minval = min(np.amin(data[0]), np.amin(data[1]))
             for i in range(dim):
                 nr = slicepos[i]
                 titlepart2 = titlelist[i]
                 title = titlepart1 + titlepart2 + str(nr+1)
                 flipped = np.flipud(data[i])
+                if i==0:
+                    flipped = np.fliplr(flipped)
+
                 key = 'plot'+str(i)
                 n = flipped.shape[0]
                 m = flipped.shape[1]
-                maxval = np.amax(flipped)
-                minval = np.amin(flipped)
-                color_mapper = LinearColorMapper(palette=mypalette, 
+                color_mapper = LinearColorMapper(palette=mypalette,
                                                  low=minval, high=maxval)
-                color_bar = ColorBar(color_mapper=color_mapper, 
+                color_bar = ColorBar(color_mapper=color_mapper,
                                      ticker=BasicTicker(),
                                      location=(0,0))
                 a[key] = figure(frame_height=int(zoom * n), frame_width=int(zoom * m),
@@ -92,7 +95,7 @@ def plot_slices(plotparams):
         return gridplot(plotlist, ncols = 3)
     if dim == 2 and learntype == dgbkeys.seisimgtoimgtypestr:
         for t in range(2):
-            if (t == 1): 
+            if (t == 1):
                 data = yslices
                 titlepart1 = ' Target '
             nr = cubenr + 1
@@ -103,15 +106,15 @@ def plot_slices(plotparams):
             m = flipped.shape[1]
             maxval = np.amax(flipped)
             minval = np.amin(flipped)
-            color_mapper = LinearColorMapper(palette=mypalette, 
-                                             low=minval, high=maxval)          
-            color_bar = ColorBar(color_mapper=color_mapper, 
+            color_mapper = LinearColorMapper(palette=mypalette,
+                                             low=minval, high=maxval)
+            color_bar = ColorBar(color_mapper=color_mapper,
                                  ticker=BasicTicker(),
                                  location=(0,0))
             plot = figure(frame_height=int(zoom * n), frame_width=int(zoom * m),
                             x_range=(0,m), y_range=(0,n),
                             min_border_right=64, title = title)
-            plot.image([flipped], x=0, y=0, dw=m, dh=n, color_mapper=color_mapper)         
+            plot.image([flipped], x=0, y=0, dw=m, dh=n, color_mapper=color_mapper)
             plot.add_layout(color_bar, 'right')
             plotlist.append(plot)
         return gridplot(plotlist, ncols=1)
@@ -129,9 +132,9 @@ def plot_slices(plotparams):
             m = flipped.shape[1]
             maxval = np.amax(flipped)
             minval = np.amin(flipped)
-            color_mapper = LinearColorMapper(palette=mypalette, 
+            color_mapper = LinearColorMapper(palette=mypalette,
                                              low=minval, high=maxval)
-            color_bar = ColorBar(color_mapper=color_mapper, 
+            color_bar = ColorBar(color_mapper=color_mapper,
                                  ticker=BasicTicker(),
                                  location=(0,0))
             a[key] = figure(frame_height=int(zoom * n), frame_width=int(zoom * m),
@@ -152,9 +155,9 @@ def plot_slices(plotparams):
         m = flipped.shape[1]
         maxval = np.amax(flipped)
         minval = np.amin(flipped)
-        color_mapper = LinearColorMapper(palette=mypalette, 
-                                         low=minval, high=maxval)          
-        color_bar = ColorBar(color_mapper=color_mapper, 
+        color_mapper = LinearColorMapper(palette=mypalette,
+                                         low=minval, high=maxval)
+        color_bar = ColorBar(color_mapper=color_mapper,
                              ticker=BasicTicker(),
                              location=(0,0))
         plot = figure(frame_height=int(zoom * n), frame_width=int(zoom * m),
