@@ -134,12 +134,12 @@ scikit_dict = {
   'ensemblepars': {
     'xgdt': {
       'lr': 1,
-      'maxdep': 1,
+      'maxdep': 5,
       'est': 1
       },
     'xgrf': {
       'lr': 1,
-      'maxdep': 1,
+      'maxdep': 5,
       'est': 1
       },
     'rf': {

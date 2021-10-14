@@ -272,7 +272,7 @@ def getXGDTGrp(uipars=None):
   uiobjs = {}
   if not uipars:
     uiobjs = {'estparfldxgdt': Slider(start=10,end=1000,step=10,title='Estimators'),
-              'depparfldxgdt': Slider(start=10,end=200,step=10,title='Max Depth'),
+              'depparfldxgdt': Slider(start=5,end=50,step=1,title='Max Depth'),
               'lrparfldxgdt': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'), }
     uipars = {'uiobjects': uiobjs,}
   else:
@@ -290,7 +290,7 @@ def getXGRFGrp(uipars=None):
   uiobjs = {}
   if not uipars:
     uiobjs = {'estparfldxgrf': Slider(start=10,end=1000,step=10,title='Estimators'),
-              'depparfldxgrf': Slider(start=10,end=200,step=10,title='Max Depth'),
+              'depparfldxgrf': Slider(start=5,end=50,step=1,title='Max Depth'),
               'lrparfldxgrf': Slider(start=0.1,end=10,step=0.1,title='Learning Rate'), }
     uipars = {'uiobjects': uiobjs,}
   else:
