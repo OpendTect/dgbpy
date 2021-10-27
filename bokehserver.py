@@ -38,6 +38,9 @@ def DefineBokehArguments(parser):
             dest='port', action='store',
             type=int, default=-1,
             help='Bokeh server port')
+  bokehgrp.add_argument( '--show',
+            dest='show', action='store_true', default=False,
+            help='Show the app in a browser')
   return parser
 
 def _getDocUrl(server, app_path):
@@ -47,15 +50,16 @@ def _getDocUrl(server, app_path):
   url = "http://%s:%d%s%s" % (address_string, server.port, server.prefix, app_path)
   return url
 
-def StartBokehServer(application, args, attempts=20):
+def StartBokehServer(applications, args, attempts=20):
   basicConfig(filename=args['bokehlogfnm'])
   address = args['address']
   port = args['port']
+  application = list(applications.keys())[0]
   while attempts:
     attempts -= 1
     try:
       authstr = f"{address}:{port}"
-      server = Server(application,address=address,
+      server = Server(applications,address=address,
                       port=port,
                       allow_websocket_origin=[authstr,authstr.lower()])
       server.start()
@@ -63,9 +67,10 @@ def StartBokehServer(application, args, attempts=20):
       msg = dgbservmgr.Message()
       msg.sendObjectToAddress(args['bsmserver'],
                       'bokeh_started', {'bokehid': args['bokehid'],
-                                        'bokehurl': _getDocUrl(server,"/"),
+                                        'bokehurl': _getDocUrl(server,application),
                                         'bokehpid': os.getpid()})
-
+      if args['show']:
+          server.show( application )
       server.io_loop.start()
       return
     except OSError as ex:
