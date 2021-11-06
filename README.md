@@ -2,7 +2,7 @@
 [![Python](https://img.shields.io/badge/python-3.7-blue.svg)](https://python.org)
 [![Tensorflow](https://img.shields.io/badge/Tensorflow-2.1-green.svg)](https://www.tensorflow.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9-red.svg)](https://pytorch.org)
-[![Sklearn](https://img.shields.io/badge/Scikit-learn-0.24-blue.svg)](https://scikit-learn.org)
+[![Sklearn](https://img.shields.io/badge/Scikitlearn-0.24-blue.svg)](https://scikit-learn.org)
 
 # dgbpy
 
