@@ -28,10 +28,12 @@ import bokeh.palettes as bpal
 from bokeh.events import Reset, MouseWheel, PanEnd
 
 import dgbpy.uibokeh_well as odb
+import odpy.common as odcommon
 
 undef = 1e30
+survargs= odcommon.getODArgs()
 wellnm = 'None'
-wellfile = 'None'
+welllogs = '0'
 
 class LogRangeWidget:
     def __init__(self, well, width=250, title='Extract over: '):
@@ -287,11 +289,11 @@ class CrossplotLogTracks:
         self.log_props[logtype]['axis'] = bm.LinearAxis(x_range_name=logtype,axis_label=lognm,
                                                         ticker=limits, name=logtype, **axis_style)
         track.add_layout(self.log_props[logtype]['axis'], 'above')
-        self.log_props[logtype]['line'] = track.line(x=lognm, y='MD',x_range_name=logtype,
+        self.log_props[logtype]['line'] = track.line(x=lognm, y='depth',x_range_name=logtype,
                                                      source=self.well.logdata, name=logtype, **log_style,
                                                      view=self.well.logdataview)
         log_style['line_alpha'] = nsalpha
-        self.log_props[logtype]['points'] = track.circle(x=lognm, y='MD',x_range_name=logtype,
+        self.log_props[logtype]['points'] = track.circle(x=lognm, y='depth',x_range_name=logtype,
                                                          size=1, color=None,
                                                          source=self.well.logdata,
                                                          view=self.well.logdataview)
@@ -727,16 +729,17 @@ class Crossplot:
         lr = linear_model.LinearRegression()
         X = xuse.reshape(-1,1)
         lr.fit(X, yuse)
-        lbl = 'Standard: {} = {} * {:.4f} + {:.4f}'.format(ylognm, xlognm, lr.coef_[0], lr.intercept_)
+        lbl = 'Standard: {} = {} * {:.4f} + {:.4f} (R\u00B2: {:.2f})'.format(ylognm, xlognm, lr.coef_[0], 
+						    lr.intercept_, lr.score(X, yuse))
         self.legend.items[0].label = value(lbl)
         xpl = np.array([np.nanmin(xs), np.nanmax(xs)])
         ylr = xpl * lr.coef_[0] + lr.intercept_
-        rs = linear_model.RANSACRegressor()
+        rs = linear_model.RANSACRegressor(min_samples=0.9)
         rs.fit(X, yuse)
         yrs = xpl * rs.estimator_.coef_[0] + rs.estimator_.intercept_
         self.regression['Source'].update(data={'x': xpl, 'ylr':ylr, 'yrs': yrs})
-        lbl = 'Robust: {} = {} * {:.4f} + {:.4f}'.format(ylognm, xlognm, rs.estimator_.coef_[0],
-                                                         rs.estimator_.intercept_)
+        lbl = 'Robust: {} = {} * {:.4f} + {:.4f} (R\u00B2: {:.2f})'.format(ylognm, xlognm, rs.estimator_.coef_[0],
+                                                         rs.estimator_.intercept_, rs.score(X,yuse))
         self.legend.items[1].label = value(lbl)
 
 
@@ -798,10 +801,12 @@ def sel_change(attr, old, new, controls, xplot):
     xplot.show_regression(show, selonly)
 
 def crossplot_app(doc):
-    global layout
-    well = odb.Well(wellnm)
+    global survargs, wellnm, layout, welllogs
+    well = odb.Well(wellnm, args=survargs)
     depths = well.depthRange()
-    data = well.getLogsFromFile(wellfile)
+    if welllogs is '0':
+      welllogs = well.getLogIdxStr()
+    data = well.getLogs(welllogs)
     lognms = well.getLogNames()
 
     xplcontrols = CrossplotControls(well)
@@ -858,10 +863,11 @@ def crossplot_app(doc):
 
 
 def main():
-  global wellnm, wellfile
+  global survargs, wellnm, welllogs
 
+  survargs = {'dtectdata': ['/mnt/Data/seismic/ODData'], 'survey': ['F3_Demo_2020']}
   wellnm = 'F03-2'
-  wellfile = '~/wl_od.dat'
+  welllogs = '0,1,2'
 
   server = Server({'/' : crossplot_app})
   server.start()

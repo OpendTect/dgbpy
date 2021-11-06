@@ -55,7 +55,7 @@ class TrainingSequence(Sequence):
                                                  scale=True, ichunk=ichunk )
       else:
           trainbatch = self._trainbatch
-          
+
       if self._forvalid:
           if not dgbkeys.xvaliddictstr in trainbatch or \
              not dgbkeys.yvaliddictstr in trainbatch:
@@ -110,7 +110,7 @@ class TrainingSequence(Sequence):
               self._lastsaved = now
       self._indexes = np.arange(len(self._data_IDs))
       np.random.shuffle(self._indexes)
-      
+
   def __getitem__(self, index):
       islast = index==(len(self)-1)
       bsize = self._batch_size
@@ -120,7 +120,7 @@ class TrainingSequence(Sequence):
         indexes = self._indexes[index*bsize:(index+1)*bsize]
       data_IDs_temp = [self._data_IDs[k] for k in indexes]
       return self.__data_generation(data_IDs_temp)
-    
+
   def __data_generation(self, data_IDs_temp):
       x_data = self._x_data
       y_data = self._y_data
@@ -184,7 +184,7 @@ class OutputType(Enum):
   Pixel = 1
   Image = 2
   Any = 3
-    
+
 class DimType(Enum):
   D1 = 1
   D2 = 2
@@ -193,16 +193,16 @@ class DimType(Enum):
 
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
-  
+
   This module provides support for users to add their own machine learning
   models to OpendTect.
 
   It defines an abstract base class. Users derive there own model classes from this base
   class and implement the _make_model static method to define the structure of the keras model.
-  The users model definition should be saved in a file name with "mlmodel_" as a prefix and be 
+  The users model definition should be saved in a file name with "mlmodel_keras" as a prefix and be
   at the top level of the module search path so it can be discovered.
-  
-  The "mlmodel_" class should also define some class variables describing the class:
+
+  The "mlmodel_keras" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
   predtype : DataPredType enum - type of prediction (must be member of DataPredType enum)
@@ -212,14 +212,14 @@ class UserModel(ABC):
   Examples
   --------
     from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
-  
+
     class myModel(UserModel):
       uiname = 'mymodel'
       uidescription = 'short description of model'
       predtype = DataPredType.Classification
       outtype = OutputType.Pixel
       dimtype = DimType.D3
-      
+
       def _make_model(self, input_shape, nroutputs, learnrate, data_format):
         inputs = Input(input_shape)
         conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
@@ -227,15 +227,15 @@ class UserModel(ABC):
         pool1 = MaxPooling3D(pool,size=(2,2,2))(conv1)
         ...
         conv8 = Conv3D(1, (1,1,1,), activation='sigmoid')(conv7)
-      
+
         model = Model(inputs=[inputs], outputs=[conv8])
         model.compile(optimizer = Adam(lr = 1e-4), loss = cross_entropy_balanced, metrics = ['accuracy'])
         return model
-      
-    
+
+
   """
   mlmodels = []
-  
+
   def __init__(self, ):
     self._learnrate = None
     self._nroutputs = None
@@ -246,8 +246,8 @@ class UserModel(ABC):
   def findModels():
     """Static method that searches the PYTHONPATH for modules containing user
     defined Keras machine learning models (UserModels).
-    
-    The module name must be prefixed by "mlmodel_". All subclasses of the
+
+    The module name must be prefixed by "mlmodel_keras". All subclasses of the
     UserModel base class is each found module will be added to the mlmodels
     class variable.
     """
@@ -255,45 +255,45 @@ class UserModel(ABC):
     mlm = []
 
     for _, name, ispkg in pkgutil.iter_modules(path=[Path(__file__).parent.absolute()]):
-      if name.startswith("mlmodel_"):
+      if name.startswith("mlmodel_keras"):
         module = importlib.import_module('.'.join(['dgbpy',name]))
         clsmembers = inspect.getmembers(module, inspect.isclass)
         for (_, c) in clsmembers:
           if issubclass(c, UserModel) & (c is not UserModel):
             mlm.append(c())
-        
+
     for _, name, ispkg in pkgutil.iter_modules():
-      if name.startswith('mlmodel_'):
+      if name.startswith('mlmodel_keras'):
         module = importlib.import_module(name)
         clsmembers = inspect.getmembers(module, inspect.isclass)
         for (_, c) in clsmembers:
           if issubclass(c, UserModel) & (c is not UserModel):
             mlm.append(c())
     return mlm
-  
+
   @staticmethod
   def findName(modname):
     """Static method that searches the found UserModel's for a match with the
     uiname class variable
-    
+
     Parameters
     ----------
     modname : str
     Name (i.e. uiname) of the UserModel to search for.
-    
+
     Returns
     -------
     an instance of the class with the first matching name in the mlmodels
     list or None if no match is found
-    
+
     """
     return next((model for model in UserModel.mlmodels if model.uiname == modname), None)
-  
+
   @staticmethod
   def getModelsByType(pred_type, out_type, dim_type):
     """Static method that returns a list of the UserModels filtered by the given
     prediction, output and dimension types
-    
+
     Parameters
     ----------
     pred_type: DataPredType enum
@@ -302,11 +302,11 @@ class UserModel(ABC):
     The output shape type of the model to filter by
     dim_type: DimType enum
     The dimensions that the model must support
-    
+
     Returns
     -------
     a list of matching model or None if no match found
-    
+
     """
     if isinstance(pred_type, DataPredType) and isinstance(out_type, OutputType) and\
        isinstance(dim_type, DimType) :
@@ -320,7 +320,7 @@ class UserModel(ABC):
   def getNamesByType(pred_type, out_type, dim_type):
       models = UserModel.getModelsByType(pred_type, out_type, dim_type)
       return [model.uiname for model in models]
-  
+
   @staticmethod
   def isPredType( modelnm, pred_type ):
       models = UserModel.getModelsByType( pred_type, OutputType.Any, DimType.Any )
@@ -328,7 +328,7 @@ class UserModel(ABC):
           if mod.uiname == modelnm:
               return True
       return False
-  
+
   @staticmethod
   def isOutType( modelnm, out_type ):
       models = UserModel.getModelsByType( DataPredType.Any, out_type, DimType.Any )
@@ -336,25 +336,25 @@ class UserModel(ABC):
           if mod.uiname == modelnm:
               return True
       return False
-  
+
   @staticmethod
   def isClassifier( modelnm ):
       return UserModel.isPredType( modelnm, DataPredType.Classification )
-  
+
   @staticmethod
   def isRegressor( modelnm ):
-      return UserModel.isPredType( modelnm, DataPredType.Continuous )  
-  
+      return UserModel.isPredType( modelnm, DataPredType.Continuous )
+
   @staticmethod
   def isImg2Img( modelnm ):
       return UserModel.isOutType( modelnm, OutputType.Image )
-  
+
   @abstractmethod
   def _make_model(self, input_shape, nroutputs, learnrate, data_format):
     """Abstract static method that defines a machine learning model.
-    
+
     Must be implemented in the user's derived class
-    
+
     Parameters
     ----------
     input_shape : tuple
@@ -364,39 +364,39 @@ class UserModel(ABC):
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
-    
+
     Returns
     -------
     a compiled keras model
-    
+
     """
     pass
 
   def model(self, input_shape, nroutputs, learnrate, data_format='channels_first'):
     """Creates/returns a compiled keras model instance
-    
+
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape arranged as per the data_format setting. 
+    Defines input data shape arranged as per the data_format setting.
     nroutputs : int (number of discrete classes for a classification)
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
     data_format: str
     The data format used. The machine learning plugin uses 'channels_first' data_format.
-    
+
     Returns
     -------
     a compiled keras model
-    
+
     """
     modshape = input_shape
     if data_format=='channels_first' and tf.keras.backend.image_data_format()=='channels_last':
       modshape = (*input_shape[1:], input_shape[0])
     elif data_format=='channels_last' and tf.keras.backend.image_data_format()=='channels_first':
       modshape = (input_shape[-1], *input_shape[0:-1])
-      
+
     newmodel = self._model is None or modshape != self._model.input_shape or \
                 nroutputs != self._nroutputs or learnrate != self._learnrate
     if  newmodel:
@@ -405,5 +405,5 @@ class UserModel(ABC):
       self._model = self._make_model(modshape,nroutputs,learnrate)
       self._data_format = dgbkeras.get_data_format( self._model )
     return self._model
-  
+
 UserModel.mlmodels = UserModel.findModels()

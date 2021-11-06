@@ -20,10 +20,12 @@ import math
 import pandas as pd
 import numpy as np
 import random
+import copy
 from odpy.ranges import niceRange, niceNumber
 
 class Well:
-    def __init__(self,wellname):
+    def __init__(self,wellname, args=None):
+        self.survargs = args
         self.wellname = wellname
         self.track = None
         self.markers = None
@@ -33,19 +35,24 @@ class Well:
         self.logdataviewidx = None
         self.limits = {}
 
+    def getLogIdxStr(self):
+        nlog = len(odwm.getLogNames(self.wellname, reload=True, args=self.survargs))
+        logidxs = [str(n) for n in range(nlog)]
+        return ','.join(logidxs)
+
     def getLogNames(self):
         if not self.logdata:
-            return odwm.getLogNames(self.wellname)
+            return odwm.getLogNames(self.wellname, reload=True, args=self.survargs)
         else:
             return self.logdata.column_names[1:]
 
-    def getLogsFromFile(self, filenm, undefval=1e30):
-        ld = pd.read_csv(filenm, delimiter='\t')
+    def getLogs(self, logidxs, resamp=0.5, undefval=1e30):
+        ld = pd.DataFrame.from_dict(odwm.getLogs(self.wellname, logidxs, reload=True,
+						zstep=resamp, args=self.survargs))
         ld = ld.replace(to_replace=undefval, value=float('Nan'))
         self.logdata = bm.ColumnDataSource(ld)
         self.logdataviewidx = self.logdata.data['index']
         self.logdataview = bm.CDSView(source=self.logdata, filters=[])
-        return self.logdata
 
     def getLogLimits(self, lognm):
         limits = self.limits.get(lognm)
@@ -62,34 +69,36 @@ class Well:
 
     def setDepthView(self, mindepth, maxdepth):
         if self.logdataview:
-            self.logdataviewidx = [idx for idx, z in enumerate(self.logdata.data['MD']) if z>=mindepth and z<=maxdepth]
+            self.logdataviewidx = [idx for idx, z in enumerate(self.logdata.data['depth']) if z>=mindepth and z<=maxdepth]
             self.logdataview.filters = [bm.IndexFilter(indices=self.logdataviewidx)]
 
     def setLogLimits(self, lognm, left, right):
         self.limits[lognm] = [left, right]
 
-    def getLog(self, lognm):
+    def getLog(self, lognm, undefval=1e30):
         if (not self.logcache) or (lognm not in self.logcache):
-            (depths,logvals) = odwm.getLog(self.wellname, lognm)
+            (depths,logvals) = odwm.getLog(self.wellname, lognm, reload=True, args=self.survargs)
+            logarr = np.asarray(logvals, dtype=np.float32)
+            logarr[logarr==undefval] = np.nan
             if not self.logcache:
                self.logcache = {}
-            self.logcache[lognm] = bm.ColumnDataSource({'depth': depths, lognm: logvals})
+            self.logcache[lognm] = bm.ColumnDataSource({'depth': depths, lognm: logarr})
         return self.logcache[lognm]
 
     def getTrack(self):
         if not self.track:
-            self.track = odwm.getTrack(self.wellname)
+            self.track = odwm.getTrack(self.wellname, reload=True, args=self.survargs)
         return self.track
 
     def getMarkers(self):
         if not self.markers:
-            (mrkrs, depths, colors) = odwm.getMarkers(self.wellname)
+            (mrkrs, depths, colors) = odwm.getMarkers(self.wellname, reload=True, args=self.survargs)
             self.markers = bm.ColumnDataSource({'name': mrkrs, 'depth': depths, 'color': colors})
         return self.markers
 
     def depthRange(self):
         if self.logdata:
-            return self.getLogLimits('MD')
+            return self.getLogLimits('depth')
         elif self.logcache:
             depthrange = None
             first = True
@@ -136,18 +145,18 @@ class LogTrackMgr:
             syncbutton.on_change('active', self._syncbuttonCB)
             newtrack = LogTrack(self.well, self.width, withui=self.withui)
             if copytrack:
-                newtrack.log_props = copytrack.log_props.copy()
-                newtrack.track_props = copytrack.track_props.copy()
-                master_trackbox = self.tracklayout.children[0]
-                master_trackfig = self.tracks[master_trackbox.name].track
-                newtrack.track.y_range.start = master_trackfig.y_range.start
-                newtrack.track.y_range.end = master_trackfig.y_range.end
+                newtrack.log_props = copy.deepcopy(copytrack.log_props)
+                newtrack.track_props = copy.deepcopy(copytrack.track_props)
+                main_trackbox = self.tracklayout.children[0]
+                main_trackfig = self.tracks[main_trackbox.name].track
+                newtrack.track.y_range.start = main_trackfig.y_range.start
+                newtrack.track.y_range.end = main_trackfig.y_range.end
                 newtrack.track.y_range.bounds = "auto"
 
-                master_trackfig.y_range.js_on_change('start',
+                main_trackfig.y_range.js_on_change('start',
                           bm.CustomJS(args=dict(rg=newtrack.track.y_range,sb=syncbutton),
                                       code="if (sb.active.length===1) rg.start = this.start;"))
-                master_trackfig.y_range.js_on_change('end',
+                main_trackfig.y_range.js_on_change('end',
                           bm.CustomJS(args=dict(rg=newtrack.track.y_range,sb=syncbutton),
                                       code="if (sb.active.length===1) rg.end = this.end;"))
                 newtrack.apply_track_props()
@@ -565,7 +574,7 @@ class LogTrack:
         right = self.log_props[lognm]['right']
         limits = (left, right)
         if left is None or right is None:
-            limits = niceRange(min(log.data[lognm]), max(log.data[lognm]))
+            limits = self.well.getLogLimits(lognm)
             self.log_props[lognm]['left'] = limits[0]
             self.log_props[lognm]['right'] = limits[-1]
         return limits

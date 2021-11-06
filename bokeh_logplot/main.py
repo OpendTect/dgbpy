@@ -29,10 +29,10 @@ datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
 datagrp.add_argument( '--well',
-            dest='wellid', nargs=1,
+            dest='wellid', action='append',
             help='Well ID' )
 datagrp.add_argument( '--welllogs',
-            dest='welllogs', nargs=1, default='0',
+            dest='welllogs', action='append',
             help='Well log indices to display' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
@@ -54,8 +54,9 @@ odcommon.initLogging( args )
 from odpy import wellman
 import bokeh_logplot as blp
 
-reload = False
+reload = True
 wellid = args['wellid'][0]
+blp.survargs = odcommon.getODArgs( args )
 blp.wellnm = wellman.getName(wellid, reload, args)
 lognms = wellman.getLogNames(blp.wellnm, reload, args)
 logidx = list(args.get('welllogs')[0].split(','))

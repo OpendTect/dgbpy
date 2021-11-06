@@ -155,7 +155,7 @@ def getTrainingData( filenm, decim=False ):
   dsets = infos[dgbkeys.datasetdictstr]
   if decim:
       dsets = getSomeDatasets( dsets, decim )
-  
+
   return getTrainingDataByInfo( infos, dsetsel=dsets )
 
 def getTrainingDataByInfo( info, dsetsel=None ):
@@ -218,6 +218,9 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     dgbscikit.save( model, outfnm )
+  elif platform == dgbkeys.torchplfnm:
+    import dgbpy.dgbtorch as dgbtorch
+    dgbtorch.save( model, outfnm )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
@@ -233,6 +236,9 @@ def getModel( modelfnm, fortrain=False ):
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     model = dgbscikit.load( modelfnm )
+  elif platform == dgbkeys.torchplfnm:
+    import dgbpy.dgbtorch as dgbtorch
+    model = dgbtorch.load(modelfnm)
   else:
     from odpy.common import log_msg
     log_msg( 'Unsupported machine learning platform' )

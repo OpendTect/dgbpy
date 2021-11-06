@@ -20,7 +20,7 @@ from odpy.common import log_msg, redirect_stdout, restore_stdout
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
-from dgbpy.mlmodel_dGB import root_mean_squared_error, cross_entropy_balanced
+from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 withtensorboard = True

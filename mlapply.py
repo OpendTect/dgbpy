@@ -264,6 +264,22 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         os.remove( tempmodelnm )
     except:
       pass
+
+  elif platform == dgbkeys.torchplfnm:
+    import dgbpy.dgbtorch as dgbtorch
+    if params == None:
+      params = dgbtorch.getParams()
+    trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
+                                        scale=True, force=False,
+                                        split=validation_split )
+
+    if type == TrainType.New:
+      model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
+                                       )
+
+    print('--Training Started--', flush=True)
+    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params)
+
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if params == None:
@@ -324,6 +340,9 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     res = dgbscikit.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
+  elif platform == dgbkeys.torchplfnm:
+    import dgbpy.dgbtorch as dgbtorch
+    res = dgbtorch.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   elif platform == dgbkeys.numpyvalstr:
     res = numpyApply( samples )
   else:

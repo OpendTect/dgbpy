@@ -482,51 +482,17 @@ def save( model, outfnm, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def translateFnm( modfnm, modelfnm ):
-  posidxh5fp = PurePosixPath( modelfnm )
-  winh5fp = PureWindowsPath( modelfnm )
-  posixmodfp = PurePosixPath( modfnm )
-  winmodfp = PureWindowsPath( modfnm )
-  if isWin():
-    moddir = winh5fp.parent
-    modbasefnm = winmodfp.name
-    modlocfnm = PureWindowsPath( moddir ).joinpath( PureWindowsPath(modbasefnm))
-    if os.path.exists(modlocfnm):
-      modfnm = modlocfnm
-    else:
-      moddir = posidxh5fp.parent
-      modbasefnm = posixmodfp.name
-      modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-      if os.path.exists(modlocfnm):
-        modfnm = modlocfnm
-  else:
-    moddir = posidxh5fp.parent
-    modbasefnm = posixmodfp.name
-    modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-    if os.path.exists(modlocfnm):
-      modfnm = modlocfnm
-    else:
-      moddir = winh5fp.parent
-      modbasefnm = winmodfp.name
-      modlocfnm = PureWindowsPath( moddir).joinpath(PureWindowsPath(modbasefnm))
-      modlocfnm = modlocfnm.as_posix()
-      if os.path.exists(modlocfnm):
-        modfnm = modlocfnm
-  return modfnm
-
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
 
   modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
-  modeltype = odhdf5.getText( h5file, 'type' )
-  info = odhdf5.getInfoDataSet( h5file )
 
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
-    modfnm = translateFnm( modfnm, modelfnm )
+    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     model = joblib.load( modfnm )
   elif savetype == savetypes[1]:
     modeldata = modelgrp['object']

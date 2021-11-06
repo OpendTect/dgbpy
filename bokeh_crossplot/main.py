@@ -28,11 +28,11 @@ datagrp.add_argument( '--survey',
             dest='survey', nargs=1,
             help='Survey name' )
 datagrp.add_argument( '--well',
-            dest='wellid', nargs=1,
+            dest='wellid', action='append',
             help='Well ID' )
-datagrp.add_argument( '--wlfile',
-            dest='welllogfile', nargs=1,
-            help='Log file' )
+datagrp.add_argument( '--welllogs',
+            dest='welllogs', action='append',
+            help='Well log indices to display' )
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--proclog',
             dest='logfile', metavar='file', nargs='?',
@@ -53,10 +53,11 @@ odcommon.initLogging( args )
 from odpy import wellman
 import bokeh_crossplot as bxp
 
-reload = False
+reload = True
 wellid = args['wellid'][0]
+bxp.survargs = odcommon.getODArgs(args)
 bxp.wellnm = wellman.getName(wellid, reload, args)
-bxp.wellfile = args['welllogfile'][0]
-
+bxp.welllogs = args['welllogs'][0]
+print(bxp.welllogs)
 StartBokehServer({'/': bxp.crossplot_app}, args)
 

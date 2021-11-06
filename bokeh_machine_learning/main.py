@@ -106,7 +106,7 @@ def training_app(doc):
                             isRunning, pauseProcess, resumeProcess)
   import dgbpy.keystr as dgbkeys
   from dgbpy import mlapply as dgbmlapply
-  from dgbpy import uibokeh, uikeras, uisklearn
+  from dgbpy import uibokeh, uikeras, uisklearn, uitorch
   from dgbpy import mlio as dgbmlio
 
   examplefilenm = args['h5file'].name
@@ -140,6 +140,7 @@ def training_app(doc):
     ML_PLFS = []
     ML_PLFS.append( uikeras.getPlatformNm(True) )
     ML_PLFS.append( uisklearn.getPlatformNm(True) )
+    ML_PLFS.append( uitorch.getPlatformNm(True) )
 
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
     tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
@@ -147,6 +148,7 @@ def training_app(doc):
 
     info = None
     keraspars = None
+    torchpars = None
     sklearnpars = None
     parsgroups = None
     traininglogfilenm = None
@@ -154,27 +156,23 @@ def training_app(doc):
     def makeUI(examplefilenm):
       nonlocal info
       nonlocal keraspars
+      nonlocal torchpars
       nonlocal sklearnpars
       nonlocal parsgroups
       info = dgbmlio.getInfo( examplefilenm, quick=True )
       uikeras.info = info
+      uitorch.info = info
       keraspars = uikeras.getUiPars()
+      torchpars = uitorch.getUiPars()
       sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
-      parsgroups = (keraspars,sklearnpars)
-      if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-        platformfld.disabled = True
-      else:
-        platformfld.disabled = False
-
+      parsgroups = (keraspars,sklearnpars,torchpars)
+      platformfld.disabled = False
 
     def updateUI():
       nonlocal info
       nonlocal keraspars
+      nonlocal torchpars
       nonlocal platformfld
-      if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-        platformfld.disabled = True
-      else:
-        platformfld.disabled = False
       keraspars['uiobjects']['dodecimatefld'].active = []
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
@@ -183,9 +181,12 @@ def training_app(doc):
     def resetUiFields(cb):
       nonlocal keraspars
       nonlocal sklearnpars
+      nonlocal torchpars
       platformnm = platformfld.value
       if platformnm == uikeras.getPlatformNm():
         keraspars = uikeras.getUiPars(keraspars)
+      elif platformnm == uitorch.getPlatformNm():
+        torchpars = uitorch.getUiPars(torchpars)
       elif platformnm == uisklearn.getPlatformNm():
         sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr], sklearnpars)
 
@@ -263,6 +264,8 @@ def training_app(doc):
         return uikeras.getUiParams( keraspars )
       elif platformfld.value == uisklearn.getPlatformNm():
         return uisklearn.getUiParams( sklearnpars )
+      elif platformfld.value == uitorch.getPlatformNm():
+        return uitorch.getUiParams( torchpars )
       return {}
 
     def getProcArgs( platfmnm, pars, outnm ):

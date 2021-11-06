@@ -10,6 +10,8 @@ from os import path
 import random
 import json
 import numpy as np
+from pathlib import PurePosixPath, PureWindowsPath
+from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
@@ -579,3 +581,36 @@ def getOutputNames( filenm, indices ):
     ret.append( odhdf5.getText(info,modelIdxStr(idx)) )
   h5file.close()
   return ret
+
+def translateFnm( modfnm, modelfnm ):
+  posidxh5fp = PurePosixPath( modelfnm )
+  winh5fp = PureWindowsPath( modelfnm )
+  posixmodfp = PurePosixPath( modfnm )
+  winmodfp = PureWindowsPath( modfnm )
+  import os
+  if isWin():
+    moddir = winh5fp.parent
+    modbasefnm = winmodfp.name
+    modlocfnm = PureWindowsPath( moddir ).joinpath( PureWindowsPath(modbasefnm))
+    if os.path.exists(modlocfnm):
+      modfnm = modlocfnm
+    else:
+      moddir = posidxh5fp.parent
+      modbasefnm = posixmodfp.name
+      modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
+      if os.path.exists(modlocfnm):
+        modfnm = modlocfnm
+  else:
+    moddir = posidxh5fp.parent
+    modbasefnm = posixmodfp.name
+    modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
+    if os.path.exists(modlocfnm):
+      modfnm = modlocfnm
+    else:
+      moddir = winh5fp.parent
+      modbasefnm = winmodfp.name
+      modlocfnm = PureWindowsPath( moddir).joinpath(PureWindowsPath(modbasefnm))
+      modlocfnm = modlocfnm.as_posix()
+      if os.path.exists(modlocfnm):
+        modfnm = modlocfnm
+  return modfnm

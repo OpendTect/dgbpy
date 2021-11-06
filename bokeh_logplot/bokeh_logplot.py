@@ -17,21 +17,24 @@ from bokeh.server.server import Server
 import bokeh.layouts as bl
 import bokeh.models as bm
 import dgbpy.uibokeh_well as odb
+import odpy.common as odcommon
 
 undef = 1e30
+survargs= odcommon.getODArgs()
 wellnm = 'None'
 logs = []
 
 def logplot_app(doc):
-  well = odb.Well(wellnm)
+  well = odb.Well(wellnm, args=survargs)
   ltmgr = odb.LogTrackMgr(well, deflogs=logs, trackwidth=400, withui=True)
   doc.add_root(ltmgr.tracklayout)
   doc.title = 'Plot well'
 
 
 def main():
-  global wellnm, logs
+  global survargs, wellnm, logs
 
+  survargs = {'dtectdata': ['/mnt/Data/seismic/ODData'], 'survey': ['F3_Demo_2020']}
   wellnm = 'F03-2'
   logs = ['Sonic','Gamma Ray','P-Impedance_rel']
 
