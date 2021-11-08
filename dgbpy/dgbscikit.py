@@ -300,6 +300,17 @@ def getSVMPars( modelname='Support Vector Machine',
     }
 
 def getNewScaler( mean, scale ):
+  """ Gets new scaler object
+
+  Parameters:
+    * mean (ndarray of shape (n_features,) or None): mean value to be used for scaling
+    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the 
+      data to achieve zero mean and unit variance (fromm sklearn docs)
+
+  Returns:
+    * object: scaler (an instance of sklearn.preprocessing..StandardScaler())
+  """
+
   scaler = StandardScaler()
   scaler.mean_ = np.array( mean )
   scaler.scale_ = np.array( scale )

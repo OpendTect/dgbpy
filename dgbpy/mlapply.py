@@ -21,6 +21,14 @@ import dgbpy.mlio as dgbmlio
 TrainType = Enum( 'TrainType', 'New Resume Transfer', module=__name__ )
 
 def computeScaler_( datasets, infos, scalebyattrib ):
+  """ Computes scaler
+
+  Parameters:
+    * datasets (dict): dataset
+    * infos (dict): information about example file
+    * scalebyattrib (bool): 
+  """
+
   ret = dgbmlio.getTrainingDataByInfo( infos, datasets )
   allx = list()
   if dgbkeys.xtraindictstr in ret:
@@ -105,6 +113,16 @@ def computeScaler( infos, scalebyattrib, force=False ):
 
 def getScaledTrainingData( filenm, flatten=False, scale=True, force=False, 
                            nbchunks=1, split=None ):
+  """ Gets scaled training data
+
+  Parameters:
+    * filenm (str): path to file
+    * flatten (bool):
+    * scale (bool or iter): 
+    * nbchunks (int): number of data chunks to be created
+    * split (float): size of validation data (between 0-1)
+  """
+
   if isinstance(scale,bool):
     doscale = scale
     scalebyattrib = True
@@ -125,12 +143,33 @@ def getScaledTrainingData( filenm, flatten=False, scale=True, force=False,
   return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=scale )
 
 def getInputList( datasets ):
+  """ 
+
+  Parameters:
+    * datasets (dict): dataset from example file 
+
+  Returns:
+    * dict: 
+  """
+
   ret = {}
   for keynm in datasets:
     dgbhdf5.dictAddIfNew( datasets[keynm], ret )
   return ret.keys()
 
 def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
+  """ Gets scaled training data
+
+  Parameters:
+    * infos (dict): information about example file
+    * flatten (bool):
+    * scale (bool): defaults to True, a scaling object is applied to returned data, otherwise if False is specified
+    * ichunk (int): number of data chunks to be created
+
+  Returns:
+    * dict: of training data with x_train, y_train, x_validation, y_validation, infos as keys.
+  """
+
   printProcessTime( 'Data pre-loading', True, print_fn=log_msg )
   x_train = list()
   y_train = list()
@@ -192,10 +231,32 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   return ret
 
 def getScaler( x_train, byattrib=True ):
+  """ Gets scaler object for data scaling
+
+  Parameters:
+    * x_train (array): data to be scaled
+    * byattrib (bool): True if scaling should be done by individual attribute 
+                       present in data, False if otherwise
+
+  Returns:
+    * object: StandardScaler object fitted on data (from sklearn.preprocessing)                       
+  """
+
   import dgbpy.dgbscikit as dgbscikit
   return dgbscikit.getScaler( x_train, byattrib )
 
 def getNewScaler( mean, scale ):
+  """ Gets new scaler object
+
+  Parameters:
+    * mean (ndarray of shape (n_features,) or None): mean value to be used for scaling
+    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the 
+      data to achieve zero mean and unit variance (fromm sklearn docs)
+
+  Returns:
+    * object: scaler (an instance of sklearn.preprocessing..StandardScaler())
+  """
+
   import dgbpy.dgbscikit as dgbscikit
   return dgbscikit.getNewScaler( mean, scale )
 
@@ -216,6 +277,29 @@ def transform(x_train,scaler):
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
              params=None, outnm=dgbkeys.modelnm, logdir=None, clearlogs=False, modelin=None,
              args=None ):
+  """ Method to perform a training job using any platform and for any workflow
+      (trained model is also saved)
+
+  Parameters:
+    * examplefilenm (str): file name/path to example file in hdf5 format
+    * platform (str): machine learning platform choice (options are; keras, scikit-learn, torch)
+    * type (str): type of training; new or transfer, or continue (Resume)
+    * params (dict): machine learning hyperpaametersor paramters options
+    * outnm (str): name to save trained model as
+    * logdir (str): the path of the directory where to save the log
+                    files to be parsed by TensorBoard (only applicable 
+                    for the keras platform)
+    * clearlogs (bool): clears previous logs if any when set to True 
+    * modelin (str): model file path/name in hdf5 format
+    * args (dict, optional):
+      Dictionary with the members 'dtectdata' and 'survey' as 
+      single element lists, and/or 'dtectexec' (see odpy.common.getODSoftwareDir)
+
+  Returns:
+    * 
+    
+  """
+
   (model,infos) = (None,None)
   if type == None:
     type = TrainType.New
@@ -303,6 +387,16 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   return (outfnm != None and os.path.isfile( outfnm ))
 
 def reformat( res, applyinfo ):
+  """ For reformatting prediction result type(s)
+
+  Parameters:
+    * res (dict): predictions (labels, probabilities, confidence results)
+    * applyinfo (dict): information from example file to apply model
+
+  Returns:
+    * dict: reformatted equivalence of results if key(s) match (labels, probabilities, confidence results)
+  """
+
   if dgbkeys.preddictstr in res:
     res[dgbkeys.preddictstr] = res[dgbkeys.preddictstr].astype( applyinfo[dgbkeys.dtypepred] )
   if dgbkeys.probadictstr in res:
@@ -312,11 +406,28 @@ def reformat( res, applyinfo ):
   return res
 
 def doApplyFromFile( modelfnm, samples, outsubsel=None ):
+  """
+  """
+
   (model,info) = dgbmlio.getModel( modelfnm, fortrain=False )
   applyinfo = dgbmlio.getApplyInfo( info, outsubsel )
   return doApply( model, info, samples, applyinfo=applyinfo )
 
 def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None ):
+  """ Applies a trained machine learning model on any platform for any workflow
+
+  Parameters:
+    * model (object): trained model in hdf5 format
+    * info (dict): info from example file
+    * samples (ndarray): input features to model
+    * scaler (obj): scaler for scaling if any
+    * applyinfo (dict): information from example file to apply model
+    * batchsize (int): data batch size
+
+  Returns:
+    * dict: prediction results (reformatted, see dgbpy.mlapply.reformat)
+  """
+
   platform = info[dgbkeys.plfdictstr]
   if applyinfo == None:
     applyinfo = dgbmlio.getApplyInfo( info )
@@ -363,6 +474,22 @@ def numpyApply( samples ):
   }
 
 def inputCount( infos, raw=False, dsets=None ):
+  """ Gets count of input images (train and validation)
+
+  Parameters:
+    * infos (dict): info from example file
+    * raw (bool): set to True to return total input count, 
+                  False for otherwise (train and validation split counts)
+    * dsets (dict): dataset
+
+  Returns:
+    * (dict, list): count of input images
+
+  Notes:
+    * a list of dictionary (train and validation input images counts) when
+     raw=False. A dictionary of the total survey input images count
+  """
+
   if dsets == None:
     if raw or not dgbkeys.trainseldicstr in infos:
       return inputCount_( infos[dgbkeys.datasetdictstr] )
@@ -382,6 +509,13 @@ def inputCountList( infos, dsetslist ):
   return ret
 
 def inputCount_( dsets ):
+  """ Gets count of input images 
+
+    * dsets (dict): dataset
+
+  Returns:
+    * (dict): count of total input images
+  """
   ret = {}
   dscounts = dgbmlio.datasetCount( dsets )
   for groupnm in dscounts:

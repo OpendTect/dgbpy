@@ -13,7 +13,6 @@ from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-learntypes = ('Seismic Classification', 'Seismic Image Transformation')
 torch_dict = {
     'epochs': 10,
     'epochdrop': 5,
@@ -80,7 +79,7 @@ def getModelsByInfo( infos ):
         ndim = len(shape)-1
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
                                    infos[dgbhdf5.classdictstr], 
-                                   ndim )
+                                   ndim )                             
     if len(modelstypes) < 1:
         return None
     return modelstypes[0]
@@ -185,22 +184,25 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   dataloader = getDataLoader(sampleDataset, batchsize=2)
   ret = {}
   res = None
-  isclassification = info['classification']
+  try:
+    img2img = info[dgbkeys.seisimgtoimgtypestr]
+    img2img = True
+  except KeyError:
+    img2img = False
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
-  #dfdm = getDefaultModel(info)
   from dgbpy.mlmodel_torch_dGB import ResNet18
   dfdm = ResNet18(nroutputs)
-  if info[dgbkeys.learntypedictstr] == learntypes[0]:
+  if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr:
     try:
       dfdm.load_state_dict(model)
     except RuntimeError:
       from dgbpy.torch_classes import Net
       dfdm = Net(nroutputs)
       dfdm.load_state_dict(model)
-  elif info[dgbkeys.learntypedictstr] == learntypes[1]:
+  elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
     from dgbpy.torch_classes import UNet
     if isclassification:
       dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=3)
@@ -212,29 +214,68 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   dfdm.eval()
   for input in dataloader:
       with torch.no_grad():
-        if info[dgbkeys.learntypedictstr] == learntypes[1]:
+        if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
           pass
         out = dfdm(input)
         pred = out.detach().numpy()
         pred_prob = pred.copy()
         if isclassification:
           pred = np.argmax(pred, axis=1)
-          if info[dgbkeys.learntypedictstr] == learntypes[1]:
+          if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
             pred = pred[:, None, :, :, :]
         for _ in pred:
           predictions.append(_)
         for _prob in pred_prob:
           predictions_prob.append(_prob)
-
+  
+  if withpred:
+    if isclassification:
+      if not (doprobabilities or withconfidence):
+        try:
+          res = np.array(predictions_prob)
+          res = np.transpose(np.array(predictions))
+        except AttributeError:
+          pass
+    
+  if isclassification and (doprobabilities or withconfidence or withpred):
+    if len(ret)<1:
+      allprobs = (np.array(predictions)).transpose()
+    else:
+      allprobs = ret[dgbkeys.preddictstr]
+    indices = None
+    if withconfidence or not img2img or (img2img and nroutputs>2):
+      N = 2
+      if img2img:
+        indices = np.argpartition(allprobs,-N,axis=1)[:,-N:]
+      else:
+        indices = np.argpartition(allprobs,-N,axis=0)[-N:]
+    if withpred and isinstance( indices, np.ndarray ):
+      if img2img:
+        ret.update({dgbkeys.preddictstr: indices[:,-1:]})
+      else:
+        ret.update({dgbkeys.preddictstr: indices[-1:]})
+    if doprobabilities and len(withprobs) > 0:
+      res = np.copy(allprobs[withprobs])
+      ret.update({dgbkeys.probadictstr: res})
+    if withconfidence:
+      N = 2
+      predictions_prob = np.array(predictions_prob)
+      x = predictions_prob.shape[0]
+      indices = np.argpartition(predictions_prob.transpose(),-N,axis=0)[-N:].transpose()
+      sortedprobs = predictions_prob.transpose()[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
+      res = np.diff(sortedprobs,axis=0)
+      ret.update({dgbkeys.confdictstr: res})
+  
   if withpred:
     res = np.transpose(np.array(predictions))
     ret.update({dgbkeys.preddictstr: res})
   
-  if isclassification and (doprobabilities or withconfidence):
+  if doprobabilities:
     res = np.transpose( np.array(predictions_prob) )
     ret.update({dgbkeys.probadictstr: res})
-  if info[dgbkeys.learntypedictstr] == learntypes[1]:
-    ret['prediction'] = ret['prediction'].transpose(4, 3, 1, 2, 0)
+  if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+    ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 1, 2, 0)
+  
   return ret
 
 def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch_size']):

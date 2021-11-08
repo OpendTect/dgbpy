@@ -21,9 +21,29 @@ mltrlgrp = 'Deep Learning Model'
 dgbtrl = 'dGB'
 
 def getInfo( filenm, quick=False ):
+  """ Gets information from an example file
+
+  Parameters:
+    * filenm (str): ffile name/path in hdf5 format
+    * quick (bool): when set to True, info is gottenn quickly leaving out some info(e.g. datasets), 
+                    defaults to False and loads all informaton
+
+  Returns:
+    * dict: information from data file or model file                    
+  """
+
   return dgbhdf5.getInfo( filenm, quick )
 
 def datasetCount( dsets ):
+  """Gets count of dataset
+
+  Parameters:
+    * dsets (dict): dataset
+
+  Returns:
+    * dict: counts for target attribute(s) or well(s) for  project
+  """
+
   if dgbkeys.datasetdictstr in dsets:
     dsets = dsets[dgbkeys.datasetdictstr]
   ret = {}
@@ -44,6 +64,17 @@ def datasetCount( dsets ):
   return ret
 
 def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
+  """ Gets train and validation indices of dataset
+
+  Parameters:
+    * dsets (dict): dataset
+    * validation_split (float): size of validation data (between 0-1)
+    * valid_inputs (iter): 
+
+  Returns:
+    * dict: train and validation indices
+  """
+
   train = {}
   valid = {}
   if validation_split == None:
@@ -87,6 +118,16 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
   }
 
 def getChunks(dsets,nbchunks):
+  """ Splits dataset object into smaller chunks
+
+  Parameters:
+    * dsets (dict): dataset
+    * nbchunks (int): number of data chunks to be created
+
+  Returns:
+    * dict: chunks from dataset stored as dictionaries
+  """
+
   ret = []
   for ichunk in range(nbchunks):
     datagrp = {}
@@ -105,6 +146,16 @@ def getChunks(dsets,nbchunks):
   return ret
   
 def hasScaler( infos, inputsel=None ):
+  """ Checks if example file has scaleror not from info
+
+  Parameters:
+    * infos (dict): information about example file
+    * inputsel (bool or NoneType):
+
+  Returns:
+    bool: True if dataset info has scaler key, False if other
+  """
+
   inp = infos[dgbkeys.inputdictstr]
   for inputnm in inp:
     if inputsel != None and not inputnm in inputsel:
@@ -151,6 +202,16 @@ def getSomeDatasets( dslist, decim=None ):
   return ret
 
 def getTrainingData( filenm, decim=False ):
+  """ Gets training data from file name
+
+  Parameters:
+    * filenm (str): path to file in hdf5 format
+    * decim (bool): 
+
+  Returns:
+    * dict: train, validation datasets as arrays, and info on example file
+  """
+
   infos = getInfo( filenm )
   dsets = infos[dgbkeys.datasetdictstr]
   if decim:
@@ -159,6 +220,16 @@ def getTrainingData( filenm, decim=False ):
   return getTrainingDataByInfo( infos, dsetsel=dsets )
 
 def getTrainingDataByInfo( info, dsetsel=None ):
+  """ Gets training data from file info
+
+  Parameters:
+    * info (dict): information about example file
+    * dsetsel ():
+
+  Returns:
+    * dict: train, validation datasets as arrays, and info on example file
+  """
+
   examples = dgbhdf5.getDatasets( info, dsetsel )
   ret = {}
   for ex in examples:
@@ -205,6 +276,16 @@ def unnormalize_class_vector( arr, classes ):
     arr[arr == i] = classes[i]
 
 def saveModel( model, inpfnm, platform, infos, outfnm ):
+  """ Saves trained model for any platform workflow
+
+  Parameters:
+    * model (obj): trained model on any platform
+    * inpfnm (str): example file name in hdf5 format
+    * platform (str): machine learning platform (options; keras, Scikit-learn, torch)
+    * infos (dict): example file info
+    * outfnm (str): name of model to be saved
+  """
+
   from odpy.common import log_msg
   if os.path.exists(outfnm):
     try:
@@ -228,6 +309,16 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   log_msg( 'Model saved.' )
 
 def getModel( modelfnm, fortrain=False ):
+  """ Get model and model information
+
+  Parameters:
+    * modelfnm (str): model file path/name in hdf5 format
+    * fortrain (bool): keras...
+
+  Returs:
+    * tuple: (trained model and model/project info)
+  """
+
   infos = getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
   if platform == dgbkeys.kerasplfnm:
@@ -246,9 +337,29 @@ def getModel( modelfnm, fortrain=False ):
   return (model,infos)
 
 def getApplyInfoFromFile( modelfnm, outsubsel=None ):
+  """ Gets model apply info from file name
+
+  Parameters:
+    * modelfnm (str): model file path/name in hdf5 format
+    * outsubsel ():
+
+  Returns:
+    * dict: apply information
+  """
+
   return getApplyInfo( getInfo(modelfnm), outsubsel )
 
 def getApplyInfo( infos, outsubsel=None ):
+  """ Gets model apply info from example file info
+
+  Parameters:
+    * infos (dict): example file info
+    * outsubsel ():
+
+  Returns:
+    * dict: apply information
+  """
+
   isclassification = infos[dgbkeys.classdictstr]
   firstoutnm = dgbhdf5.getMainOutputs(infos)[0]
   if isclassification:
@@ -326,6 +437,15 @@ def dbInfoForModel( modnm, args, reload=True ):
   return oddbman.getInfoFromDBListByNameOrKey( modnm, dblistall )
 
 def getModelType( infos ):
+  """ Gets model type
+
+  Parameters:
+    * infos (dict): example file info
+
+  Returns:
+    * str: Type ofmodel/workflow
+  """
+
   return infos[dgbkeys.learntypedictstr]
 
 def getSaveLoc( outnm, ftype, args ):
