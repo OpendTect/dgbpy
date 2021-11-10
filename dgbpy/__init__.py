@@ -7,4 +7,7 @@
 #
 
 __version__ = '1.0.0'
-from dgbpy import dgbtorch
+try:
+  from dgbpy import dgbtorch
+except:
+  pass
