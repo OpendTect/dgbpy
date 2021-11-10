@@ -32,7 +32,7 @@ setup(
     ],
     extras_require={
         'onnxruntime': ['onnxruntime>=1.0.0'],
-        'onnxmltools': ['onnxmltools>=1.9.0']
+        'onnxmltools': ['onnxmltools>=1.9.0'],
         'pydot': ['pydot>=1.4.1'],
         'scikit-learn-intelex': ['scikit-learn-intelex>=1.0.0'],
         'skl2onnx': ['skl2onnx>=1.0.0'],
