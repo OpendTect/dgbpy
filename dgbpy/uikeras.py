@@ -79,7 +79,6 @@ def getUiPars(uipars=None):
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
     uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
     try:
-      uiobjs['chunkfld'].value_throttled = uiobjs['chunkfld'].value
       uiobjs['chunkfld'].on_change('value_throttled',partial(chunkfldCB, uiobjs['sizefld']))
     except AttributeError:
       log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
