@@ -340,7 +340,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                               withaugmentation=dgbkeras.withaugmentation,
                               tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:
-      if os.path.exists(tempmodelnm):
+      if tempmodelnm != None and os.path.exists(tempmodelnm):
         model = dgbmlio.getModel( tempmodelnm, True )
         raise e
     try:

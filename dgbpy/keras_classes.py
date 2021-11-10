@@ -16,7 +16,6 @@ from tensorflow.keras.utils import Sequence, to_categorical
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import dgbkeras
-from dgbpy import keras_fix
 
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
@@ -163,7 +162,7 @@ class TrainingSequence(Sequence):
                   n = wrrg.stop
       if self._nrclasses > 0:
           Y = to_categorical(Y,self._nrclasses)
-      return (X, Y, [None])
+      return (X, Y)
 
 import importlib
 import pkgutil
