@@ -143,10 +143,6 @@ def getNNGrp(uipars=None):
     layergrp = [nb,uiobjs['lay1parfld'],uiobjs['lay2parfld'],uiobjs['lay3parfld'],
                 uiobjs['lay4parfld'],uiobjs['lay5parfld'],uiobjs['addbutton'],uiobjs['lessbutton']]
     try:
-      uiobjs['lay1parfld'].value_throttled = uiobjs['lay1parfld'].value
-      uiobjs['lay2parfld'].value_throttled = uiobjs['lay2parfld'].value
-      uiobjs['lay3parfld'].value_throttled = uiobjs['lay3parfld'].value
-      uiobjs['lay4parfld'].value_throttled = uiobjs['lay4parfld'].value
       uiobjs['lay1parfld'].on_change('value_throttled',partial(layer1ChgCB,layergrp))
       uiobjs['lay2parfld'].on_change('value_throttled',partial(layer2ChgCB,layergrp))
       uiobjs['lay3parfld'].on_change('value_throttled',partial(layer3ChgCB,layergrp))

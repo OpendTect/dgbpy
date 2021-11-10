@@ -67,19 +67,9 @@ def getUiPars(uipars=None):
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
-      'dodecimatefld': CheckboxGroup( labels=['Decimate input']),
-      'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
-      #'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
-    uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
-    try:
-      uiobjs['chunkfld'].value_throttled = uiobjs['chunkfld'].value
-      uiobjs['chunkfld'].on_change('value_throttled',partial(chunkfldCB, uiobjs['sizefld']))
-    except AttributeError:
-      log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
-      pass
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
@@ -92,24 +82,7 @@ def getUiPars(uipars=None):
   uiobjs['epochdrop'].value = dict['epochdrop']
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
-  uiobjs['dodecimatefld'].active = []
-  decimateCB( uiobjs['dodecimatefld'].active,uiobjs['chunkfld'],uiobjs['sizefld'] )
   return uipars
-
-def chunkfldCB(sizefld,attr,old,new):
-  if sizefld == None:
-    return
-  sizefld.text = getSizeStr( info[dgbkeys.estimatedsizedictstr]/new )
-
-def decimateCB( widgetactivelist,chunkfld,sizefld ):
-  decimate = uibokeh.integerListContains( widgetactivelist, 0 )
-  chunkfld.visible = decimate
-  if sizefld == None:
-    return
-  size = info[dgbkeys.estimatedsizedictstr]
-  if decimate:
-    size /= chunkfld.value
-  sizefld.text = getSizeStr( size )
 
 def getUiParams( torchpars ):
   torchgrp = torchpars['uiobjects']
@@ -118,8 +91,6 @@ def getUiParams( torchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  #runoncpu = not torchgrp['rundevicefld'].visible or \
-             #not isSelected( torchgrp['rundevicefld'] )
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
