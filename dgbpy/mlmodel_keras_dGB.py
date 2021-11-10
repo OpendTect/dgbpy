@@ -5,7 +5,6 @@
 #
 # dGB Keras machine learning models in UserModel format
 #
-from packaging import version
 
 from keras.models import *
 from keras.layers import *
