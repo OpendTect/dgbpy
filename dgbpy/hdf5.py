@@ -89,7 +89,7 @@ def isRegression( info ):
   return not isClassification( info )
 
 def isClassification( info ):
-  if instance(info, dict):
+  if isinstance(info, dict):
     return info[classdictstr]
   return info == classdatavalstr
 
