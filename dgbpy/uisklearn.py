@@ -11,11 +11,14 @@ from functools import partial
 from bokeh.core import enums
 from bokeh.layouts import row, column
 from bokeh.models import Spacer
-from bokeh.models.widgets import Button, Select, Slider
+from bokeh.models.widgets import Button, Select, Slider, Spinner
 
 from odpy.common import log_msg
 from dgbpy.dgbscikit import *
+import dgbpy.keystr as dgbkeys
 from dgbpy import uibokeh
+
+info = None
 
 but_width = uibokeh.but_width
 but_height = uibokeh.but_height
@@ -27,6 +30,17 @@ def getPlatformNm( full=False ):
     return platform
   return getMLPlatform()
 
+def getClusterGrp(uipars=None):
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'clustermethod': Select(title='Method', options=getUiClusterMethods()),}
+    uipars = {'uiobjects': uiobjs, 'name': clustertypes[0][1],}
+  else:
+    uiobjs = uipars['uiobjects']
+
+  uiobjs['clustermethod'].value = clustermethods[0][1]
+  return uipars
+
 def getLinearGrp(uipars=None):
   uiobjs = {}
   if not uipars:
@@ -34,7 +48,7 @@ def getLinearGrp(uipars=None):
     uipars = {'uiobjects': uiobjs, 'name': regmltypes[0][1],}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['lineartyp'].value = 'Ordinary Least Squares'
   return uipars
 
@@ -47,7 +61,7 @@ def getLogGrp(uipars=None):
     uipars = {'uiobjects': uiobjs, 'name': classmltypes[0][1],}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['logtyp'].value = 'Logistic Regression Classifier'
   uiobjs['solvertyp'].value = getDefaultSolver()
   return uipars
@@ -69,7 +83,7 @@ def getEnsembleGrp(uipars=None):
     rfgrp = {'uiobjects': {'depparfldrf': uiobjs['depparfldrf'],
                            'estparfldrf': uiobjs['estparfldrf'],},}
     gbgrp = {'uiobjects': {'depparfldgb': uiobjs['depparfldgb'],
-                           'estparfldgb': uiobjs['estparfldgb'], 
+                           'estparfldgb': uiobjs['estparfldgb'],
                            'lrparfldgb': uiobjs['lrparfldgb'],}, }
     adagrp = {'uiobjects': {'estparfldada': uiobjs['estparfldada'],
                             'lrparfldada': uiobjs['lrparfldada'],}, }
@@ -105,7 +119,7 @@ def getEnsembleGrp(uipars=None):
               'depparfldrf': rfgrp['uiobjects']['depparfldrf'],
               'estparfldrf': rfgrp['uiobjects']['estparfldrf'],
               'depparfldgb': gbgrp['uiobjects']['depparfldgb'],
-              'estparfldgb': gbgrp['uiobjects']['estparfldgb'], 
+              'estparfldgb': gbgrp['uiobjects']['estparfldgb'],
               'lrparfldgb': gbgrp['uiobjects']['lrparfldgb'],
               'estparfldada': adagrp['uiobjects']['estparfldada'],
               'lrparfldada': adagrp['uiobjects']['lrparfldada'],
@@ -116,12 +130,59 @@ def getEnsembleGrp(uipars=None):
       ensemblegrp = (rfgrp,gbgrp,adagrp)
     uiobjs['ensembletyp'].on_change('value',partial(ensembleChgCB,cb=uiobjs['ensembletyp'],ensemblegrp=ensemblegrp))
     uipars = {'uiobjects': uiobjs, 'name': regmltypes[1][1],}
-    
+
   if hasXGBoost():
     uiobjs['ensembletyp'].value = 'XGBoost: (Decision Tree)'
   else:
     uiobjs['ensembletyp'].value = 'Random Forests'
   return uipars
+
+
+def getKMeansGrp(uipars=None):
+  dict = scikit_dict['clusterpars']['kmeans']
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'kmnclust': Spinner(start=2,end=1000,step=1,title='Nr of Clusters'),
+              'kmninit': Spinner(start=1,end=100,step=1,title='Nr of runs'),
+              'kmmaxiter': Spinner(start=1,end=1000,step=1,title='Max nr of iterations'),
+              }
+    uipars = {'uiobjects': uiobjs,}
+  else:
+    uiobjs = uipars['uiobjects']
+
+  uiobjs['kmnclust'].value = dict['ncluster']
+  uiobjs['kmninit'].value = dict['ninit']
+  uiobjs['kmmaxiter'].value = dict['maxiter']
+  return uipars
+
+
+def getMeanShiftGrp(uipars=None):
+  dict = scikit_dict['clusterpars']['meanshift']
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'msmaxiter': Spinner(start=1,end=1000,step=1,title='Max nr of iterations'),}
+    uipars = {'uiobjects': uiobjs,}
+  else:
+    uiobjs = uipars['uiobjects']
+
+  uiobjs['msmaxiter'].value = dict['maxiter']
+  return uipars
+
+
+def getSpectralGrp(uipars=None):
+  dict = scikit_dict['clusterpars']['spectral']
+  uiobjs = {}
+  if not uipars:
+    uiobjs = {'specnclust': Spinner(start=2,end=1000,step=1,title='Nr of Clusters'),
+              'specninit': Spinner(start=1,end=100,step=1,title='Nr of runs'), }
+    uipars = {'uiobjects': uiobjs,}
+  else:
+    uiobjs = uipars['uiobjects']
+
+  uiobjs['specnclust'].value = dict['ncluster']
+  uiobjs['specninit'].value = dict['ninit']
+  return uipars
+
 
 def getNNGrp(uipars=None):
   dict = scikit_dict
@@ -152,13 +213,13 @@ def getNNGrp(uipars=None):
       pass
     uiobjs['addbutton'].on_click(partial(buttonChgCB,uiobjs['addbutton'],layergrp))
     uiobjs['lessbutton'].on_click(partial(buttonChgCB,uiobjs['lessbutton'],layergrp))
-    uipars = {'uiobjects': uiobjs,     
+    uipars = {'uiobjects': uiobjs,
               'name': regmltypes[2][1],
               'nb': nb
              }
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['nntyp'].value = 'Multi-Layer Perceptron'
   uiobjs['itrparfld'].value = dict['nnpars']['maxitr']
   uiobjs['lay1parfld'].value = 50
@@ -184,7 +245,7 @@ def getSVMGrp(uipars=None):
     uipars = {'uiobjects': uiobjs, 'name': regmltypes[3][1],}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['svmtyp'].value = 'Support Vector Machine'
   uiobjs['kernel'].value = defkernelstr
   uiobjs['degree'].value = dict['svmpars']['degree']
@@ -208,13 +269,13 @@ def layer2ChgCB(layergrp,attr,old,new):
   if new <= layergrp[3].value:
     layergrp[3].value = new
     layer3ChgCB(layergrp,attr,layergrp[2].value,new)
-  
+
 def layer3ChgCB(layergrp,attr,old,new):
   layergrp[4].end = new
   if new <= layergrp[4].value:
     layergrp[4].value = new
     layer4ChgCB(layergrp,attr,layergrp[2].value,new)
-  
+
 def layer4ChgCB(layergrp,attr,old,new):
   layergrp[5].end = new
   if new <= layergrp[5].value:
@@ -273,7 +334,7 @@ def getXGDTGrp(uipars=None):
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['estparfldxgdt'].value = dict['est']
   uiobjs['depparfldxgdt'].value = dict['maxdep']
   uiobjs['lrparfldxgdt'].value = dict['lr']
@@ -291,7 +352,7 @@ def getXGRFGrp(uipars=None):
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['estparfldxgrf'].value = dict['est']
   uiobjs['depparfldxgrf'].value = dict['maxdep']
   uiobjs['lrparfldxgrf'].value = dict['lr']
@@ -306,7 +367,7 @@ def getRFGrp(uipars=None):
     uipars = {'uiobjects': uiobjs}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['estparfldrf'].value = dict['est']
   uiobjs['depparfldrf'].value = dict['maxdep']
   return uipars
@@ -321,7 +382,7 @@ def getGBGrp(uipars=None):
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['estparfldgb'].value = dict['est']
   uiobjs['depparfldgb'].value = dict['maxdep']
   uiobjs['lrparfldgb'].value = dict['lr']
@@ -337,7 +398,7 @@ def getAdaGrp(uipars=None):
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   uiobjs['estparfldada'].value = dict['est']
   uiobjs['lrparfldada'].value = dict['lr']
   return uipars
@@ -350,13 +411,50 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
   for uifld in  ret:
     ret[uifld].visible = True
 
-def getUiPars(isclassification, uipars=None):
-  models = getUiModelTypes(isclassification)
+def getUiClusterPars( uipars=None ):
+  learntype = info[dgbkeys.learntypedictstr]
+  isclassification = info[dgbkeys.classdictstr]
+  models = getUiModelTypes(learntype,isclassification)
+
+  if len(models)==0:
+    divfld = Div(text="""No scikit-learn models found for this workflow.""")
+    parsgrp = column(divfld)
+    return {'grp': parsgrp, 'uiobjects':{'divfld': divfld} }
+
+  uiobjs = {}
+  parsgrp = None
+
+  if not uipars:
+    uiobjs = {
+      'modeltyp': Select(title='Type',options=models),
+      'clustergrp': getClusterGrp()
+    }
+
+    pars = [uiobjs['modeltyp']]
+    pars.extend([uiobjs['clustergrp']['uiobjects']['clustermethod']])
+    parsgrp = column(*pars)
+    uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
+
+  return uipars
+
+def getUiPars(uipars=None):
+  learntype = info[dgbkeys.learntypedictstr]
+  if learntype==dgbkeys.logclustertypestr:
+    return getUiClusterPars( uipars )
+
+  isclassification = info[dgbkeys.classdictstr]
+  models = getUiModelTypes(learntype,isclassification)
+
+  if len(models)==0:
+      divfld = Div(text="""No scikit-learn models found for this workflow.""")
+      parsgrp = column(divfld)
+      return {'grp': parsgrp, 'uiobjects':{'divfld': divfld} }
+
   uiobjs = {}
   parsgrp = None
   linearkey = 'loggrp' if isclassification else 'lineargrp'
   deftype = classmltypes[0][1] if isclassification else regmltypes[1][1]
-  
+
   if not uipars:
     uiobjs = {
       'modeltyp': Select(title='Type',options=models),
@@ -416,7 +514,7 @@ def getUiPars(isclassification, uipars=None):
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
     uiobjs = uipars['uiobjects']
-    
+
   if isclassification:
     uiobjs['modeltyp'].value = models[0]
     uiobjs[linearkey] = getLogGrp(uiobjs[linearkey])
@@ -437,10 +535,16 @@ def getUiParams( sklearnpars ):
   if modeltype.value == 'Linear':
     parmobj = sklearngrp['lineargrp']['uiobjects']
     return getLinearPars( modelname=parmobj['lineartyp'].value )
+
   if modeltype.value == 'Logistic':
     parmobj = sklearngrp['loggrp']['uiobjects']
     return getLogPars( modelname=parmobj['logtyp'].value,
                        solver=parmobj['solvertyp'].value)
+
+  if modeltype.value == 'Clustering':
+    parmobj = sklearngrp['clustergrp']['uiobjects']
+    return getClusterPars()
+
   if modeltype.value == 'Ensemble':
     parmobj = sklearngrp['ensemblegrp']['uiobjects']
     if parmobj['ensembletyp'].value == 'XGBoost: (Decision Tree)':

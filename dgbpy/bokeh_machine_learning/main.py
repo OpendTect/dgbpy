@@ -162,9 +162,10 @@ def training_app(doc):
       info = dgbmlio.getInfo( examplefilenm, quick=True )
       uikeras.info = info
       uitorch.info = info
+      uisklearn.info = info
       keraspars = uikeras.getUiPars()
       torchpars = uitorch.getUiPars()
-      sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr] )
+      sklearnpars = uisklearn.getUiPars()
       parsgroups = (keraspars,sklearnpars,torchpars)
       platformfld.disabled = False
 
@@ -188,7 +189,7 @@ def training_app(doc):
       elif platformnm == uitorch.getPlatformNm():
         torchpars = uitorch.getUiPars(torchpars)
       elif platformnm == uisklearn.getPlatformNm():
-        sklearnpars = uisklearn.getUiPars( info[dgbkeys.classdictstr], sklearnpars)
+        sklearnpars = uisklearn.getUiPars(sklearnpars)
 
     parsresetbut = uibokeh.getButton('Reset', callback_fn=resetUiFields)
 
@@ -371,6 +372,7 @@ def training_app(doc):
     def initWin():
       mllearntype = info[dgbkeys.learntypedictstr]
       if mllearntype == dgbkeys.loglogtypestr or \
+        mllearntype == dgbkeys.logclustertypestr or \
         mllearntype == dgbkeys.seisproptypestr:
         platformfld.value = uisklearn.getPlatformNm(True)[0]
       else:

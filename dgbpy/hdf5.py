@@ -108,6 +108,11 @@ def isLogOutput( info ):
     return info[learntypedictstr] == loglogtypestr or info[learntypedictstr] == seisproptypestr
   return info == loglogtypestr or info == seisproptypestr
 
+def isLogClusterOutput( info ):
+  if isinstance(info,dict):
+    return info[learntypedictstr] == logclustertypestr
+  return info == logclustertypestr
+
 def isImg2Img( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == seisimgtoimgtypestr
@@ -179,7 +184,7 @@ def getCubeLets( infos, collection, groupnm ):
     cubelets = np.concatenate( allcubelets )
     hasdata = True
   if len(alloutputs) > 0:
-    output = np.concatenate( alloutputs ) 
+    output = np.concatenate( alloutputs )
   h5file.close()
   if not hasdata:
     return {}
@@ -257,7 +262,7 @@ def getInfo( filenm, quick ):
   logoutp = isLogOutput(learntype)
 
   extxt = 'Examples.'
-  ex_sz = odhdf5.getIntValue(info, extxt+'Size') 
+  ex_sz = odhdf5.getIntValue(info, extxt+'Size')
   idx = 0
   examples = {}
   while idx < ex_sz:
@@ -281,7 +286,7 @@ def getInfo( filenm, quick ):
       collnm = collnm.replace( '/', '_' )
       exxyobj = {
         dbkeydictstr: odhdf5.getText(info, exidystr+'ID' ),
-        iddictstr: idy, 
+        iddictstr: idy,
       }
       classnmstr = exidystr+'Class Name'
       if odhdf5.hasAttr(info,classnmstr):
@@ -368,16 +373,17 @@ def getInfo( filenm, quick ):
     retinfo.update({
       datasetdictstr: getCubeLetNames( retinfo )
       })
-    
+
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   h5file.close()
 
-  if isLogOutput( learntype ):
+  if isLogOutput(learntype) or isLogClusterOutput(learntype):
     return getWellInfo( retinfo, filenm )
-  elif isSeisClass(learntype) or isImg2Img(learntype):
+
+  if isSeisClass(learntype) or isImg2Img(learntype):
     return getAttribInfo( retinfo, filenm )
 
   std_msg( "Unrecognized learn type: ", learntype )
@@ -394,7 +400,7 @@ def getAttribInfo( info, filenm ):
       })
     else:
       info.update( {classesdictstr: getClassIndicesFromData(info)} )
-      
+
   if not isModel(info):
     info.update( {estimatedsizedictstr: getTotalSize(info)} )
   return info
@@ -410,7 +416,7 @@ def getWellInfo( info, filenm ):
     info.update( {estimatedsizedictstr: getTotalSize(info)} )
   h5file = odhdf5.openFile( filenm, 'r' )
   infods = odhdf5.getInfoDataSet( h5file )
-  zstep = odhdf5.getDValue(infods,"Z step") 
+  zstep = odhdf5.getDValue(infods,"Z step")
   marker = (odhdf5.getText(infods,"Top marker"),
             odhdf5.getText(infods,"Bottom marker"))
   h5file.close()
@@ -442,7 +448,7 @@ def getTotalSize( info ):
       nrpts += len(grp)
       continue
     for collnm in collection:
-      nrpts += len(grp[collnm][xdatadictstr]) 
+      nrpts += len(grp[collnm][xdatadictstr])
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape, dtype=np.int64 ) * arroneitemsize( np.float32 )
@@ -565,7 +571,7 @@ def getMainOutputs( info ):
   else:
     ret.append(targets)
   return ret
-  
+
 def getOutputs( info ):
   ret = getMainOutputs( info )
   if isSeisClass(info):

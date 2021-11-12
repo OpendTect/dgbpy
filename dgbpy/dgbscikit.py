@@ -29,11 +29,13 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.svm import SVC, LinearSVR
 
+from sklearn.cluster import KMeans, MeanShift, SpectralClustering
+
 from odpy.common import log_msg, redirect_stdout, restore_stdout, isWin
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
-from dgbpy import hdf5 as dgbhdf5
+import dgbpy.hdf5 as dgbhdf5
 from multiprocessing import cpu_count
 
 tot_cpu = cpu_count()
@@ -61,6 +63,7 @@ classmltypes = (\
           )
 lineartypes = [ ('oslq','Ordinary Least Squares') ]
 logistictypes = [ ('log','Logistic Regression Classifier') ]
+clustertypes = [ ('cluster','Clustering') ]
 ensembletypes = []
 if hasXGBoost():
   ensembletypes.append( ('xgbdt','XGBoost: (Decision Tree)') )
@@ -71,6 +74,9 @@ ensembletypes.append( ('ada','Adaboost') )
 
 nntypes = [ ('mlp','Multi-Layer Perceptron') ]
 svmtypes = [ ('svm','Support Vector Machine') ]
+clustermethods = [ ('kmeans','K-Means'),\
+                   ('meanshift','Mean Shift'),\
+                   ('spec','Spectral Clustering') ]
 
 solvertypes = [\
                 ('newton-cg','Newton-CG'),\
@@ -95,7 +101,9 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-def getUiModelTypes(isclassification):
+def getUiModelTypes(learntype,isclassification):
+  if dgbhdf5.isLogClusterOutput(learntype):
+    return getUiClusterTypes()
   if isclassification:
     return dgbkeys.getNames( classmltypes )
   return dgbkeys.getNames( regmltypes )
@@ -105,6 +113,12 @@ def getUiLinearTypes():
 
 def getUiLogTypes():
   return dgbkeys.getNames( logistictypes )
+
+def getUiClusterTypes():
+  return dgbkeys.getNames( clustertypes )
+
+def getUiClusterMethods():
+  return dgbkeys.getNames( clustermethods )
 
 def getUiEnsembleTypes():
   return dgbkeys.getNames( ensembletypes )
@@ -170,6 +184,20 @@ scikit_dict = {
   'svmpars': {
     'kernel': getDefaultNNKernel(False),
     'degree': SVC().degree
+    },
+  'clusterpars': {
+    'kmeans': {
+      'nclusters': KMeans().n_clusters,
+      'ninit': KMeans().n_init,
+      'maxiter': KMeans().max_iter
+      },
+    'meanshift': {
+      'maxiter': MeanShift().max_iter
+      },
+    'spectral': {
+      'nclusters': SpectralClustering().n_clusters,
+      'ninit': SpectralClustering().n_init
+      }
     }
 }
 if hasXGBoost():
@@ -195,6 +223,11 @@ if hasXGBoost():
   if defrfregressor.max_depth != None:
     xgrfpars.update({'maxdep': defrfregressor.max_depth})
   scikit_dict['ensemblepars'].update({'xgrf': xgrfpars})
+
+def getClusterPars( modelname='K-Means'):
+  return {
+    'modelname': modelname
+  }
 
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
@@ -304,7 +337,7 @@ def getNewScaler( mean, scale ):
 
   Parameters:
     * mean (ndarray of shape (n_features,) or None): mean value to be used for scaling
-    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the 
+    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the
       data to achieve zero mean and unit variance (fromm sklearn docs)
 
   Returns:
@@ -355,7 +388,7 @@ def scale( samples, scaler ):
   else:
     for i in range(scaler.n_samples_seen_):
       samples[:,i] = transform( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
-  
+
   return samples
 
 def unscale( samples, scaler ):
@@ -366,7 +399,7 @@ def unscale( samples, scaler ):
   else:
     for i in range(scaler.n_samples_seen_):
       samples[:,i] = transformBack( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
-  
+
   return samples
 
 def getDefaultModel( setup, params=scikit_dict ):
@@ -511,7 +544,7 @@ def load( modelfnm ):
 
   h5file.close()
   return model
- 
+
 def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   model.verbose = 0
   samples = np.reshape( samples, (len(samples),-1) )

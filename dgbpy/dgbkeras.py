@@ -217,9 +217,11 @@ def getModelsByType( learntype, classification, ndim ):
     outtype = kc.OutputType.Pixel
     dimtype = kc.DimType(ndim)
     if dgbhdf5.isImg2Img(learntype):
-        outtype = kc.OutputType.Image
+      outtype = kc.OutputType.Image
     if classification or dgbhdf5.isSeisClass( learntype ):
-            predtype = kc.DataPredType.Classification
+      predtype = kc.DataPredType.Classification
+    if dgbhdf5.isLogClusterOutput(learntype):
+      predtype = kc.DataPredType.Segmentation
     return kc.UserModel.getNamesByType(pred_type=predtype, out_type=outtype, dim_type=dimtype)
 
 def getModelsByInfo( infos ):
