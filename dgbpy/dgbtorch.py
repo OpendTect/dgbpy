@@ -49,6 +49,8 @@ def getParams(
 
 def getDefaultModel(setup,type=torch_dict['type']):
   isclassification = setup[dgbhdf5.classdictstr]
+  inp_shape = setup[dgbkeys.inpshapedictstr]
+  model_shape = get_model_shape(inp_shape, 1, True)
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
@@ -58,7 +60,7 @@ def getDefaultModel(setup,type=torch_dict['type']):
   if type==None:
       type = getModelsByInfo( setup )
   if tc.TorchUserModel.findName(type):
-    return tc.TorchUserModel.findName(type).model(nroutputs)
+    return tc.TorchUserModel.findName(type).model(model_shape, nroutputs)
   return None
 
 def getModelsByType( learntype, classification, ndim ):
@@ -157,7 +159,7 @@ def train(model, imgdp, params):
     from dgbpy.torch_classes import Trainer
     trainloader, testloader = DataGenerator(imgdp, batchsize=params['batch'])
     criterion = torch_dict['criterion']
-    if imgdp['info']['classification']==False:
+    if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
     trainer = Trainer(
@@ -180,7 +182,9 @@ def train(model, imgdp, params):
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   if scaler != None:
     samples = scaler.transform( samples )
-  sampleDataset = SeismicTest3DatasetApply(samples, isclassification, 1)
+  model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], 1, True)
+  ndims = getModelDims(model_shape, 'channels_first')
+  sampleDataset = SeismicTest3DatasetApply(samples, isclassification, 1, ndims=ndims)
   dataloader = getDataLoader(sampleDataset, batchsize=2)
   ret = {}
   res = None
@@ -194,20 +198,20 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
   from dgbpy.mlmodel_torch_dGB import ResNet18
-  dfdm = ResNet18(nroutputs)
+  dfdm = ResNet18(nroutputs, dim=ndims)
   if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr:
     try:
       dfdm.load_state_dict(model)
     except RuntimeError:
       from dgbpy.torch_classes import Net
-      dfdm = Net(nroutputs)
+      dfdm = Net(nroutputs, dim=ndims)
       dfdm.load_state_dict(model)
   elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
     from dgbpy.torch_classes import UNet
     if isclassification:
-      dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=3)
+      dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
     else:
-      dfdm = UNet(out_channels=1,  n_blocks=1, dim=3)
+      dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
     dfdm.load_state_dict(model)
   predictions = []
   predictions_prob = []
@@ -222,7 +226,12 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
         if isclassification:
           pred = np.argmax(pred, axis=1)
           if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-            pred = pred[:, None, :, :, :]
+            if ndims==3:
+              pred = pred[:, None, :, :, :]
+            elif ndims==2:
+              pred = pred[:, None, :, :]
+            elif ndims==1:
+              pred = pred[:, None, :]
         for _ in pred:
           predictions.append(_)
         for _prob in pred_prob:
@@ -274,7 +283,10 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     res = np.transpose( np.array(predictions_prob) )
     ret.update({dgbkeys.probadictstr: res})
   if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-    ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 1, 2, 0)
+    if ndims==3:
+      ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 1, 2, 0)
+    elif ndims==2:
+      ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 1, 2, 0)
   
   return ret
 
