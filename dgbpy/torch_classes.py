@@ -10,60 +10,65 @@
 
 import torch
 import numpy as np
-import sklearn.metrics as sklm
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from torch.nn import Linear, ReLU, CrossEntropyLoss, Sequential, Conv2d, Conv3d
-from torch.nn import MaxPool2d, MaxPool3d, Module, Softmax, BatchNorm2d, BatchNorm3d, Dropout
-from torch.optim import Adam, SGD
+from torch.utils.data import Dataset
+from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
+from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d, Dropout
 from sklearn.metrics import accuracy_score, f1_score
 import odpy.common as odcommon
 #import albumentations as A
 
-class Net(nn.Module):
-    def __init__(self, output_classes):
+class Net(nn.Module):   
+    def __init__(self, output_classes, dim):
         super(Net, self).__init__()
-
+        
         self.output_classes = output_classes
+        self.dim = dim
+        if dim==3:
+            BatchNorm = BatchNorm3d
+            Conv = Conv3d
+            MaxPool = MaxPool3d
+        elif dim==2:
+            BatchNorm = BatchNorm2d
+            Conv = Conv2d
+            MaxPool = MaxPool2d
+        elif dim==1:
+            BatchNorm = BatchNorm1d
+            Conv = Conv1d
+            MaxPool = MaxPool1d
 
         self.cnn_layers = Sequential(
-            # Defining a 3d convolution layer
-            Conv3d(1, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm3d(4),
+            Conv(1, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
             ReLU(inplace=True),
-            MaxPool3d(kernel_size=2, stride=2),
-            # Defining another 3d convolution layer
-            Conv3d(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm3d(4),
+            MaxPool(kernel_size=2, stride=2),
+            Conv(4, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
             ReLU(inplace=True),
-            MaxPool3d(kernel_size=2, stride=2),
+            MaxPool(kernel_size=2, stride=2),
         )
-
+        
         self.cnn_layers1 = Sequential(
-            # Defining a 3d convolution layer
-            Conv3d(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm3d(4),
+            Conv(4, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
             ReLU(inplace=True),
-            MaxPool3d(kernel_size=2, stride=2),
-            # Defining another 3d convolution layer
-            Conv3d(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm3d(4),
+            MaxPool(kernel_size=2, stride=2),
+            Conv(4, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
             ReLU(inplace=True),
-            MaxPool3d(kernel_size=2, stride=2),
+            MaxPool(kernel_size=2, stride=2),
         )
 
         self.linear_layers = Sequential(
-            #Linear(4 * 7 * 7, 10)
             Linear(8, self.output_classes),
             Softmax()
         )
-
+        
         self.linear_layers1 = Sequential(
             Linear(8, self.output_classes),
             Softmax()
         )
-
-    # Defining the forward pass
+ 
     def forward(self, x):
         x = self.cnn_layers(x)
         x = self.cnn_layers1(x)
@@ -125,19 +130,19 @@ class Trainer:
                 if self.validation_DataLoader is not None and self.lr_scheduler.__class__.__name__ == 'ReduceLROnPlateau':
                     self.lr_scheduler.batch(self.validation_loss[i])
                 else:
-                    self.lr_scheduler.batch()
+                    self.lr_scheduler.batch() 
         odcommon.log_msg(f'Best model with validation accuracy {np.round(self.validation_best, 4)} saved.')
-        return (self.savemodel, self.training_loss, self.validation_loss, self.training_accuracy,
+        return (self.savemodel, self.training_loss, self.validation_loss, self.training_accuracy, 
                 self.validation_accuracy, self.learning_rate)
 
     def _train(self):
         self.model.train()
-        train_losses = []
+        train_losses = [] 
         train_accs = []
         classification = self.imgdp['info']['classification']
         for input, target in self.training_DataLoader:
             self.optimizer.zero_grad()
-            out = self.model(input)
+            out = self.model(input) 
             if len(self.imgdp['x_train'].shape)==len(self.imgdp['y_train'].shape) and len(self.imgdp['x_train'].shape)==5 and classification:
                 target = target.type(torch.LongTensor)
                 #target = target[:, :, :, :]
@@ -169,8 +174,8 @@ class Trainer:
             odcommon.log_msg(f'Train MSE: {np.mean(train_accs)}')
 
     def _validate(self):
-        self.model.eval()
-        valid_losses = []
+        self.model.eval() 
+        valid_losses = []  
         valid_accs = []
         classification = self.imgdp['info']['classification']
         for input, target in self.validation_DataLoader:
@@ -220,58 +225,72 @@ class ResidualBlock(nn.Module):
     Residual Block within a ResNet CNN model
     '''
     def __init__(self, input_channels, num_channels,
-                 use_1x1_conv = False, strides = 1):
+                 use_1x1_conv = False, strides = 1, ndims=3):
         # super(ResidualBlock, self).__init__()
         super().__init__()
+        self.ndims = ndims
 
-        self.conv1 = nn.Conv3d(
+        if self.ndims==3:
+            Conv = Conv3d
+            BatchNorm = BatchNorm3d
+            MaxPool = MaxPool3d
+        elif self.ndims==2:
+            Conv = Conv2d
+            BatchNorm = BatchNorm2d
+            MaxPool = MaxPool2d
+        elif self.ndims==1:
+            Conv = Conv1d
+            BatchNorm = BatchNorm1d
+            MaxPool = MaxPool1d
+
+        self.conv1 = Conv(
             in_channels = input_channels, out_channels = num_channels,
             kernel_size = 3, padding = 1, stride = strides,
             bias = False
             )
-        self.conv2 = nn.Conv3d(
+        self.conv2 = Conv(
             in_channels = num_channels, out_channels = num_channels,
             kernel_size = 3, padding = 1, stride = 1,
             bias = False
             )
-
+        
         if use_1x1_conv:
-            self.conv3 = nn.Conv3d(
+            self.conv3 = Conv(
                 in_channels = input_channels, out_channels = num_channels,
                 kernel_size = 1, stride = strides
                 )
         else:
             self.conv3 = None
-
-        self.bn1 = nn.BatchNorm3d(num_features = num_channels)
-        self.bn2 = nn.BatchNorm3d(num_features = num_channels)
+        
+        self.bn1 = BatchNorm(num_features = num_channels)
+        self.bn2 = BatchNorm(num_features = num_channels)
         self.relu = nn.ReLU(inplace = True)
 
         self.initialize_weights()
-
-
+        
+    
     def forward(self, X):
         Y = F.relu(self.bn1(self.conv1(X)))
         Y = self.bn2(self.conv2(Y))
-
+        
         if self.conv3:
             X = self.conv3(X)
-
+        
         Y += X
         return F.relu(Y)
-
+    
     def shape_computation(self, X):
         Y = self.conv1(X)
         Y = self.conv2(Y)
-
+        
         if self.conv3:
             h = self.conv3(X)
-
+    
 
     def initialize_weights(self):
         for m in self.modules():
             # print(m)
-            if isinstance(m, nn.Conv3d):
+            if isinstance(m, nn.Conv3d) or isinstance(m, nn.Conv2d):
                 nn.init.kaiming_uniform_(m.weight)
 
                 '''
@@ -279,8 +298,8 @@ class ResidualBlock(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
                 '''
-
-            elif isinstance(m, nn.BatchNorm3d):
+            
+            elif isinstance(m, nn.BatchNorm3d) or isinstance(m, nn.BatchNorm2d):
                 # Standard initialization for batch normalization-
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -290,16 +309,16 @@ class ResidualBlock(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def create_resnet_block(input_filters, output_filters, num_residuals, first_block = False):
+def create_resnet_block(input_filters, output_filters, num_residuals, ndims, first_block = False):
     # Python list to hold the created ResNet blocks-
     resnet_blk = []
-
+    
     for i in range(num_residuals):
         if i == 0 and first_block:
-            resnet_blk.append(ResidualBlock(input_channels = input_filters, num_channels = output_filters, use_1x1_conv = True, strides = 2))
+            resnet_blk.append(ResidualBlock(input_channels = input_filters, num_channels = output_filters, use_1x1_conv = True, strides = 2, ndims=ndims))
         else:
-            resnet_blk.append(ResidualBlock(input_channels = output_filters, num_channels = output_filters, use_1x1_conv = False, strides = 1))
-
+            resnet_blk.append(ResidualBlock(input_channels = output_filters, num_channels = output_filters, use_1x1_conv = False, strides = 1, ndims=ndims))
+    
     return resnet_blk
 
 
@@ -704,16 +723,16 @@ class SeismicTrainDataset:
         self.X = X.astype('float32')
         self.y = y.astype('float32')
         '''
-        self.aug = A.Compose([
-            A.ShiftScaleRotate(p=0.35, shift_limit=0, scale_limit=0.30, rotate_limit=30) ,
-            A.HorizontalFlip(p=0.5),
+        self.aug = A.Compose([             
+            A.ShiftScaleRotate(p=0.35, shift_limit=0, scale_limit=0.30, rotate_limit=30) ,                 
+            A.HorizontalFlip(p=0.5),                  
 #             A.RandomCrop(p=1, height=256, width=256),
         ])
         '''
 
     def __len__(self):
         return self.X.shape[0]
-
+    
     def __getitem__(self,index):
         classification = self.info['classification']
         if self.ndims == 3:
@@ -728,17 +747,17 @@ class SeismicTrainDataset:
                 label = self.y[index, :, :, :, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, 0, :, :, :]
+                label = self.y[index, 0, :, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
-                data = self.X[index,  :, :]
+                data = self.X[index,  0, :, :, :]
                 label = self.y[index, :]
             elif not self.info['classification']:
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, 0, :, :, :]
+                label = self.y[index, 0, :, :, :]
 
         return data, label
-
+        
 class SeismicTestDataset:
     def __init__(self, X, y, info,  im_ch, ndims):
         super().__init__()
@@ -750,7 +769,7 @@ class SeismicTestDataset:
 
     def __len__(self):
         return self.X.shape[0]
-
+    
     def __getitem__(self,index):
         classification = self.info['classification']
         if self.ndims == 3:
@@ -765,14 +784,14 @@ class SeismicTestDataset:
                 label = self.y[index, :, :, :, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, 0, :, :, :]
+                label = self.y[index, 0, :, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
-                data = self.X[index, :, :]
+                data = self.X[index, 0, :, :, :]
                 label = self.y[index, :]
             elif not self.info['classification']:
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, 0, :, :, :]
+                label = self.y[index, 0, :, :, :]
 
         return data, label
 
@@ -781,22 +800,31 @@ class SeismicTestDataset:
 
 
 class SeismicTest3DatasetApply(Dataset):
-    def __init__(self, X, isclassification, im_ch):
+    def __init__(self, X, isclassification, im_ch, ndims):
         super().__init__()
         self.im_ch = im_ch
+        self.ndims = ndims
         self.X = X.astype('float32')
         self.isclassification = isclassification
 
     def __len__(self):
         return self.X.shape[0]
-
+    
     def __getitem__(self,index):
-        if len(self.X.shape)==5 and self.isclassification:   #segmentation
-            data = self.X[index, :, :, :, :]
-        elif len(self.X.shape) and self.isclassification:    #supervised
-            data = self.X[index, :, :, :]
-        elif not self.isclassification:
-            data = self.X[index, :, :, :, :]                 # 3D regression
+        if self.ndims == 3:
+            if len(self.X.shape)==5 and self.isclassification:   #segmentation
+                data = self.X[index, :, :, :, :]
+            elif len(self.X.shape) and self.isclassification:    #supervised
+                data = self.X[index, :, :, :]
+            elif not self.isclassification:
+                data = self.X[index, :, :, :, :]                 # 3D regression
+        elif self.ndims == 2:
+            if len(self.X.shape)==5 and self.isclassification:   #segmentation
+                data = self.X[index, 0, :, :, :]
+            elif len(self.X.shape) and self.isclassification:    #supervised
+                data = self.X[index, 0, :, :, :]
+            elif not self.isclassification:
+                data = self.X[index, 0, :, :, :]                 # 3D regression
 
         return data
 
@@ -808,7 +836,7 @@ class UnLabelledDataset(Dataset):
 
     def __len__(self):
         return self.X.shape[0]
-
+    
     def __getitem__(self,index):
         data = self.X[index, :, :]
 
@@ -845,7 +873,7 @@ class OutputType(Enum):
   Pixel = 1
   Image = 2
   Any = 3
-
+    
 class DimType(Enum):
   D1 = 1
   D2 = 2
@@ -854,16 +882,16 @@ class DimType(Enum):
 
 class TorchUserModel(ABC):
   """Abstract base class for user defined Torch machine learning models
-
+  
   This module provides support for users to add their own machine learning
   models to OpendTect.
 
   It defines an abstract base class. Users derive there own model classes from this base
   class and implement the _make_model static method to define the structure of the torch model.
-  The users model definition should be saved in a file name with "mlmodel_torch" as a prefix and be
+  The users model definition should be saved in a file name with "mlmodel_" as a prefix and be 
   at the top level of the module search path so it can be discovered.
-
-  The "mlmodel_torch" class should also define some class variables describing the class:
+  
+  The "mlmodel_" class should also define some class variables describing the class:
   uiname : str - this is the name that will appear in the user interface
   uidescription : str - this is a short description which may be displayed to help the user
   predtype : DataPredType enum - type of prediction (must be member of DataPredType enum)
@@ -873,14 +901,14 @@ class TorchUserModel(ABC):
   Examples
   --------
     from dgbpy.torch_classes import TorchUserModel, DataPredType, OutputType, DimType
-
+  
     class myModel(TorchUserModel):
       uiname = 'mymodel'
       uidescription = 'short description of model'
       predtype = DataPredType.Classification
       outtype = OutputType.Pixel
       dimtype = DimType.D3
-
+      
       def _make_model(self, input_shape, nroutputs, learnrate, data_format):
         inputs = Input(input_shape)
         conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
@@ -888,15 +916,15 @@ class TorchUserModel(ABC):
         pool1 = MaxPooling3D(pool,size=(2,2,2))(conv1)
         ...
         conv8 = Conv3D(1, (1,1,1,), activation='sigmoid')(conv7)
-
+      
         model = Model(inputs=[inputs], outputs=[conv8])
         model.compile(optimizer = Adam(lr = 1e-4), loss = cross_entropy_balanced, metrics = ['accuracy'])
         return model
-
-
+      
+    
   """
   mlmodels = []
-
+  
   def __init__(self, ):
     self._learnrate = None
     self._nroutputs = None
@@ -907,8 +935,8 @@ class TorchUserModel(ABC):
   def findModels():
     """Static method that searches the PYTHONPATH for modules containing user
     defined torch machine learning models (TorchUserModels).
-
-    The module name must be prefixed by "mlmodel_torch". All subclasses of the
+    
+    The module name must be prefixed by "mlmodel_". All subclasses of the
     TorchUserModel base class is each found module will be added to the mlmodels
     class variable.
     """
@@ -916,45 +944,45 @@ class TorchUserModel(ABC):
     mlm = []
 
     for _, name, ispkg in pkgutil.iter_modules(path=[Path(__file__).parent.absolute()]):
-      if name.startswith("mlmodel_torch"):
+      if name.startswith("mlmodel_torch_"):
         module = importlib.import_module('.'.join(['dgbpy',name]))
         clsmembers = inspect.getmembers(module, inspect.isclass)
         for (_, c) in clsmembers:
           if issubclass(c, TorchUserModel) & (c is not TorchUserModel):
             mlm.append(c())
-
+        
     for _, name, ispkg in pkgutil.iter_modules():
-      if name.startswith('mlmodel_torch'):
+      if name.startswith('mlmodel_torch_'):
         module = importlib.import_module(name)
         clsmembers = inspect.getmembers(module, inspect.isclass)
         for (_, c) in clsmembers:
           if issubclass(c, TorchUserModel) & (c is not TorchUserModel):
             mlm.append(c())
     return mlm
-
+  
   @staticmethod
   def findName(modname):
     """Static method that searches the found TorchUserModel's for a match with the
     uiname class variable
-
+    
     Parameters
     ----------
     modname : str
     Name (i.e. uiname) of the TorchUserModel to search for.
-
+    
     Returns
     -------
     an instance of the class with the first matching name in the mlmodels
     list or None if no match is found
-
+    
     """
     return next((model for model in TorchUserModel.mlmodels if model.uiname == modname), None)
-
+  
   @staticmethod
   def getModelsByType(pred_type, out_type, dim_type):
     """Static method that returns a list of the TorchUserModels filtered by the given
     prediction, output and dimension types
-
+    
     Parameters
     ----------
     pred_type: DataPredType enum
@@ -963,11 +991,11 @@ class TorchUserModel(ABC):
     The output shape type of the model to filter by
     dim_type: DimType enum
     The dimensions that the model must support
-
+    
     Returns
     -------
     a list of matching model or None if no match found
-
+    
     """
     if isinstance(pred_type, DataPredType) and isinstance(out_type, OutputType) and\
        isinstance(dim_type, DimType) :
@@ -975,14 +1003,14 @@ class TorchUserModel(ABC):
           if (model.predtype == pred_type or pred_type == DataPredType.Any) and\
 	     (model.outtype == out_type or out_type == OutputType.Any) and\
                (model.dimtype == dim_type or model.dimtype == DimType.Any)]
-
+    
     return None
 
   @staticmethod
   def getNamesByType(pred_type, out_type, dim_type):
       models = TorchUserModel.getModelsByType(pred_type, out_type, dim_type)
       return [model.uiname for model in models]
-
+  
   @staticmethod
   def isPredType( modelnm, pred_type ):
       models = TorchUserModel.getModelsByType( pred_type, OutputType.Any, DimType.Any )
@@ -990,7 +1018,7 @@ class TorchUserModel(ABC):
           if mod.uiname == modelnm:
               return True
       return False
-
+  
   @staticmethod
   def isOutType( modelnm, out_type ):
       models = TorchUserModel.getModelsByType( DataPredType.Any, out_type, DimType.Any )
@@ -998,25 +1026,25 @@ class TorchUserModel(ABC):
           if mod.uiname == modelnm:
               return True
       return False
-
+  
   @staticmethod
   def isClassifier( modelnm ):
       return TorchUserModel.isPredType( modelnm, DataPredType.Classification )
-
+  
   @staticmethod
   def isRegressor( modelnm ):
-      return TorchUserModel.isPredType( modelnm, DataPredType.Continuous )
-
+      return TorchUserModel.isPredType( modelnm, DataPredType.Continuous )  
+  
   @staticmethod
   def isImg2Img( modelnm ):
       return TorchUserModel.isOutType( modelnm, OutputType.Image )
-
+  
   @abstractmethod
   def _make_model(self, nroutputs):
     """Abstract static method that defines a machine learning model.
-
+    
     Must be implemented in the user's derived class
-
+    
     Parameters
     ----------
     input_shape : tuple
@@ -1026,30 +1054,31 @@ class TorchUserModel(ABC):
     Number of outputs
     learnrate : float
     The step size applied at each iteration to move toward a minimum of the loss function
-
+    
     Returns
     -------
     a compiled torch model
-
+    
     """
     pass
 
-  def model(self, nroutputs):
+  def model(self, model_shape, nroutputs):
     """Creates/returns a compiled torch model instance
-
+    
     Parameters
     ----------
     nroutputs : int (number of discrete classes for a classification)
     Number of outputs
-
+    
     Returns
     -------
     a pytorch model architecture
-
+    
     """
     if True:
       self._nroutputs = nroutputs
-      self._model = self._make_model(nroutputs)
+      self.model_shape = model_shape
+      self._model = self._make_model(model_shape, nroutputs)
     return self._model
 
 TorchUserModel.mlmodels = TorchUserModel.findModels()
