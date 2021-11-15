@@ -50,7 +50,8 @@ def getParams(
 def getDefaultModel(setup,type=torch_dict['type']):
   isclassification = setup[dgbhdf5.classdictstr]
   inp_shape = setup[dgbkeys.inpshapedictstr]
-  model_shape = get_model_shape(inp_shape, 1, True)
+  attribs = dgbhdf5.getNrAttribs(setup)
+  model_shape = get_model_shape(inp_shape, attribs, True)
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
@@ -182,10 +183,11 @@ def train(model, imgdp, params):
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   if scaler != None:
     samples = scaler.transform( samples )
-  model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], 1, True)
+  attribs = dgbhdf5.getNrAttribs(info)
+  model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
   sampleDataset = SeismicTest3DatasetApply(samples, isclassification, 1, ndims=ndims)
-  dataloader = getDataLoader(sampleDataset, batchsize=2)
+  dataloader = getDataLoader(sampleDataset, batchsize=torch_dict['batch_size'])
   ret = {}
   res = None
   try:
@@ -199,7 +201,8 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     nroutputs = dgbhdf5.getNrOutputs(info)
   from dgbpy.mlmodel_torch_dGB import ResNet18
   dfdm = ResNet18(nroutputs, dim=ndims)
-  if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr:
+  if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
+    info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
     try:
       dfdm.load_state_dict(model)
     except RuntimeError:
@@ -213,6 +216,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     else:
       dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
     dfdm.load_state_dict(model)
+
   predictions = []
   predictions_prob = []
   dfdm.eval()
@@ -318,14 +322,8 @@ def DataGenerator(imgdp, batchsize):
     ndims = getModelDims(model_shape, True)
 
     from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
-    if info['classification'] and inp_shape==out_shape:
-        train_dataset = SeismicTrainDataset(x_train, y_train, info, inp_ch, ndims)
-        test_dataset = SeismicTestDataset(x_test, y_test, info, inp_ch, ndims)
-    elif info['classification'] and inp_shape>out_shape:
-        train_dataset = SeismicTrainDataset(x_train, y_train, info, inp_ch, ndims)
-        test_dataset = SeismicTestDataset(x_train, y_train, info, inp_ch, ndims)
-    elif not info['classification']:
-        train_dataset = SeismicTrainDataset(x_train, y_train, info, inp_ch, ndims)
-        test_dataset = SeismicTestDataset(x_test, y_test, info, inp_ch, ndims)
+    train_dataset = SeismicTrainDataset(x_train, y_train, info, inp_ch, ndims)
+    test_dataset = SeismicTestDataset(x_test, y_test, info, inp_ch, ndims)
+
     trainloader, testloader = getDataLoaders(train_dataset, test_dataset, batchsize)
     return trainloader, testloader

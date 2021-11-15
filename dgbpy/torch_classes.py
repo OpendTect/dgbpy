@@ -48,6 +48,17 @@ class Net(nn.Module):
             MaxPool(kernel_size=2, stride=2),
         )
         
+        self.cnn_layers_ = Sequential(
+            Conv(2, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
+            ReLU(inplace=True),
+            MaxPool(kernel_size=2, stride=2),
+            Conv(4, 4, kernel_size=3, stride=1, padding=1),
+            BatchNorm(4),
+            ReLU(inplace=True),
+            MaxPool(kernel_size=2, stride=2),
+        )
+
         self.cnn_layers1 = Sequential(
             Conv(4, 4, kernel_size=3, stride=1, padding=1),
             BatchNorm(4),
@@ -59,21 +70,29 @@ class Net(nn.Module):
             MaxPool(kernel_size=2, stride=2),
         )
 
-        self.linear_layers = Sequential(
-            Linear(8, self.output_classes),
-            Softmax()
+        self.linear_layers_ = Sequential(
+            Linear(4, self.output_classes),
+            ReLU()
         )
         
-        self.linear_layers1 = Sequential(
+        self.linear_layers = Sequential(
             Linear(8, self.output_classes),
             Softmax()
         )
  
     def forward(self, x):
-        x = self.cnn_layers(x)
-        x = self.cnn_layers1(x)
-        x = x.view(x.size(0), -1)
-        x = self.linear_layers(x)
+        
+        if self.dim==1:
+            x = self.cnn_layers_(x)
+            x = self.cnn_layers1(x)
+            x = x.view(x.size(0), -1)
+            x = self.linear_layers_(x)
+        else:
+            x = self.cnn_layers(x)
+            x = self.cnn_layers1(x)
+            x = x.view(x.size(0), -1)
+            x = self.linear_layers(x)
+
         return x
 
 
@@ -723,16 +742,16 @@ class SeismicTrainDataset:
         self.X = X.astype('float32')
         self.y = y.astype('float32')
         '''
-        self.aug = A.Compose([             
-            A.ShiftScaleRotate(p=0.35, shift_limit=0, scale_limit=0.30, rotate_limit=30) ,                 
-            A.HorizontalFlip(p=0.5),                  
+        self.aug = A.Compose([
+            A.ShiftScaleRotate(p=0.35, shift_limit=0, scale_limit=0.30, rotate_limit=30) ,
+            A.HorizontalFlip(p=0.5),
 #             A.RandomCrop(p=1, height=256, width=256),
         ])
         '''
 
     def __len__(self):
         return self.X.shape[0]
-    
+
     def __getitem__(self,index):
         classification = self.info['classification']
         if self.ndims == 3:
@@ -747,17 +766,31 @@ class SeismicTrainDataset:
                 label = self.y[index, :, :, :, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, 0, :, :, :]
-                label = self.y[index, 0, :, :, :]
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
-                data = self.X[index,  0, :, :, :]
+                data = self.X[index,  :, :]
                 label = self.y[index, :]
             elif not self.info['classification']:
-                data = self.X[index, 0, :, :, :]
-                label = self.y[index, 0, :, :, :]
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
+        elif self.ndims == 1:
+            if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
+            elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised classification
+                data = self.X[index,  :, :]
+                label = self.y[index, :]
+            elif not self.info['classification']:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, :, :]
+                    label = self.y[index, :, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, 0, 0, :]
+                    label = self.y[index, :]
 
         return data, label
-        
+
 class SeismicTestDataset:
     def __init__(self, X, y, info,  im_ch, ndims):
         super().__init__()
@@ -769,7 +802,7 @@ class SeismicTestDataset:
 
     def __len__(self):
         return self.X.shape[0]
-    
+
     def __getitem__(self,index):
         classification = self.info['classification']
         if self.ndims == 3:
@@ -784,14 +817,28 @@ class SeismicTestDataset:
                 label = self.y[index, :, :, :, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
-                data = self.X[index, 0, :, :, :]
-                label = self.y[index, 0, :, :, :]
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
-                data = self.X[index, 0, :, :, :]
+                data = self.X[index, :, :]
                 label = self.y[index, :]
             elif not self.info['classification']:
-                data = self.X[index, 0, :, :, :]
-                label = self.y[index, 0, :, :, :]
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
+        elif self.ndims == 1:
+            if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
+                data = self.X[index, :, :, :]
+                label = self.y[index, :, :, :]
+            elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised classification
+                data = self.X[index, :, :]
+                label = self.y[index, :]
+            elif not self.info['classification']:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, :, :]
+                    label = self.y[index, :, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, 0, 0, :]
+                    label = self.y[index, :]
 
         return data, label
 
@@ -824,7 +871,14 @@ class SeismicTest3DatasetApply(Dataset):
             elif len(self.X.shape) and self.isclassification:    #supervised
                 data = self.X[index, 0, :, :, :]
             elif not self.isclassification:
-                data = self.X[index, 0, :, :, :]                 # 3D regression
+                data = self.X[index, 0, :, :, :]                 # 2D regression
+        elif self.ndims == 1:
+            if len(self.X.shape)==5 and self.isclassification:   #segmentation
+                data = self.X[index, 0, 0, :, :]
+            elif len(self.X.shape) and self.isclassification:    #supervised
+                data = self.X[index, 0, 0, :, :]
+            elif not self.isclassification:
+                data = self.X[index, :, 0, 0, :]                 # 1D regression
 
         return data
 
