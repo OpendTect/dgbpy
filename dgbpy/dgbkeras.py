@@ -217,9 +217,11 @@ def getModelsByType( learntype, classification, ndim ):
     outtype = kc.OutputType.Pixel
     dimtype = kc.DimType(ndim)
     if dgbhdf5.isImg2Img(learntype):
-        outtype = kc.OutputType.Image
+      outtype = kc.OutputType.Image
     if classification or dgbhdf5.isSeisClass( learntype ):
-            predtype = kc.DataPredType.Classification
+      predtype = kc.DataPredType.Classification
+    if dgbhdf5.isLogClusterOutput(learntype):
+      predtype = kc.DataPredType.Segmentation
     return kc.UserModel.getNamesByType(pred_type=predtype, out_type=outtype, dim_type=dimtype)
 
 def getModelsByInfo( infos ):
@@ -281,7 +283,6 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
   if logdir != None:
     from keras.callbacks import TensorBoard
     tensor_board = TensorBoard(log_dir=logdir, \
-                               batch_size=batchsize,\
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
@@ -316,25 +317,16 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
     redirect_stdout()
     x_validate, y_validate, validation_batch_size = \
                             get_validation_data( validate_datagen )
+
     try:
-      model.fit(x=train_datagen,epochs=params['epoch'],\
-              validation_data=(x_validate,y_validate,[None]),
-              validation_batch_size=validation_batch_size,
-              callbacks=callbacks)
-    except TypeError:
-      try:
-        model.fit(x=train_datagen,epochs=params['epoch'],\
-                  validation_data=validate_datagen,callbacks=callbacks)
-      except tf.errors.InvalidArgumentError:
-        model.fit(x=train_datagen,epochs=params['epoch'],\
-                  validation_data=(x_validate,y_validate,[None]),
-                  callbacks=callbacks)
-      except Exception as e:
-        log_msg('')
-        log_msg('Training failed because of insufficient memory')
-        log_msg('Try to lower the batch size and restart the training')
-        log_msg('')
-        raise e
+      model.fit(x=train_datagen,epochs=params['epoch'],verbose=1,
+                validation_data=validate_datagen,callbacks=callbacks)
+    except Exception as e:
+      log_msg('')
+      log_msg('Training failed because of insufficient memory')
+      log_msg('Try to lower the batch size and restart the training')
+      log_msg('')
+      raise e
             
     restore_stdout()
 
@@ -807,7 +799,7 @@ def get_validation_data( trainseq ):
     x_data = list()
     y_data = list()
     for i in range(len(trainseq)):
-        (x,y,z) = trainseq.__getitem__(i)
+        (x,y) = trainseq.__getitem__(i)
         if len(x) > 0 and len(y) > 0:
             x_data.append( x )
             y_data.append( y )

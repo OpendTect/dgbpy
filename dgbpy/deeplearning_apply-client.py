@@ -97,7 +97,7 @@ if args['fakeapply']:
 if local:
   servercmd.append( '--local' )
 
-serverproc = oscommand.execCommand( servercmd, True )
+serverproc = oscommand.execCommand( servercmd, background=True )
 time.sleep( 2 )
 
 def getApplyTrace( dict ):

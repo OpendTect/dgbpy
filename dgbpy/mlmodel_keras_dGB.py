@@ -8,7 +8,6 @@
 
 from keras.models import *
 from keras.layers import *
-from keras.optimizers import Adam, RMSprop
 from keras import backend as kb
 
 from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
@@ -23,6 +22,14 @@ def _to_tensor(x, dtype):
 
 def root_mean_squared_error(y_true, y_pred):
   return kb.sqrt(kb.mean(kb.square(y_pred - y_true)))
+
+def getAdamOpt( learning_rate=1e-4 ):
+  try:
+    from keras.optimizers import Adam
+    return Adam( lr=learning_rate )
+  except ImportError:
+    import tensorflow as tf
+    return tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
 def cross_entropy_balanced(y_true, y_pred):
   from keras.models import K
@@ -135,7 +142,8 @@ class dGB_UnetSeg(UserModel):
     else:
       loss = 'categorical_crossentropy'
 
-    model.compile(optimizer = Adam(lr = learnrate), loss = loss, metrics = ['accuracy'])
+    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
+                   loss = loss, metrics = ['accuracy'] )
 
     return model
   
@@ -148,7 +156,8 @@ class dGB_UnetReg(UserModel):
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
-    model.compile(optimizer = Adam(lr = learnrate), loss = 'mse', metrics = ['mae'])
+    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
+                   loss = 'mse', metrics = ['mae'] )
     return model
   
 def dGBLeNet(model_shape, nroutputs, predtype):
@@ -229,8 +238,9 @@ class dGB_LeNet_Classifier(UserModel):
     loss = 'binary_crossentropy'
     if nroutputs>2:
       loss = 'categorical_crossentropy'
-    
-    model.compile(optimizer=Adam(lr=learnrate), loss=loss, metrics=['accuracy'])
+
+    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
+                   loss=loss, metrics=['accuracy'] )
     
     return model
 
@@ -243,8 +253,8 @@ class dGB_LeNet_Regressor(UserModel):
   
   def _make_model(self, input_shape, nroutputs, learnrate):
     model = dGBLeNet(input_shape, nroutputs, self.predtype)
-      
-    model.compile(optimizer=Adam(lr=learnrate), loss='mse', metrics=['mae'])
+    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
+                   loss='mse', metrics=['mae'] )
     
     return model
 
