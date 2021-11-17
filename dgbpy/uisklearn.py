@@ -25,32 +25,77 @@ but_height = uibokeh.but_height
 but_spacer = uibokeh.but_spacer
 defaultbut = enums.ButtonType.default
 
+
 def getPlatformNm( full=False ):
   if full:
     return platform
+
   return getMLPlatform()
+
+
+def clusterChgCB(attr, old, new, cb, grp):
+  ret = uibokeh.getAllUiFlds( grp )
+  for uifld in ret:
+    uifld.visible = False
+
+  ret = uibokeh.getGroup( new, cb.options, grp, 'uiobjects' )
+  if new == 'K-Means':
+    ret['kmnclust'].visible = True
+    ret['kmninit'].visible = True
+    ret['kmmaxiter'].visible = True
+  elif new == 'Mean Shift':
+    ret['msmaxiter'].visible = True
+  else:
+    ret['specnclust'].visible = True
+    ret['specninit'].visible = True
+
 
 def getClusterGrp(uipars=None):
   uiobjs = {}
   if not uipars:
-    uiobjs = {'clustermethod': Select(title='Method', options=getUiClusterMethods()),}
+    uiobjs = {'clustermethod': Select(title='Method', options=getUiClusterMethods()),
+              'kmeansgrp': getKMeansGrp(),
+              'meanshiftgrp': getMeanShiftGrp(),
+              'spectralgrp': getSpectralGrp(),
+    }
+
     uipars = {'uiobjects': uiobjs, 'name': clustertypes[0][1],}
   else:
     uiobjs = uipars['uiobjects']
 
+  kmobjs = uiobjs['kmeansgrp']['uiobjects']
+  kmpars = [kmobjs['kmnclust'],kmobjs['kmninit'],kmobjs['kmmaxiter'],]
+  meanshiftpars = [uiobjs['meanshiftgrp']['uiobjects']['msmaxiter']]
+  spectralpars = [uiobjs['spectralgrp']['uiobjects']['specnclust'],\
+                  uiobjs['spectralgrp']['uiobjects']['specninit'],
+                 ]
+
+  methodsgrp = (uiobjs['kmeansgrp'],uiobjs['meanshiftgrp'],uiobjs['spectralgrp'])
+
   uiobjs['clustermethod'].value = clustermethods[0][1]
+  uiobjs['clustermethod'].on_change( 'value', partial(clusterChgCB,cb=uiobjs['clustermethod'],grp=methodsgrp) )
+
+  pars = kmpars
+  pars.extend( meanshiftpars )
+  pars.extend( spectralpars )
+  parsgrp = column( *pars )
+  uipars = { 'grp': parsgrp, 'uiobjects': uiobjs }
+  dflt = clustermethods[0][1]
+  clusterChgCB( 'value', dflt, dflt, uiobjs['clustermethod'], methodsgrp )
   return uipars
+
 
 def getLinearGrp(uipars=None):
   uiobjs = {}
   if not uipars:
-    uiobjs = {'lineartyp': Select(title='Model', options=getUiLinearTypes()),}
-    uipars = {'uiobjects': uiobjs, 'name': regmltypes[0][1],}
+    uiobjs = { 'lineartyp': Select(title='Model', options=getUiLinearTypes()), }
+    uipars = { 'uiobjects': uiobjs, 'name': regmltypes[0][1], }
   else:
     uiobjs = uipars['uiobjects']
 
   uiobjs['lineartyp'].value = 'Ordinary Least Squares'
   return uipars
+
 
 def getLogGrp(uipars=None):
   uiobjs = {}
@@ -65,6 +110,7 @@ def getLogGrp(uipars=None):
   uiobjs['logtyp'].value = 'Logistic Regression Classifier'
   uiobjs['solvertyp'].value = getDefaultSolver()
   return uipars
+
 
 def getEnsembleGrp(uipars=None):
   uiobjs = {}
@@ -142,17 +188,17 @@ def getKMeansGrp(uipars=None):
   dict = scikit_dict['clusterpars']['kmeans']
   uiobjs = {}
   if not uipars:
-    uiobjs = {'kmnclust': Spinner(start=2,end=1000,step=1,title='Nr of Clusters'),
-              'kmninit': Spinner(start=1,end=100,step=1,title='Nr of runs'),
-              'kmmaxiter': Spinner(start=1,end=1000,step=1,title='Max nr of iterations'),
+    uiobjs = {'kmnclust': Spinner(low=2,high=1000,step=1,title='Nr of clusters'),
+              'kmninit': Spinner(low=1,high=100,step=1,title='Nr of runs'),
+              'kmmaxiter': Spinner(low=1,high=1000,step=1,title='Max nr of iterations'),
               }
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
 
-  uiobjs['kmnclust'].value = dict['ncluster']
-  uiobjs['kmninit'].value = dict['ninit']
-  uiobjs['kmmaxiter'].value = dict['maxiter']
+  uiobjs['kmnclust'].value = dict['n_clusters']
+  uiobjs['kmninit'].value = dict['n_init']
+  uiobjs['kmmaxiter'].value = dict['max_iter']
   return uipars
 
 
@@ -160,12 +206,12 @@ def getMeanShiftGrp(uipars=None):
   dict = scikit_dict['clusterpars']['meanshift']
   uiobjs = {}
   if not uipars:
-    uiobjs = {'msmaxiter': Spinner(start=1,end=1000,step=1,title='Max nr of iterations'),}
+    uiobjs = {'msmaxiter': Spinner(low=1,high=1000,step=1,title='Max nr of iterations'),}
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
 
-  uiobjs['msmaxiter'].value = dict['maxiter']
+  uiobjs['msmaxiter'].value = dict['max_iter']
   return uipars
 
 
@@ -173,14 +219,14 @@ def getSpectralGrp(uipars=None):
   dict = scikit_dict['clusterpars']['spectral']
   uiobjs = {}
   if not uipars:
-    uiobjs = {'specnclust': Spinner(start=2,end=1000,step=1,title='Nr of Clusters'),
-              'specninit': Spinner(start=1,end=100,step=1,title='Nr of runs'), }
+    uiobjs = {'specnclust': Spinner(low=2,high=1000,step=1,title='Nr of clusters'),
+              'specninit': Spinner(low=1,high=100,step=1,title='Nr of runs'), }
     uipars = {'uiobjects': uiobjs,}
   else:
     uiobjs = uipars['uiobjects']
 
-  uiobjs['specnclust'].value = dict['ncluster']
-  uiobjs['specninit'].value = dict['ninit']
+  uiobjs['specnclust'].value = dict['n_clusters']
+  uiobjs['specninit'].value = dict['n_init']
   return uipars
 
 
@@ -231,6 +277,7 @@ def getNNGrp(uipars=None):
   uipars['nb'].value = 3
   return uipars
 
+
 def getSVMGrp(uipars=None):
   dict = scikit_dict
   uiobjs = {}
@@ -258,11 +305,13 @@ def kernelChgCB( attrnm, old, new,deg):
   else:
     deg.visible = False
 
+
 def layer1ChgCB(layergrp,attr,old,new):
   layergrp[2].end = new
   if new <= layergrp[2].value:
     layergrp[2].value = new
     layer2ChgCB(layergrp,attr,layergrp[2].value,new)
+
 
 def layer2ChgCB(layergrp,attr,old,new):
   layergrp[3].end = new
@@ -270,16 +319,19 @@ def layer2ChgCB(layergrp,attr,old,new):
     layergrp[3].value = new
     layer3ChgCB(layergrp,attr,layergrp[2].value,new)
 
+
 def layer3ChgCB(layergrp,attr,old,new):
   layergrp[4].end = new
   if new <= layergrp[4].value:
     layergrp[4].value = new
     layer4ChgCB(layergrp,attr,layergrp[2].value,new)
 
+
 def layer4ChgCB(layergrp,attr,old,new):
   layergrp[5].end = new
   if new <= layergrp[5].value:
     layergrp[5].value = new
+
 
 def buttonChgCB(addbutton,layergrp):
   log_msg('Working')
@@ -300,6 +352,7 @@ def buttonChgCB(addbutton,layergrp):
     layergrp[0].value -= 1
   else:
     return None
+
 
 def modelChgCB( attrnm, old, new, cb, modelsgrp ):
   ret = uibokeh.getAllUiFlds( modelsgrp )
@@ -322,6 +375,7 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
       ret['lay4parfld'].visible = False
       ret['lay5parfld'].visible = False
 
+
 def getXGDTGrp(uipars=None):
   if not hasXGBoost():
     return None
@@ -339,6 +393,7 @@ def getXGDTGrp(uipars=None):
   uiobjs['depparfldxgdt'].value = dict['maxdep']
   uiobjs['lrparfldxgdt'].value = dict['lr']
   return uipars
+
 
 def getXGRFGrp(uipars=None):
   if not hasXGBoost():
@@ -358,6 +413,7 @@ def getXGRFGrp(uipars=None):
   uiobjs['lrparfldxgrf'].value = dict['lr']
   return uipars
 
+
 def getRFGrp(uipars=None):
   dict = scikit_dict['ensemblepars']['rf']
   uiobjs = {}
@@ -371,6 +427,7 @@ def getRFGrp(uipars=None):
   uiobjs['estparfldrf'].value = dict['est']
   uiobjs['depparfldrf'].value = dict['maxdep']
   return uipars
+
 
 def getGBGrp(uipars=None):
   dict = scikit_dict['ensemblepars']['gb']
@@ -388,6 +445,7 @@ def getGBGrp(uipars=None):
   uiobjs['lrparfldgb'].value = dict['lr']
   return uipars
 
+
 def getAdaGrp(uipars=None):
   dict = scikit_dict['ensemblepars']['ada']
   uiobjs = {}
@@ -403,6 +461,7 @@ def getAdaGrp(uipars=None):
   uiobjs['lrparfldada'].value = dict['lr']
   return uipars
 
+
 def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
   ret = uibokeh.getAllUiFlds( ensemblegrp )
   for uifld in  ret:
@@ -410,6 +469,7 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
   ret = uibokeh.getGroup( new, cb.options, ensemblegrp, 'uiobjects' )
   for uifld in  ret:
     ret[uifld].visible = True
+
 
 def getUiClusterPars( uipars=None ):
   learntype = info[dgbkeys.learntypedictstr]
@@ -432,10 +492,13 @@ def getUiClusterPars( uipars=None ):
 
     pars = [uiobjs['modeltyp']]
     pars.extend([uiobjs['clustergrp']['uiobjects']['clustermethod']])
+    pars.extend([uiobjs['clustergrp']['grp']])
     parsgrp = column(*pars)
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
 
+  uiobjs['modeltyp'].value = models[0]
   return uipars
+
 
 def getUiPars(uipars=None):
   learntype = info[dgbkeys.learntypedictstr]
@@ -529,6 +592,25 @@ def getUiPars(uipars=None):
   modelChgCB( 'value', deftype, deftype, uiobjs['modeltyp'], modelsgrp )
   return uipars
 
+
+def getUiParamsClustering( parmobj ):
+  method = parmobj['clustermethod'].value
+  if method == clustermethods[0][1]:
+    uiobjs = parmobj['kmeansgrp']['uiobjects']
+    return getClusterParsKMeans( method, uiobjs['kmnclust'].value,
+                                 uiobjs['kmninit'].value,
+                                 uiobjs['kmmaxiter'].value )
+  elif method == clustermethods[1][1]:
+    uiobjs = parmobj['meanshiftgrp']['uiobjects']
+    return getClusterParsMeanShift( method, uiobjs['msmaxiter'].value )
+  elif method == clustermethods[2][1]:
+    uiobjs = parmobj['spectralgrp']['uiobjects']
+    return getClusterParsSpectral( method, uiobjs['specnclust'].value,
+                                   uiobjs['specninit'].value )
+  else:
+    return { 'modelname': 'Clustering', 'methodname': 'unknown' }
+
+
 def getUiParams( sklearnpars ):
   sklearngrp = sklearnpars['uiobjects']
   modeltype = sklearngrp['modeltyp']
@@ -543,7 +625,7 @@ def getUiParams( sklearnpars ):
 
   if modeltype.value == 'Clustering':
     parmobj = sklearngrp['clustergrp']['uiobjects']
-    return getClusterPars()
+    return getUiParamsClustering( parmobj )
 
   if modeltype.value == 'Ensemble':
     parmobj = sklearngrp['ensemblegrp']['uiobjects']
