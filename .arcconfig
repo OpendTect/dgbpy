@@ -1,0 +1,6 @@
+{
+  "project_id" :		"dgbpy",
+  "arc.land.onto.default" :	"main",
+  "conduit_uri" :		"https://phabricator.dgbes.com:8443",
+  "base" :			"git:merge-base(origin/main), arc:prompt"
+}
