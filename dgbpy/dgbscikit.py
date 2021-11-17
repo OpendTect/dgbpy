@@ -187,16 +187,16 @@ scikit_dict = {
     },
   'clusterpars': {
     'kmeans': {
-      'nclusters': KMeans().n_clusters,
-      'ninit': KMeans().n_init,
-      'maxiter': KMeans().max_iter
+      'n_clusters': KMeans().n_clusters,
+      'n_init': KMeans().n_init,
+      'max_iter': KMeans().max_iter
       },
     'meanshift': {
-      'maxiter': MeanShift().max_iter
+      'max_iter': MeanShift().max_iter
       },
     'spectral': {
-      'nclusters': SpectralClustering().n_clusters,
-      'ninit': SpectralClustering().n_init
+      'n_clusters': SpectralClustering().n_clusters,
+      'n_init': SpectralClustering().n_init
       }
     }
 }
@@ -224,16 +224,40 @@ if hasXGBoost():
     xgrfpars.update({'maxdep': defrfregressor.max_depth})
   scikit_dict['ensemblepars'].update({'xgrf': xgrfpars})
 
-def getClusterPars( modelname='K-Means'):
+
+def getClusterParsKMeans( methodname, nclust, ninit, maxiter ):
   return {
-    'modelname': modelname
+    'modelname': 'Clustering',
+    'methodname': methodname,
+    'n_clusters': nclust,
+    'n_init': ninit,
+    'max_iter': maxiter
   }
+
+
+def getClusterParsMeanShift( methodname, maxiter ):
+  return {
+    'modelname': 'Clustering',
+    'methodname': methodname,
+    'max_iter': maxiter
+  }
+
+
+def getClusterParsSpectral( methodname, nclust, ninit ):
+  return {
+    'modelname': 'Clustering',
+    'methodname': methodname,
+    'n_clusters': nclust,
+    'n_init': ninit
+  }
+
 
 def getLinearPars( modelname='Ordinary Least Squares'):
   return {
     'decimation': False,
     'modelname': modelname
     }
+
 
 def getLogPars( modelname='Logistic Regression Classifier',solver=None):
   if solver == None:
@@ -406,7 +430,17 @@ def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']
   isclassification = setup[dgbhdf5.classdictstr]
   try:
-    if modelname == 'Ordinary Least Squares':
+    if modelname =='Clustering':
+      method = params['methodname']
+      if method == clustermethods[0][1]:
+        model = KMeans( params['n_clusters'] )
+        model.n_init = params['n_init']
+        model.max_iter = params['max_iter']
+      elif method == clustermethods[1][1]:
+        model = MeanShift()
+      else:
+        model = SpectralClustering( params['n_clusters'] )
+    elif modelname == 'Ordinary Least Squares':
       model = LinearRegression(n_jobs=-1)
     elif modelname == 'Logistic Regression Classifier':
       solvernm = dgbkeys.getNameFromUiName( solvertypes, params['solver'] )

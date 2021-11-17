@@ -130,6 +130,7 @@ def getCubeLets( infos, collection, groupnm ):
   nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
   img2img = isImg2Img( infos )
+  iscluster = isLogClusterOutput( infos )
   examples = infos[exampledictstr]
   if img2img:
     outnrattribs = 1
@@ -146,15 +147,26 @@ def getCubeLets( infos, collection, groupnm ):
   for collnm in collection:
     if not collnm in group:
       continue
+
     grp = group[collnm]
-    if not xdatadictstr in grp or not ydatadictstr in grp:
+    if not xdatadictstr in grp:
       continue
+
+    if not iscluster and not ydatadictstr in grp:
+      continue
+
     x_data = grp[xdatadictstr]
-    y_data = grp[ydatadictstr]
+    if not iscluster:
+      y_data = grp[ydatadictstr]
+    else:
+      y_data = []
+
     dsetnms = collection[collnm]
     nrpts = len(dsetnms)
     if nrpts < 1:
       continue
+
+    hasydata = len(y_data) > 0
     inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
     if img2img:
       outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
@@ -172,14 +184,19 @@ def getCubeLets( infos, collection, groupnm ):
         output = np.empty( (nrpts,nroutputs), outdtype )
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = x_data[dsetnm]
-        odset = y_data[dsetnm]
+        if hasydata:
+          odset = y_data[dsetnm]
+
         cubelets[idx] = np.resize( dset, cubelets[idx].shape )
-        if img2img:
-          output[idx] = np.resize( odset, output[idx].shape )
-        else:
-          output[idx] = np.asarray( odset )
+        if hasydata:
+          if img2img:
+            output[idx] = np.resize( odset, output[idx].shape )
+          else:
+            output[idx] = np.asarray( odset )
+
     allcubelets.append( cubelets )
     alloutputs.append( output )
+
   if len(allcubelets) > 0:
     cubelets = np.concatenate( allcubelets )
     hasdata = True
