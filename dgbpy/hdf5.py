@@ -121,6 +121,14 @@ def isImg2Img( info ):
 def isModel( info ):
   return plfdictstr in info
 
+def getOutdType(arr):
+  max = arr.max()
+  min = arr.min()
+  if max>256 and bool(min+1):
+    return np.int64
+  elif max<256:
+    return np.uint8
+
 def getCubeLets( infos, collection, groupnm ):
   if len(collection)< 1:
     return {}
@@ -135,8 +143,8 @@ def getCubeLets( infos, collection, groupnm ):
   if img2img:
     outnrattribs = 1
   outdtype = np.float32
-  if isclass:
-    outdtype = np.uint8
+  #if isclass:
+  #  outdtype = np.uint8
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   group = h5file[groupnm]
 
@@ -158,6 +166,8 @@ def getCubeLets( infos, collection, groupnm ):
     x_data = grp[xdatadictstr]
     if not iscluster:
       y_data = grp[ydatadictstr]
+      if isclass:
+        outdtype = getOutdType(np.array(y_data))
     else:
       y_data = []
 
