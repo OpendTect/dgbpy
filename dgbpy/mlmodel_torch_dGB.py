@@ -9,32 +9,32 @@
 from dgbpy.torch_classes import TorchUserModel, DataPredType, OutputType, DimType
 
 class dGB_UnetSeg(TorchUserModel):
-  uiname = 'dGB UNet Torch Segmentation'
+  uiname = 'dGB UNet Segmentation'
   uidescription = 'dGBs Unet image segmentation'
   predtype = DataPredType.Classification
   outtype = OutputType.Image
   dimtype = DimType.Any
   
-  def _make_model(self, model_shape, nroutputs):
+  def _make_model(self, model_shape, nroutputs, nrattribs):
     from dgbpy.dgbtorch import getModelDims
     ndim = getModelDims(model_shape, 'channels_first')
-    model = UNet(in_channels=1, n_blocks=1, out_channels=nroutputs, dim=ndim)
+    model = UNet(in_channels=nrattribs, n_blocks=1, out_channels=nroutputs, dim=ndim)
     return model
 
 from dgbpy.torch_classes import Net, create_resnet_block, UNet
 import torch.nn as nn
 
-class dGB_Simple_Net(TorchUserModel):
+class dGB_Simple_Net_Classifier(TorchUserModel):
     uiname = 'Simple Net Classifier'
     uidescription = 'dGbs Simple Net Classifier Model in TorchUserModel form'
     predtype = DataPredType.Classification
     outtype = OutputType.Pixel
     dimtype = DimType.Any
 
-    def _make_model(self, model_shape, nroutputs):
+    def _make_model(self, model_shape, nroutputs, nrattribs):
       from dgbpy.dgbtorch import getModelDims
-      ndim = getModelDims(model_shape, True)
-      model = Net(nroutputs, dim=ndim)
+      ndim = getModelDims(model_shape, 'channels_first')
+      model = Net(output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
 
 class dGB_UnetReg(TorchUserModel):
@@ -44,10 +44,10 @@ class dGB_UnetReg(TorchUserModel):
   outtype = OutputType.Image
   dimtype = DimType.Any
   
-  def _make_model(self, model_shape, nroutputs):
+  def _make_model(self, model_shape, nroutputs, nrattribs):
     from dgbpy.dgbtorch import getModelDims
     ndim = getModelDims(model_shape, 'channels_first')
-    model = UNet(in_channels=1, n_blocks=1, out_channels=nroutputs, dim=ndim)
+    model = UNet(in_channels=nrattribs, n_blocks=1, out_channels=nroutputs, dim=ndim)
     return model
 
 class dGB_ResNet18(TorchUserModel):
@@ -57,13 +57,13 @@ class dGB_ResNet18(TorchUserModel):
     outtype = OutputType.Pixel
     dimtype = DimType.Any
 
-    def _make_model(self, model_shape, nroutputs):
+    def _make_model(self, model_shape, nroutputs, nrattribs):
       from dgbpy.dgbtorch import getModelDims
       ndim = getModelDims(model_shape, 'channels_first')
-      model = ResNet18(nroutputs, dim=ndim)
+      model = ResNet18(nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
 
-def ResNet18(nroutputs, dim):
+def ResNet18(nroutputs, dim, nrattribs):
     from torch.nn import Conv1d, Conv2d, Conv3d, BatchNorm1d, BatchNorm2d, BatchNorm3d
 
     if dim==3:
@@ -77,7 +77,7 @@ def ResNet18(nroutputs, dim):
       BatchNorm = BatchNorm1d
 
     b0 = nn.Sequential(
-    Conv(in_channels = 1, out_channels = 64, kernel_size = 3, stride = 1, padding = 1),
+    Conv(in_channels = nrattribs, out_channels = 64, kernel_size = 3, stride = 1, padding = 1),
     BatchNorm(num_features = 64),
     nn.ReLU())
 
@@ -102,18 +102,18 @@ def ResNet18(nroutputs, dim):
       b0, b1, b3, b5, b7,
       nn.AdaptiveAvgPool2d(output_size = (1, 1)),
       nn.Flatten(),
-      nn.Linear(in_features = 256, out_features = nroutputs))
+      nn.Linear(in_features = 1, out_features = nroutputs))
     return model
     
-class dGB_Simple_Net(TorchUserModel):
+class dGB_Simple_Net_Regressor(TorchUserModel):
     uiname = 'Simple Net Regressor'
     uidescription = 'dGbs Simple Net Regressor Model in TorchUserModel form'
     predtype = DataPredType.Continuous
     outtype = OutputType.Pixel
-    dimtype = DimType.D1
+    dimtype = DimType.Any
 
-    def _make_model(self, model_shape, nroutputs):
+    def _make_model(self, model_shape, nroutputs, nrattribs):
       from dgbpy.dgbtorch import getModelDims
-      ndim = getModelDims(model_shape, True)
-      model = Net(nroutputs, dim=ndim)
+      ndim = getModelDims(model_shape, 'channels_first')
+      model = Net(output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
