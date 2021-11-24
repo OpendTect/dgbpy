@@ -15,15 +15,16 @@ from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d, Dropout
 from sklearn.metrics import accuracy_score, f1_score
+import dgbpy.keystr as dgbkeys
 import odpy.common as odcommon
 #import albumentations as A
 
 class Net(nn.Module):   
-    def __init__(self, output_classes, dim):
+    def __init__(self, output_classes, dim, nrattribs):
         super(Net, self).__init__()
         
         self.output_classes = output_classes
-        self.dim = dim
+        self.dim, self.nrattribs = dim, nrattribs
         if dim==3:
             BatchNorm = BatchNorm3d
             Conv = Conv3d
@@ -38,18 +39,7 @@ class Net(nn.Module):
             MaxPool = MaxPool1d
 
         self.cnn_layers = Sequential(
-            Conv(1, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm(4),
-            ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
-            Conv(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm(4),
-            ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
-        )
-        
-        self.cnn_layers_ = Sequential(
-            Conv(2, 4, kernel_size=3, stride=1, padding=1),
+            Conv(nrattribs, 4, kernel_size=3, stride=1, padding=1),
             BatchNorm(4),
             ReLU(inplace=True),
             MaxPool(kernel_size=2, stride=2),
@@ -70,31 +60,51 @@ class Net(nn.Module):
             MaxPool(kernel_size=2, stride=2),
         )
 
-        self.linear_layers_ = Sequential(
-            Linear(4, self.output_classes),
+        self.linear_layers_3D = Sequential(
+            Linear(32, self.output_classes),
+            ReLU()
+        )
+
+        self.linear_layers_2D = Sequential(
+            Linear(16, self.output_classes),
             ReLU()
         )
         
+        self.linear_layers_1D = Sequential(
+            Linear(4, self.output_classes),
+            ReLU()
+        )
+
         self.linear_layers = Sequential(
             Linear(8, self.output_classes),
+            Softmax()
+        )
+
+        self.linear_layers1 = Sequential(
+            Linear(4, self.output_classes),
             Softmax()
         )
  
     def forward(self, x):
         
-        if self.dim==1:
-            x = self.cnn_layers_(x)
-            x = self.cnn_layers1(x)
-            x = x.view(x.size(0), -1)
-            x = self.linear_layers_(x)
-        else:
-            x = self.cnn_layers(x)
-            x = self.cnn_layers1(x)
-            x = x.view(x.size(0), -1)
-            x = self.linear_layers(x)
+        x = self.cnn_layers(x)
+        x = self.cnn_layers1(x)
+        x = x.view(x.size(0), -1)
+        if self.output_classes==1:  #regression
+            if self.dim==3:
+                x = self.linear_layers_3D(x)
+            elif self.dim==2:
+                x = self.linear_layers_2D(x)
+            else:
+                x = self.linear_layers_1D(x)
+        else:  #classification
+            try:
+                x = self.linear_layers(x)   
+            except RuntimeError:
+                x = self.linear_layers1(x)
 
         return x
-
+        
 
 class Trainer:
     def __init__(self,
@@ -137,7 +147,7 @@ class Trainer:
         odcommon.log_msg(f'Device is: {self.device}')
         for i in range(self.epochs):
             """Epoch counter"""
-            odcommon.log_msg(f'----------------- Epoch {i} ------------------')
+            odcommon.log_msg(f'----------------- Epoch {i + 1} ------------------')
             self.epoch += 1
             """Training block"""
             self._train()
@@ -158,17 +168,17 @@ class Trainer:
         self.model.train()
         train_losses = [] 
         train_accs = []
-        classification = self.imgdp['info']['classification']
+        classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.training_DataLoader:
             self.optimizer.zero_grad()
             out = self.model(input) 
-            if len(self.imgdp['x_train'].shape)==len(self.imgdp['y_train'].shape) and len(self.imgdp['x_train'].shape)==5 and classification:
+            if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:
                 target = target.type(torch.LongTensor)
                 #target = target[:, :, :, :]
                 pred = out.detach().cpu().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred.flatten(), target.flatten())
-            elif len(self.imgdp['x_train'].shape)>len(self.imgdp['y_train'].shape) and classification:
+            elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                 target = target.type(torch.LongTensor)
                 pred = out.detach().numpy()
                 pred = np.argmax(pred, axis=1)
@@ -186,27 +196,27 @@ class Trainer:
         self.training_loss.append(np.mean(train_losses))
         self.training_accuracy.append(np.mean(train_accs))
         self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
-        odcommon.log_msg(f'Train loss: {np.mean(train_losses)}')
+        odcommon.log_msg(f'Train loss: {np.round(np.mean(train_losses), 4)}')
         if classification:
-            odcommon.log_msg(f'Train Accuracy: {np.mean(train_accs)}')
+            odcommon.log_msg(f'Train Accuracy: {np.round(np.mean(train_accs), 4)}')
         else:
-            odcommon.log_msg(f'Train MSE: {np.mean(train_accs)}')
+            odcommon.log_msg(f'Train MSE: {np.round(np.mean(train_accs), 4)}')
 
     def _validate(self):
         self.model.eval() 
         valid_losses = []  
         valid_accs = []
-        classification = self.imgdp['info']['classification']
+        classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.validation_DataLoader:
             with torch.no_grad():
                 out = self.model(input)
-                if len(self.imgdp['x_train'].shape)==len(self.imgdp['y_train'].shape) and len(self.imgdp['x_train'].shape)==5 and classification:  #segmentation
+                if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:  #segmentation
                     target = target.type(torch.LongTensor)
                     target = target[:, :, :, :]
                     val_pred = out.detach().cpu().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred.flatten(), target.flatten())
-                elif len(self.imgdp['x_train'].shape)>len(self.imgdp['y_train'].shape) and classification:
+                elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                     target = target.type(torch.LongTensor)
                     val_pred = out.detach().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
@@ -221,11 +231,11 @@ class Trainer:
                 valid_accs.append(acc)
         self.validation_loss.append(np.mean(valid_losses))
         self.validation_accuracy.append(np.mean(valid_accs))
-        odcommon.log_msg(f'Validation loss: {np.mean(valid_losses)}')
+        odcommon.log_msg(f'Validation loss: {np.round(np.mean(valid_losses), 4)}')
         if classification:
-            odcommon.log_msg(f'Validation Accuracy: {np.mean(valid_accs)}')
+            odcommon.log_msg(f'Validation Accuracy: {np.round(np.mean(valid_accs), 4)}')
         else:
-            odcommon.log_msg(f'Validation MSE: {np.mean(valid_accs)}')
+            odcommon.log_msg(f'Validation MSE: {np.round(np.mean(valid_accs), 4)}')
         if self.F1_old < np.mean(valid_accs) and classification:
             self.F1_old = np.mean(valid_accs)
             self.savemodel = self.model
@@ -753,7 +763,7 @@ class SeismicTrainDataset:
         return self.X.shape[0]
 
     def __getitem__(self,index):
-        classification = self.info['classification']
+        classification = self.info[dgbkeys.classdictstr]
         if self.ndims == 3:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
                 data = self.X[index, :, :, :, :]
@@ -761,33 +771,45 @@ class SeismicTrainDataset:
             elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
                 data = self.X[index, :, :, :]
                 label = self.y[index, :]
-            elif not self.info['classification']:
-                data = self.X[index, :, :, :, :]
-                label = self.y[index, :, :, :, :]
+            elif not self.info[dgbkeys.classdictstr]:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, :, :, :]
+                    label = self.y[index, :, :, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, :, :, :]
+                    label = self.y[index, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, :, 0, :, :]
+                label = self.y[index, :, 0, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
-                data = self.X[index,  :, :]
+                data = self.X[index,  :, 0, :, :]
                 label = self.y[index, :]
-            elif not self.info['classification']:
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+            elif not self.info[dgbkeys.classdictstr]:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, 0, :, :]
+                    label = self.y[index, :, 0, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, 0, :, :]
+                    label = self.y[index, :]
         elif self.ndims == 1:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, :, 0, 0, :]
+                label = self.y[index, :, 0, 0, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised classification
-                data = self.X[index,  :, :]
+                data = self.X[index, :, 0, 0, :]
                 label = self.y[index, :]
-            elif not self.info['classification']:
+            elif not self.info[dgbkeys.classdictstr]:
                 if len(self.X.shape)==len(self.y.shape):
-                    data = self.X[index, :, :, :]
-                    label = self.y[index, :, :, :]
+                    data = self.X[index, :, 0, 0, :]
+                    label = self.y[index, :, 0, 0, :]
                 elif len(self.X.shape)>len(self.y.shape):    #supervised regression
                     data = self.X[index, :, 0, 0, :]
                     label = self.y[index, :]
+        elif classification:
+            return self.X[index, :, 0, 0, :], self.y[index, :]
+        else:
+            return self.X[:, :, 0, 0, :], self.y
 
         return data, label
 
@@ -804,38 +826,46 @@ class SeismicTestDataset:
         return self.X.shape[0]
 
     def __getitem__(self,index):
-        classification = self.info['classification']
+        classification = self.info[dgbkeys.classdictstr]
         if self.ndims == 3:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
                 data = self.X[index, :, :, :, :]
                 label = self.y[index, :, :, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
-                data = self.X[index, :, :, :]
-                label = self.y[index, :]
-            elif not self.info['classification']:
                 data = self.X[index, :, :, :, :]
-                label = self.y[index, :, :, :, :]
+                label = self.y[index, :]
+            elif not self.info[dgbkeys.classdictstr]:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, :, :, :]
+                    label = self.y[index, :, :, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, :, :, :]
+                    label = self.y[index, :]
         elif self.ndims == 2:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, :, 0, :, :]
+                label = self.y[index, :, 0, :, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
-                data = self.X[index, :, :]
+                data = self.X[index, :, 0, :, :]
                 label = self.y[index, :]
-            elif not self.info['classification']:
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+            elif not self.info[dgbkeys.classdictstr]:
+                if len(self.X.shape)==len(self.y.shape):
+                    data = self.X[index, :, 0, :, :]
+                    label = self.y[index, :, 0, :, :]
+                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
+                    data = self.X[index, :, 0, :, :]
+                    label = self.y[index, :]
         elif self.ndims == 1:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
-                data = self.X[index, :, :, :]
-                label = self.y[index, :, :, :]
+                data = self.X[index, :, 0, 0, :]
+                label = self.y[index, :, 0, 0, :]
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised classification
-                data = self.X[index, :, :]
+                data = self.X[index, :, 0, 0, :]
                 label = self.y[index, :]
-            elif not self.info['classification']:
+            elif not self.info[dgbkeys.classdictstr]:
                 if len(self.X.shape)==len(self.y.shape):
-                    data = self.X[index, :, :, :]
-                    label = self.y[index, :, :, :]
+                    data = self.X[index, :, 0, 0, :]
+                    label = self.y[index, :, 0, 0, :]
                 elif len(self.X.shape)>len(self.y.shape):    #supervised regression
                     data = self.X[index, :, 0, 0, :]
                     label = self.y[index, :]
@@ -859,42 +889,11 @@ class SeismicTest3DatasetApply(Dataset):
     
     def __getitem__(self,index):
         if self.ndims == 3:
-            if len(self.X.shape)==5 and self.isclassification:   #segmentation
-                data = self.X[index, :, :, :, :]
-            elif len(self.X.shape) and self.isclassification:    #supervised
-                data = self.X[index, :, :, :]
-            elif not self.isclassification:
-                data = self.X[index, :, :, :, :]                 # 3D regression
+            return self.X[index, :, :, :, :]
         elif self.ndims == 2:
-            if len(self.X.shape)==5 and self.isclassification:   #segmentation
-                data = self.X[index, 0, :, :, :]
-            elif len(self.X.shape) and self.isclassification:    #supervised
-                data = self.X[index, 0, :, :, :]
-            elif not self.isclassification:
-                data = self.X[index, 0, :, :, :]                 # 2D regression
+            return self.X[index, :, 0, :, :]
         elif self.ndims == 1:
-            if len(self.X.shape)==5 and self.isclassification:   #segmentation
-                data = self.X[index, 0, 0, :, :]
-            elif len(self.X.shape) and self.isclassification:    #supervised
-                data = self.X[index, 0, 0, :, :]
-            elif not self.isclassification:
-                data = self.X[index, :, 0, 0, :]                 # 1D regression
-
-        return data
-
-class UnLabelledDataset(Dataset):
-    def __init__(self, X, im_ch):
-        super().__init__()
-        self.im_ch = im_ch
-        self.X = X.astype('float32')
-
-    def __len__(self):
-        return self.X.shape[0]
-    
-    def __getitem__(self,index):
-        data = self.X[index, :, :]
-
-        return data[None, :,:]
+            return self.X[index, :, 0, 0, :]
 
 
 #__________________________________________________________________________
@@ -1094,7 +1093,7 @@ class TorchUserModel(ABC):
       return TorchUserModel.isOutType( modelnm, OutputType.Image )
   
   @abstractmethod
-  def _make_model(self, nroutputs):
+  def _make_model(self, model_shape, nroutputs, nrattribs):
     """Abstract static method that defines a machine learning model.
     
     Must be implemented in the user's derived class
@@ -1116,7 +1115,7 @@ class TorchUserModel(ABC):
     """
     pass
 
-  def model(self, model_shape, nroutputs):
+  def model(self, model_shape, nroutputs, nrattribs):
     """Creates/returns a compiled torch model instance
     
     Parameters
@@ -1132,7 +1131,8 @@ class TorchUserModel(ABC):
     if True:
       self._nroutputs = nroutputs
       self.model_shape = model_shape
-      self._model = self._make_model(model_shape, nroutputs)
+      self.nrattribs = nrattribs
+      self._model = self._make_model(model_shape, nroutputs, nrattribs)
     return self._model
 
 TorchUserModel.mlmodels = TorchUserModel.findModels()
