@@ -174,7 +174,6 @@ class Trainer:
             out = self.model(input) 
             if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:
                 target = target.type(torch.LongTensor)
-                #target = target[:, :, :, :]
                 pred = out.detach().cpu().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred.flatten(), target.flatten())
