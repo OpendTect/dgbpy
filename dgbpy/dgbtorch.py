@@ -61,7 +61,7 @@ def getDefaultModel(setup,type=torch_dict['type']):
   if type==None:
       type = getModelsByInfo( setup )
   if tc.TorchUserModel.findName(type):
-    return tc.TorchUserModel.findName(type).model(model_shape, nroutputs)
+    return tc.TorchUserModel.findName(type).model(model_shape, nroutputs, attribs)
   return None
 
 def getModelsByType( learntype, classification, ndim ):
@@ -200,14 +200,14 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
   from dgbpy.mlmodel_torch_dGB import ResNet18
-  dfdm = ResNet18(nroutputs, dim=ndims)
+  dfdm = ResNet18(nroutputs, dim=ndims, nrattribs=attribs)
   if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
-    info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
+    info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr or info[dgbkeys.learntypedictstr] == dgbkeys.seisproptypestr:
     try:
       dfdm.load_state_dict(model)
     except RuntimeError:
       from dgbpy.torch_classes import Net
-      dfdm = Net(nroutputs, dim=ndims)
+      dfdm = Net(output_classes=nroutputs, dim=ndims, nrattribs=attribs)
       dfdm.load_state_dict(model)
   elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
     from dgbpy.torch_classes import UNet
