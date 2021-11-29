@@ -1,4 +1,4 @@
-from dgbpy.torch_classes import SeismicTest3DatasetApply
+from dgbpy.torch_classes import DatasetApply
 from sklearn.metrics import accuracy_score, f1_score
 import torch, os, json, pickle, joblib
 import numpy as np
@@ -186,7 +186,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
-  sampleDataset = SeismicTest3DatasetApply(samples, isclassification, 1, ndims=ndims)
+  sampleDataset = DatasetApply(samples, isclassification, 1, ndims=ndims)
   dataloader = getDataLoader(sampleDataset, batchsize=torch_dict['batch_size'])
   ret = {}
   res = None
