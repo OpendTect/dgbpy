@@ -875,7 +875,7 @@ class SeismicTestDataset:
 ############ 3D UNET SEGMENTATION END ###############
 
 
-class SeismicTest3DatasetApply(Dataset):
+class DatasetApply(Dataset):
     def __init__(self, X, isclassification, im_ch, ndims):
         super().__init__()
         self.im_ch = im_ch
