@@ -362,9 +362,10 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
   # set default visibility
   if new == 'Ensemble':
     ret['ensembletyp'].visible = True
-    ret['estparfldxgdt'].visible = True
-    ret['depparfldxgdt'].visible = True
-    ret['lrparfldxgdt'].visible = True
+    if hasXGBoost():
+      ret['estparfldxgdt'].visible = True
+      ret['depparfldxgdt'].visible = True
+      ret['lrparfldxgdt'].visible = True
   elif new == 'SVM':
     ret['svmtyp'].visible = True
     ret['kernel'].visible = True
