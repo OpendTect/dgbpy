@@ -229,13 +229,6 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
         pred_prob = pred.copy()
         if isclassification:
           pred = np.argmax(pred, axis=1)
-          if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-            if ndims==3:
-              pred = pred[:, None, :, :, :]
-            elif ndims==2:
-              pred = pred[:, None, :, :]
-            elif ndims==1:
-              pred = pred[:, None, :]
         for _ in pred:
           predictions.append(_)
         for _prob in pred_prob:
@@ -288,10 +281,15 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     ret.update({dgbkeys.probadictstr: res})
   if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
     if ndims==3:
-      ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 1, 2, 0)
+      if isclassification:
+        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)
+      else:
+        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 2, 1, 0)
     elif ndims==2:
-      ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 1, 2, 0)
-  
+      if isclassification:
+        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(2, 1, 0)
+      else:
+        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)  
   return ret
 
 def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch_size']):
