@@ -25,6 +25,10 @@ class Net(nn.Module):
         
         self.output_classes = output_classes
         self.dim, self.nrattribs = dim, nrattribs
+        if output_classes==1:
+            self.activation = ReLU()
+        else:
+            self.activation = Softmax()
         if dim==3:
             BatchNorm = BatchNorm3d
             Conv = Conv3d
@@ -43,68 +47,42 @@ class Net(nn.Module):
             BatchNorm(4),
             ReLU(inplace=True),
             MaxPool(kernel_size=2, stride=2),
-            Conv(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm(4),
-            ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
-        )
-
-        self.cnn_layers1 = Sequential(
-            Conv(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm(4),
-            ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
-            Conv(4, 4, kernel_size=3, stride=1, padding=1),
-            BatchNorm(4),
-            ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
         )
 
         self.linear_layers_3D = Sequential(
-            Linear(32, self.output_classes),
-            ReLU()
+            Linear(4096, self.output_classes),
+            self.activation,
         )
 
         self.linear_layers_2D = Sequential(
-            Linear(16, self.output_classes),
-            ReLU()
+            Linear(512, self.output_classes),
+            self.activation,
         )
         
         self.linear_layers_1D = Sequential(
-            Linear(4, self.output_classes),
-            ReLU()
+            Linear(64, self.output_classes),
+            self.activation,
         )
 
-        self.linear_layers = Sequential(
-            Linear(8, self.output_classes),
-            Softmax()
-        )
-
-        self.linear_layers1 = Sequential(
-            Linear(4, self.output_classes),
-            Softmax()
+        self.linear_layers_D = Sequential(
+            Linear(40, self.output_classes),
+            self.activation,
         )
  
     def forward(self, x):
-        
         x = self.cnn_layers(x)
-        x = self.cnn_layers1(x)
         x = x.view(x.size(0), -1)
-        if self.output_classes==1:  #regression
+        try:
             if self.dim==3:
                 x = self.linear_layers_3D(x)
             elif self.dim==2:
                 x = self.linear_layers_2D(x)
-            else:
+            elif self.dim==1:
                 x = self.linear_layers_1D(x)
-        else:  #classification
-            try:
-                x = self.linear_layers(x)   
-            except RuntimeError:
-                x = self.linear_layers1(x)
+        except RuntimeError:
+            x = self.linear_layers_D(x)
 
-        return x
-        
+        return x   
 
 class Trainer:
     def __init__(self,
@@ -808,7 +786,7 @@ class SeismicTrainDataset:
         elif classification:
             return self.X[index, :, 0, 0, :], self.y[index, :]
         else:
-            return self.X[:, :, 0, 0, :], self.y
+            return self.X[index, :, 0, 0, :], self.y[index, :]
 
         return data, label
 
@@ -868,6 +846,10 @@ class SeismicTestDataset:
                 elif len(self.X.shape)>len(self.y.shape):    #supervised regression
                     data = self.X[index, :, 0, 0, :]
                     label = self.y[index, :]
+        elif classification:
+            return self.X[index, :, 0, 0, :], self.y[index, :]
+        else:
+            return self.X[index, :, 0, 0, :], self.y[index, :]
 
         return data, label
 
@@ -893,19 +875,6 @@ class DatasetApply(Dataset):
             return self.X[index, :, 0, :, :]
         elif self.ndims == 1:
             return self.X[index, :, 0, 0, :]
-
-
-#__________________________________________________________________________
-#
-# (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
-# Author:        A. Huck
-# Date:          Nov 2018
-#
-# _________________________________________________________________________
-# various tools machine learning using torch platform
-#
-
-import numpy as np
 
 import importlib
 import pkgutil
