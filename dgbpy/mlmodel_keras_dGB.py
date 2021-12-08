@@ -32,11 +32,10 @@ def getAdamOpt( learning_rate=1e-4 ):
     return tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
 def cross_entropy_balanced(y_true, y_pred):
-  from keras.models import K
   from keras.optimizers import tf
-  _epsilon = _to_tensor(K.epsilon(), y_pred.dtype.base_dtype)
-  y_pred   = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
-  y_pred   = tf.math.log(y_pred/ (1 - y_pred))
+  _epsilon = _to_tensor( kb.epsilon(), y_pred.dtype )
+  y_pred = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
+  y_pred = tf.math.log(y_pred/ (1 - y_pred))
 
   y_true = tf.cast(y_true, tf.float32)
   count_neg = tf.reduce_sum(input_tensor=1. - y_true)
