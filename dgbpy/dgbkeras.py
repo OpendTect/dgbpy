@@ -80,7 +80,7 @@ def get_keras_infos():
    }
   return json.dumps( ret )
 
-def set_compute_device( prefercpu=get_cpu_preference() ):
+def set_compute_device( prefercpu ):
   if not prefercpu:
       return
   from tensorflow import config as tfconfig
