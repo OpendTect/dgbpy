@@ -128,7 +128,7 @@ def training_app(doc):
 
   trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
 
-  with dgbservmgr.ServiceMgr(args['bsmserver'], args['ppid'],args['port'],args['bokehid']) as this_service:
+  with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],args['bokehid']) as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
 
@@ -144,8 +144,8 @@ def training_app(doc):
 
     ML_PLFS = []
     ML_PLFS.append( uikeras.getPlatformNm(True) )
-    ML_PLFS.append( uisklearn.getPlatformNm(True) )
     ML_PLFS.append( uitorch.getPlatformNm(True) )
+    ML_PLFS.append( uisklearn.getPlatformNm(True) )
 
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
     tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
@@ -172,17 +172,23 @@ def training_app(doc):
       torchpars = uitorch.getUiPars()
       sklearnpars = uisklearn.getUiPars()
       parsgroups = (keraspars,sklearnpars,torchpars)
-      platformfld.disabled = False
 
     def updateUI():
       nonlocal info
       nonlocal keraspars
       nonlocal torchpars
       nonlocal platformfld
+      nonlocal ML_PLFS
+      if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+          platformfld.options.remove( uisklearn.getPlatformNm(True) )
+      else:
+          platformfld.options = ML_PLFS
+
       keraspars['uiobjects']['dodecimatefld'].active = []
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
-    makeUI(examplefilenm)
+    makeUI( examplefilenm )
+    updateUI()
 
     def resetUiFields(cb):
       nonlocal keraspars
@@ -317,8 +323,8 @@ def training_app(doc):
       if len(trainedfnm) < 1:
         return False
       if platformfld.value==uikeras.getPlatformNm() and 'divfld' in keraspars['uiobjects']:
-            odcommon.log_msg('\nNo Keras models found for this workflow.')
-            return False
+        odcommon.log_msg('\nNo Keras models found for this workflow.')
+        return False
 
       modelnm = trainedfnm
 
