@@ -8,7 +8,6 @@
 # 
 import json
 import os
-import io
 import psutil
 import signal
 import socket
@@ -17,7 +16,6 @@ import sys
 import threading
 import odpy.common as odcommon
 from tornado.iostream import StreamClosedError
-from tornado import gen
 import tornado.tcpserver
 
 class ServiceMgr(tornado.tcpserver.TCPServer):
@@ -63,7 +61,10 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     
   def _startServer(self, tornadoport, attempts=20):
     address = 'localhost'
-    port = max(self.cmdport+1,tornadoport+1)
+    if self.cmdport == None:
+      port = tornadoport+1
+    else:
+      port = max(self.cmdport+1,tornadoport+1)
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname( hostname )
     while attempts:
@@ -132,7 +133,9 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       msgobj = {'bokehid': self.serviceID}
       msgobj.update(jsonobj)
       Message().sendObjectToAddress(self.cmdserver, objkey, msgobj)
-
+      
+  def can_connect(self):
+      return self.cmdhost != None and self.cmdport != None
     
 class Message:
   def parseAddress(self, address):
@@ -148,6 +151,8 @@ class Message:
     return host, port
         
   def sendObject(self, host, port, objkey, jsonobj):
+    if host == None and port == None:
+        return
     packet = Packet()
     packet.setIsNewRequest()
     obj = dict()
