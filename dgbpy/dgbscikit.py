@@ -9,29 +9,23 @@
 #
 
 import os.path
-import sys
-import h5py
 import json
 import joblib
 import numpy as np
 import pickle
-from pathlib import PurePosixPath, PureWindowsPath
 
 import sklearn
 from sklearn.preprocessing import StandardScaler
-from sklearn import preprocessing
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.tree import DecisionTreeRegressor
-#from sklearn.multioutput import MultiOutputRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
-from sklearn.svm import SVC, LinearSVR
+from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
 
 from sklearn.cluster import KMeans, MeanShift, SpectralClustering
 
-from odpy.common import log_msg, redirect_stdout, restore_stdout, isWin
+from odpy.common import log_msg, redirect_stdout, restore_stdout
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
@@ -85,8 +79,9 @@ solvertypes = [\
                 ('sag','Sag'),\
                 ('saga','Saga'),\
               ]
+linkernel = 'linear'
 kerneltypes = [\
-                ('linear','Linear'),\
+                (linkernel,'Linear'),\
                 ('poly','Polynomial'),\
                 ('rbf','Radial Basis Function'),\
                 ('sigmoid','Sigmoid'),\
@@ -139,8 +134,11 @@ def getDefaultSolver( uiname=True ):
   solverstr = LogisticRegression().solver
   return dgbkeys.getNameFromList( solvertypes, solverstr, uiname )
 
-def getDefaultNNKernel( uiname=True ):
-  kernelstr = SVC().kernel
+def getDefaultNNKernel( isclass, uiname=True ):
+  if isclass:
+    kernelstr = SVC().kernel
+  else:
+    kernelstr = linkernel
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
 
@@ -182,7 +180,7 @@ scikit_dict = {
     'nb': 3
     },
   'svmpars': {
-    'kernel': getDefaultNNKernel(False),
+    'kernel': getDefaultNNKernel(False,uiname=False),
     'degree': SVC().degree
     },
   'clusterpars': {
@@ -504,9 +502,15 @@ def getDefaultModel( setup, params=scikit_dict ):
       kernel = dgbkeys.getNameFromUiName( kerneltypes, params['kernel'] )
       degree = params['degree']
       if isclassification:
-        model = SVC(kernel=kernel,degree=degree)
+        if kernel == linkernel:
+          model = LinearSVC()
+        else:
+          model = SVC(kernel=kernel,degree=degree)
       else:
-        model = LinearSVR(kernel=kernel,degree=degree)
+        if kernel == linkernel:
+          model = LinearSVR()
+        else:
+          model = SVR(kernel=kernel,degree=degree)
   except Exception as e:
     log_msg( 'Exception:', e )
     raise e
@@ -563,9 +567,6 @@ def save( model, outfnm, save_type=defsavetype ):
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
-
-  modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
-
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
   if savetype == savetypes[0]:
