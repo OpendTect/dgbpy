@@ -231,7 +231,7 @@ def getModelsByInfo( infos ):
     else:
         ndim = len(shape)-1
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
-                                   infos[dgbhdf5.classdictstr], 
+                                   infos[dgbhdf5.classdictstr],
                                    ndim )
     if len(modelstypes) < 1:
         return None
@@ -265,11 +265,11 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
           withaugmentation=withaugmentation,tempnm=None):
   redirect_stdout()
   import keras
-  from keras.callbacks import EarlyStopping
+  from keras.callbacks import EarlyStopping, LambdaCallback
   from dgbpy.keras_classes import TrainingSequence
   import tensorflow as tf
   restore_stdout()
-  
+
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
   if classification:
@@ -278,7 +278,16 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
     monitor = 'loss'
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
   LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
-  callbacks = [early_stopping,LR_sched]
+
+  def epoch0endCB(epoch, logs):
+    if epoch==0:
+      restore_stdout()
+      print('--Epoch0End--', flush=True)
+      redirect_stdout()
+
+  epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
+
+  callbacks = [early_stopping,LR_sched,epoch0end]
   batchsize = params['batch']
   if logdir != None:
     from keras.callbacks import TensorBoard
@@ -327,7 +336,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
       log_msg('Try to lower the batch size and restart the training')
       log_msg('')
       raise e
-            
+
     restore_stdout()
 
   try:
@@ -346,7 +355,7 @@ def updateModelShape( infos, model, forinput ):
   else:
     shapekey = dgbkeys.outshapedictstr
     modelshape = model.output_shape
-    
+
   exshape = infos[shapekey]
   if get_data_format(model) == 'channels_first':
     modelshape = modelshape[2:]
@@ -368,7 +377,7 @@ def updateModelShape( infos, model, forinput ):
     else:
       ret += (modelshape[i],)
       i += 1
-      
+
   infos[shapekey] = ret
   return infos
 
@@ -401,7 +410,7 @@ def load( modelfnm, fortrain ):
       model_json_str = json.dumps( model_json )
       ret = model_from_json( model_json_str, custom_objects=dgb_defs )
     ret.load_weights(modelfnm)
-      
+
   restore_stdout()
   return ret
 
@@ -433,7 +442,7 @@ def apply( model, samples, isclassification, withpred, withprobs, \
   import keras
   restore_stdout()
   ret = {}
-           
+
   inp_shape = samples.shape
   data_format = 'channels_first'
   samples = adaptToModel( model, samples, sample_data_format=data_format )
