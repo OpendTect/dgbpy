@@ -178,7 +178,7 @@ def training_app(doc):
       keraspars = uikeras.getUiPars()
       torchpars = uitorch.getUiPars()
       sklearnpars = uisklearn.getUiPars()
-      parsgroups = (keraspars,sklearnpars,torchpars)
+      parsgroups = (keraspars,torchpars,sklearnpars)
 
     def updateUI():
       nonlocal info

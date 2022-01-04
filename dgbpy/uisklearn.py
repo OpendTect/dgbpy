@@ -278,10 +278,10 @@ def getNNGrp(uipars=None):
   return uipars
 
 
-def getSVMGrp(uipars=None):
+def getSVMGrp(isclass,uipars=None):
   dict = scikit_dict
   uiobjs = {}
-  defkernelstr = getDefaultNNKernel()
+  defkernelstr = getDefaultNNKernel( isclass, uiname=True )
   if not uipars:
     uiobjs = {'svmtyp': Select(title='Model', options=getUiSVMTypes()),
               'kernel': Select(title='Kernel', options=getUiNNKernelTypes()),
@@ -525,7 +525,7 @@ def getUiPars(uipars=None):
       linearkey: getLogGrp() if isclassification else getLinearGrp(),
       'ensemblegrp': getEnsembleGrp(),
       'nngrp': getNNGrp(),
-      'svmgrp': getSVMGrp()
+      'svmgrp': getSVMGrp( isclassification, uipars=None )
     }
     modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
     uiobjs['modeltyp'].on_change('value',partial(modelChgCB,cb=uiobjs['modeltyp'],modelsgrp=modelsgrp))
@@ -587,7 +587,7 @@ def getUiPars(uipars=None):
     uiobjs[linearkey] = getLinearGrp(uiobjs[linearkey])
   uiobjs['ensemblegrp'] = getEnsembleGrp(uiobjs['ensemblegrp'])
   uiobjs['nngrp'] = getNNGrp(uiobjs['nngrp'])
-  uiobjs['svmgrp'] = getSVMGrp(uiobjs['svmgrp'])
+  uiobjs['svmgrp'] = getSVMGrp( isclassification, uipars=uiobjs['svmgrp'])
 
   modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
   modelChgCB( 'value', deftype, deftype, uiobjs['modeltyp'], modelsgrp )
