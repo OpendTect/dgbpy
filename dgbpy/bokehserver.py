@@ -32,11 +32,11 @@ def DefineBokehArguments(parser):
             help='Bokeh log-file name')
   bokehgrp.add_argument( '--address',
             dest='address', action='store',
-            type=str, default='',
+            type=str, default='localhost',
             help='Bokeh server address')
   bokehgrp.add_argument( '--port',
             dest='port', action='store',
-            type=int, default=-1,
+            type=int, default=5006,
             help='Bokeh server port')
   bokehgrp.add_argument( '--show',
             dest='show', action='store_true', default=False,
@@ -63,7 +63,7 @@ def StartBokehServer(applications, args, attempts=20):
                       port=port,
                       allow_websocket_origin=[authstr,authstr.lower()])
       server.start()
-      
+
       msg = dgbservmgr.Message()
       msg.sendObjectToAddress(args['bsmserver'],
                       'bokeh_started', {'bokehid': args['bokehid'],
@@ -71,7 +71,10 @@ def StartBokehServer(applications, args, attempts=20):
                                         'bokehpid': os.getpid()})
       if args['show']:
           server.show( application )
-      server.io_loop.start()
+      try:
+          server.io_loop.start()
+      except RuntimeError:
+          pass
       return
     except OSError as ex:
       if "Address already in use" in str(ex):

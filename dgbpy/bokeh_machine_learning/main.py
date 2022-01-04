@@ -33,6 +33,9 @@ traingrp.add_argument( '--modelfnm',
 traingrp.add_argument( '--transfer', '--Transfer', dest='transfer',
             action='store_true', default=False,
             help='Do transfer training' )
+traingrp.add_argument( '--trainmodelnm',
+            dest='trainmodelnm', nargs='?', default='',
+            help='Output trained model dataset name' )
 traingrp.add_argument( '--mldir',
             dest='mldir', nargs=1,
             help='Machine Learning Logging Base Directory' )
@@ -63,6 +66,7 @@ odcommon.initLogging( args )
 odcommon.proclog_logger.setLevel( 'DEBUG' )
 
 import dgbpy.servicemgr as dgbservmgr
+srcfile = __file__
 
 
 def training_app(doc):
@@ -125,8 +129,11 @@ def training_app(doc):
         traintype = dgbmlapply.TrainType.Transfer
       else:
         traintype = dgbmlapply.TrainType.Resume
+  outmodelnm = None
+  if 'trainmodelnm' in args:
+      outmodelnm = args['trainmodelnm']
 
-  trainscriptfp = path.join(path.dirname(path.dirname(__file__)),'mlapplyrun.py')
+  trainscriptfp = path.join(path.dirname(path.dirname(srcfile)),'mlapplyrun.py')
 
   with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],args['bokehid']) as this_service:
     traintabnm = 'Training'
@@ -156,7 +163,7 @@ def training_app(doc):
     torchpars = None
     sklearnpars = None
     parsgroups = None
-    traininglogfilenm = None
+    traininglogfilenm = args['logfile'].name
 
     def makeUI(examplefilenm):
       nonlocal info
@@ -271,7 +278,6 @@ def training_app(doc):
       this_service.sendObject('ml_training_msg', {'platform_change': platformnm})
 
     def getUiParams():
-      parsgrp = getParsGrp( platformfld.value )
       if platformfld.value == uikeras.getPlatformNm():
         return uikeras.getUiParams( keraspars )
       elif platformfld.value == uisklearn.getPlatformNm():
@@ -292,7 +298,6 @@ def training_app(doc):
       }
       dict = ret['odargs']
       dict.update({'proclog': traininglogfilenm})
-      print(dict)
       dict = ret['dict']
       if model != None:
         dict.update({'model': model})
@@ -308,15 +313,18 @@ def training_app(doc):
     def doRun( cb = None ):
       nonlocal trainingcb
       nonlocal doabort
+      nonlocal outmodelnm
       doabort = False
-      if cb == None:
+      if cb == None and this_service.can_connect():
         this_service.sendObject('ml_training_msg', {'training can start request': ''})
         return True
       elif cb == False:
         doabort = True
         return False
-      else:
+      elif this_service.can_connect():
         trainingcb = {uibokeh.timerkey: cb}
+      elif outmodelnm != None:
+        trainingcb = {uibokeh.timerkey: doTrain(outmodelnm) }
       return True
 
     def doTrain( trainedfnm ):
@@ -364,7 +372,7 @@ def training_app(doc):
       if isRunning(proc):
         return (True,rectrainingcb)
       try:
-        stat = proc.status()
+        proc.status()
       except psutil.NoSuchProcess:
         if not odcommon.batchIsFinished( traininglogfilenm ):
           odcommon.log_msg( '\nProcess is no longer running (crashed or terminated).' )
