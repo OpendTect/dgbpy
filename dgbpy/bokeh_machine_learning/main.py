@@ -67,6 +67,7 @@ import dgbpy.servicemgr as dgbservmgr
 
 def training_app(doc):
 # Keep all lengthy operations below
+  from functools import partial
   import logging
   logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
   odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
@@ -74,23 +75,26 @@ def training_app(doc):
   class MsgHandler(logging.StreamHandler):
     def __init__(self, msgstr, servmgr, msgkey, msgjson):
       logging.StreamHandler.__init__(self)
-      self.msgstr = msgstr
+      self.msginfo = {}
+      self.add(msgstr, msgkey, msgjson)
       self.servmgr = servmgr
-      self.msgkey = msgkey
-      self.msgjson = msgjson
+
+    def add(self, msgstr, msgkey, msgjson):
+      self.msginfo[msgstr] = {'msgkey': msgkey, 'jsonobj': msgjson}
 
     def emit(self, record):
       try:
         logmsg = self.format(record)
-        if self.msgstr in logmsg:
-          doc.add_next_tick_callback(self.sendmsg)
+        for msgstr in self.msginfo.keys():
+          if msgstr in logmsg:
+             doc.add_next_tick_callback(partial(self.sendmsg, msgnm=msgstr))
       except (KeyboardInterrupt, SystemExit):
           raise
       except:
           self.handleError(record)
 
-    def sendmsg(self):
-      self.servmgr.sendObject(self.msgkey, self.msgjson)
+    def sendmsg(self, msgnm):
+      self.servmgr.sendObject(self.msginfo[msgnm]['msgkey'], self.msginfo[msgnm]['jsonobj'])
 
   odcommon.log_msg( 'Start training UI')
 
@@ -129,7 +133,8 @@ def training_app(doc):
     paramtabnm = 'Parameters'
 
     mh = MsgHandler('--Training Started--', this_service, 'ml_training_msg',
-                    {'training_started': ''})
+                   {'training_started': ''})
+    mh.add('--Epoch0End--', 'ml_training_msg', {'show tensorboard': ''})
     mh.setLevel(logging.DEBUG)
     odcommon.proclog_logger.addHandler(mh)
 
