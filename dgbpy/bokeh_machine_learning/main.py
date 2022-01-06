@@ -104,7 +104,6 @@ def training_app(doc):
 
   from os import path
   import psutil
-  from functools import partial
 
   from bokeh.layouts import column, row
   from bokeh.models.widgets import Panel, Select, Tabs
@@ -114,7 +113,7 @@ def training_app(doc):
                             isRunning, pauseProcess, resumeProcess)
   import dgbpy.keystr as dgbkeys
   from dgbpy import mlapply as dgbmlapply
-  from dgbpy import uibokeh, uikeras, uisklearn, uitorch
+  from dgbpy import uibokeh, uisklearn, uitorch, uikeras
   from dgbpy import mlio as dgbmlio
 
   examplefilenm = args['h5file'].name
