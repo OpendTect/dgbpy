@@ -15,11 +15,11 @@ from tensorflow.keras.utils import Sequence, to_categorical
 
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
-from dgbpy import dgbkeras
 
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
                with_augmentation=True,tempnm=None):
+      from dgbpy import dgbkeras
       self._trainbatch = trainbatch
       self._forvalid = forvalidation
       self._model = model
@@ -45,6 +45,7 @@ class TrainingSequence(Sequence):
       return int(np.floor(len(self._data_IDs)/float(self._batch_size)))
 
   def set_chunk(self,ichunk):
+      from dgbpy import dgbkeras
       infos = self._infos
       nbchunks = len(infos[dgbkeys.trainseldicstr])
       if nbchunks > 1:
@@ -105,6 +106,7 @@ class TrainingSequence(Sequence):
       if self._tempnm != None and self._nrdone > 0:
           now = datetime.now()
           if now - self._lastsaved > timedelta(minutes=10):
+              from dgbpy import dgbkeras
               dgbkeras.save( self._model, self._tempnm )
               self._lastsaved = now
       self._indexes = np.arange(len(self._data_IDs))
@@ -399,6 +401,7 @@ class UserModel(ABC):
     newmodel = self._model is None or modshape != self._model.input_shape or \
                 nroutputs != self._nroutputs or learnrate != self._learnrate
     if  newmodel:
+      from dgbpy import dgbkeras
       self._nroutputs = nroutputs
       self._learnrate = learnrate
       self._model = self._make_model(modshape,nroutputs,learnrate)
