@@ -11,7 +11,6 @@ from keras.layers import *
 from keras import backend as kb
 
 from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
-import dgbpy.dgbkeras as dgbkeras
 
 def _to_tensor(x, dtype):
   from keras.optimizers import tf
@@ -47,6 +46,8 @@ def cross_entropy_balanced(y_true, y_pred):
   return tf.compat.v1.where(tf.equal(count_pos, 0.0), 0.0, cost)
 
 def dGBUNet(model_shape, nroutputs, predtype):
+    import dgbpy.dgbkeras as dgbkeras
+    
     input_shape = model_shape
     data_format = 'channels_last'
       
@@ -160,6 +161,7 @@ class dGB_UnetReg(UserModel):
     return model
   
 def dGBLeNet(model_shape, nroutputs, predtype):
+  import dgbpy.dgbkeras as dgbkeras
     
   input_shape = model_shape
   data_format = 'channels_last'
