@@ -643,25 +643,42 @@ def translateFnm( modfnm, modelfnm ):
     moddir = winh5fp.parent
     modbasefnm = winmodfp.name
     modlocfnm = PureWindowsPath( moddir ).joinpath( PureWindowsPath(modbasefnm))
-    if os.path.exists(modlocfnm):
+    relmodlocfnm = modlocfnm.with_name( winh5fp.name )
+    relmodlocfnm = relmodlocfnm.with_suffix( winmodfp.suffix )
+    if os.path.exists(relmodlocfnm):
+      modfnm = relmodlocfnm
+    elif os.path.exists(modlocfnm):
       modfnm = modlocfnm
     else:
       moddir = posidxh5fp.parent
       modbasefnm = posixmodfp.name
       modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-      if os.path.exists(modlocfnm):
+      relmodlocfnm = modlocfnm.with_name( posidxh5fp.name )
+      relmodlocfnm = relmodlocfnm.with_suffix( posixmodfp.suffix )
+      if os.path.exists(relmodlocfnm):
+        modfnm = relmodlocfnm        
+      elif os.path.exists(modlocfnm):
         modfnm = modlocfnm
   else:
     moddir = posidxh5fp.parent
     modbasefnm = posixmodfp.name
     modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-    if os.path.exists(modlocfnm):
+    relmodlocfnm = modlocfnm.with_name( posidxh5fp.name )
+    relmodlocfnm = relmodlocfnm.with_suffix( posixmodfp.suffix )
+    if os.path.exists(relmodlocfnm):
+      modfnm = relmodlocfnm
+    elif os.path.exists(modlocfnm):
       modfnm = modlocfnm
     else:
       moddir = winh5fp.parent
       modbasefnm = winmodfp.name
-      modlocfnm = PureWindowsPath( moddir).joinpath(PureWindowsPath(modbasefnm))
+      modlocfnm = PureWindowsPath( moddir ).joinpath(PureWindowsPath(modbasefnm))
+      relmodlocfnm = modlocfnm.with_name( winh5fp.name )
+      relmodlocfnm = relmodlocfnm.with_suffix( winmodfp.suffix )
       modlocfnm = modlocfnm.as_posix()
-      if os.path.exists(modlocfnm):
+      relmodlocfnm = relmodlocfnm.as_posix()
+      if os.path.exists(relmodlocfnm):
+        modfnm = relmodlocfnm
+      elif os.path.exists(modlocfnm):
         modfnm = modlocfnm
   return modfnm
