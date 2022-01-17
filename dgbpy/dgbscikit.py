@@ -89,6 +89,7 @@ kerneltypes = [\
 
 savetypes = ( 'joblib', 'pickle' )
 defsavetype = savetypes[0]
+xgboostjson = 'xgboostjson'
 
 def getMLPlatform():
   return platform[0]
@@ -550,9 +551,17 @@ def save( model, outfnm, save_type=defsavetype ):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'scikit-learn' )
   odhdf5.setAttr( h5file, 'sklearn_version', sklearn.__version__ )
-  odhdf5.setAttr( h5file, 'type', 'RandomForestRegressor' )
+  odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps(model.get_params()) )
   modelgrp = h5file.create_group( 'model' )
+  if hasXGBoost():
+    import xgboost
+    odhdf5.setAttr( h5file, 'xgboost_version', xgboost.__version__ )
+    from xgboost import XGBClassifier, XGBRegressor, \
+                        XGBRFClassifier, XGBRFRegressor
+    if isinstance( model, XGBClassifier ) or isinstance( model, XGBRegressor ) or \
+       isinstance( model, XGBRFClassifier ) or isinstance( model, XGBRFRegressor ):
+      save_type = xgboostjson
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if save_type == savetypes[0]:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
@@ -562,6 +571,10 @@ def save( model, outfnm, save_type=defsavetype ):
     exported_modelstr = pickle.dumps(model)
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
+  elif save_type == xgboostjson:
+    joutfnm = os.path.splitext( outfnm )[0] + '.json'
+    model.save_model( joutfnm )
+    odhdf5.setAttr( modelgrp, 'path', joutfnm )
   h5file.close()
 
 def load( modelfnm ):
@@ -576,7 +589,28 @@ def load( modelfnm ):
   elif savetype == savetypes[1]:
     modeldata = modelgrp['object']
     model = pickle.loads( modeldata[:].tostring() )
-
+  elif savetype == xgboostjson and hasXGBoost():
+    from xgboost import XGBClassifier, XGBRegressor, \
+                        XGBRFClassifier, XGBRFRegressor
+    try:
+      infods = odhdf5.ensureHasDataset( h5file )
+      xgbtyp = odhdf5.getText( infods, 'Model.Class' )
+    except Exception as e:
+      log_msg('Cannot determine type of model')
+      raise e
+      
+    if xgbtyp == 'XGBClassifier':
+      model = XGBClassifier()
+    elif xgbtyp == 'XGBRFClassifier':
+      model = XGBRFClassifier()
+    elif xgbtyp == 'XGBRegressor':
+      model = XGBRegressor()
+    elif xgbtyp == 'XGBRFRegressor':
+      model = XGBRFRegressor()
+    if model != None:
+      modfnm = odhdf5.getText( modelgrp, 'path' )
+      modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      model.load_model( modfnm )
   h5file.close()
   return model
 
