@@ -87,7 +87,7 @@ kerneltypes = [\
                 ('sigmoid','Sigmoid'),\
               ]
 
-savetypes = ( 'joblib', 'pickle' )
+savetypes = ( 'onnx', 'joblib', 'pickle' )
 defsavetype = savetypes[0]
 xgboostjson = 'xgboostjson'
 
@@ -546,6 +546,20 @@ def assessQuality( model, trainingdp ):
   except Exception as e:
     log_msg( '\nCannot compute model quality:' )
     log_msg( repr(e) )
+    
+def onnx_from_sklearn(model):
+  try:
+    nattribs = model.n_features_in_
+  except AttributeError:
+    return None
+  from skl2onnx import convert_sklearn
+  from skl2onnx.common.data_types import FloatTensorType
+  initial_type = [('float_input', FloatTensorType([None,nattribs]))]
+  options = None
+  if getattr(model,'multi_class',None) or \
+     getattr(model,'predict_proba',None):
+    options = {id(model): {'zipmap': False}}
+  return convert_sklearn(model, initial_types=initial_type, options=options)
 
 def save( model, outfnm, save_type=defsavetype ):
   h5file = odhdf5.openFile( outfnm, 'w' )
@@ -555,19 +569,25 @@ def save( model, outfnm, save_type=defsavetype ):
   odhdf5.setAttr( h5file, 'model_config', json.dumps(model.get_params()) )
   modelgrp = h5file.create_group( 'model' )
   if hasXGBoost():
-    import xgboost
-    odhdf5.setAttr( h5file, 'xgboost_version', xgboost.__version__ )
     from xgboost import XGBClassifier, XGBRegressor, \
                         XGBRFClassifier, XGBRFRegressor
     if isinstance( model, XGBClassifier ) or isinstance( model, XGBRegressor ) or \
        isinstance( model, XGBRFClassifier ) or isinstance( model, XGBRFRegressor ):
+      import xgboost
+      odhdf5.setAttr( h5file, 'xgboost_version', xgboost.__version__ )
       save_type = xgboostjson
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if save_type == savetypes[0]:
+    joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
+    onx = onnx_from_sklearn(model)
+    with open(joutfnm, 'wb') as f:
+      f.write(onx.SerializeToString())
+    odhdf5.setAttr( modelgrp, 'path', joutfnm )
+  elif save_type == savetypes[1]:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
     joblib.dump( model, joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
-  elif save_type == savetypes[1]:
+  elif save_type == savetypes[2]:
     exported_modelstr = pickle.dumps(model)
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
@@ -585,8 +605,13 @@ def load( modelfnm ):
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+    from dgbpy.sklearn_classes import OnnxModel
+    model = OnnxModel( str(modfnm) )
+  if savetype == savetypes[1]:
+    modfnm = odhdf5.getText( modelgrp, 'path' )
+    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     model = joblib.load( modfnm )
-  elif savetype == savetypes[1]:
+  elif savetype == savetypes[2]:
     modeldata = modelgrp['object']
     model = pickle.loads( modeldata[:].tostring() )
   elif savetype == xgboostjson and hasXGBoost():
