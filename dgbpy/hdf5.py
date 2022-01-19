@@ -110,7 +110,7 @@ def isLogOutput( info ):
 
 def isLogClusterOutput( info ):
   if isinstance(info,dict):
-    return info[learntypedictstr] == logclustertypestr or info[learntypedictstr] == seisproptypestr
+    return info[learntypedictstr] == logclustertypestr
   return info == logclustertypestr
 
 def isImg2Img( info ):
@@ -579,7 +579,6 @@ def getClassIndicesFromData( info ):
   dsinfoin = odhdf5.ensureHasDataset( h5file )
   if odhdf5.hasAttr( dsinfoin, classesvalstr ):
     return odhdf5.getIArray( dsinfoin, classesvalstr )
-  isimg2img = isImg2Img( info )
   groups = info[exampledictstr].keys()
   ret = list()
   for groupnm in groups:
