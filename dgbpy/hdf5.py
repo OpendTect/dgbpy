@@ -110,7 +110,7 @@ def isLogOutput( info ):
 
 def isLogClusterOutput( info ):
   if isinstance(info,dict):
-    return info[learntypedictstr] == logclustertypestr
+    return info[learntypedictstr] == logclustertypestr or info[learntypedictstr] == seisproptypestr
   return info == logclustertypestr
 
 def isImg2Img( info ):
@@ -584,18 +584,9 @@ def getClassIndicesFromData( info ):
   ret = list()
   for groupnm in groups:
     grp = h5file[groupnm]
-    if isimg2img:
-      for inpnm in grp:
-        sublist = list(set(grp[inpnm][-1].astype('uint8').ravel()))
-        sublist.extend( ret )
-        ret = list(set(sublist))
-    else:
-      nrvals = len(grp)
-      vals = np.empty( nrvals, dtype='uint8' )
-      for ival,dsetnm in zip(range(nrvals),grp):
-        dset = grp[dsetnm]
-        vals[ival] = odhdf5.getIntValue( dset, valuestr )
-      sublist = list(set(vals.ravel()))
+    for inpnm in grp:
+      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]))
+      sublist = list(set(np.array(grp[inpnm][ydatadictstr]).astype(outdtype).ravel()))
       sublist.extend( ret )
       ret = list(set(sublist))
   ret = np.sort( ret )
