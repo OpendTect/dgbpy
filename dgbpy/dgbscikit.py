@@ -559,6 +559,8 @@ def onnx_from_sklearn(model):
   if getattr(model,'multi_class',None) or \
      getattr(model,'predict_proba',None):
     options = {id(model): {'zipmap': False}}
+    if isinstance(model,MLPClassifier):
+      model.classes_ = model.classes_.astype( np.int64 )
   return convert_sklearn(model, initial_types=initial_type, options=options)
 
 def save( model, outfnm, save_type=defsavetype ):
