@@ -1,6 +1,32 @@
+import os
 import numpy as np
 from joblib import load
 import json
+
+class OnnxModel:
+    def __init__(self, filepath : str):
+        self.name = filepath
+        
+    def _do_predict(self,x_data,outidx):
+        if not os.path.exists(str(self.name)):
+            raise FileNotFoundError()
+            
+        import onnxruntime as rt
+        import numpy as np
+        sess = rt.InferenceSession(self.name)
+        input_name = sess.get_inputs()[0].name
+        label_name = sess.get_outputs()[outidx].name
+        runopts = rt.RunOptions()
+        pred_onx = sess.run([label_name],
+                            {input_name: x_data.astype(np.single)},
+                            run_options=runopts)[0]
+        return np.squeeze( pred_onx )
+    
+    def predict(self,x_data):
+        return self._do_predict(x_data,0)
+    
+    def predict_proba(self,x_data):
+        return self._do_predict(x_data,1)
 
 def model_info( modelfnm ):
     model = load( modelfnm )
@@ -23,7 +49,7 @@ def model_info_dict( skl_model ):
     if minfo['module']=='xgboost.sklearn':
         minfo['nfeatures'] = skl_model.feature_importances_.shape[0]
     else:
-        minfo['nfeatures'] = getattr(skl_model,'n_features_',None)
+        minfo['nfeatures'] = getattr(skl_model,'n_features_in_',None)
 
     minfo['noutputs']  = getattr(skl_model,'n_outputs_',None)
     minfo['coef']      = getattr(skl_model,'coef_', None)
@@ -38,7 +64,7 @@ def model_info_dict( skl_model ):
 
     if minfo['classes'] is not None:
       pass
-    elif minfo['esttype'] is 'classifier' and minfo['noutputs'] is not None:
+    elif minfo['esttype'] == 'classifier' and minfo['noutputs'] is not None:
         minfo['classes'] = [i for i in range(minfo['noutputs'])]
 
     return minfo

@@ -110,7 +110,7 @@ def isLogOutput( info ):
 
 def isLogClusterOutput( info ):
   if isinstance(info,dict):
-    return info[learntypedictstr] == logclustertypestr
+    return info[learntypedictstr] == logclustertypestr or info[learntypedictstr] == seisproptypestr
   return info == logclustertypestr
 
 def isImg2Img( info ):
@@ -579,23 +579,13 @@ def getClassIndicesFromData( info ):
   dsinfoin = odhdf5.ensureHasDataset( h5file )
   if odhdf5.hasAttr( dsinfoin, classesvalstr ):
     return odhdf5.getIArray( dsinfoin, classesvalstr )
-  isimg2img = isImg2Img( info )
   groups = info[exampledictstr].keys()
   ret = list()
   for groupnm in groups:
     grp = h5file[groupnm]
-    if isimg2img:
-      for inpnm in grp:
-        sublist = list(set(grp[inpnm][-1].astype('uint8').ravel()))
-        sublist.extend( ret )
-        ret = list(set(sublist))
-    else:
-      nrvals = len(grp)
-      vals = np.empty( nrvals, dtype='uint8' )
-      for ival,dsetnm in zip(range(nrvals),grp):
-        dset = grp[dsetnm]
-        vals[ival] = odhdf5.getIntValue( dset, valuestr )
-      sublist = list(set(vals.ravel()))
+    for inpnm in grp:
+      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]))
+      sublist = list(set(np.array(grp[inpnm][ydatadictstr]).astype(outdtype).ravel()))
       sublist.extend( ret )
       ret = list(set(sublist))
   ret = np.sort( ret )
@@ -643,25 +633,42 @@ def translateFnm( modfnm, modelfnm ):
     moddir = winh5fp.parent
     modbasefnm = winmodfp.name
     modlocfnm = PureWindowsPath( moddir ).joinpath( PureWindowsPath(modbasefnm))
-    if os.path.exists(modlocfnm):
+    relmodlocfnm = modlocfnm.with_name( winh5fp.name )
+    relmodlocfnm = relmodlocfnm.with_suffix( winmodfp.suffix )
+    if os.path.exists(relmodlocfnm):
+      modfnm = relmodlocfnm
+    elif os.path.exists(modlocfnm):
       modfnm = modlocfnm
     else:
       moddir = posidxh5fp.parent
       modbasefnm = posixmodfp.name
       modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-      if os.path.exists(modlocfnm):
+      relmodlocfnm = modlocfnm.with_name( posidxh5fp.name )
+      relmodlocfnm = relmodlocfnm.with_suffix( posixmodfp.suffix )
+      if os.path.exists(relmodlocfnm):
+        modfnm = relmodlocfnm        
+      elif os.path.exists(modlocfnm):
         modfnm = modlocfnm
   else:
     moddir = posidxh5fp.parent
     modbasefnm = posixmodfp.name
     modlocfnm = PurePosixPath( moddir ).joinpath( PurePosixPath(modbasefnm) )
-    if os.path.exists(modlocfnm):
+    relmodlocfnm = modlocfnm.with_name( posidxh5fp.name )
+    relmodlocfnm = relmodlocfnm.with_suffix( posixmodfp.suffix )
+    if os.path.exists(relmodlocfnm):
+      modfnm = relmodlocfnm
+    elif os.path.exists(modlocfnm):
       modfnm = modlocfnm
     else:
       moddir = winh5fp.parent
       modbasefnm = winmodfp.name
-      modlocfnm = PureWindowsPath( moddir).joinpath(PureWindowsPath(modbasefnm))
+      modlocfnm = PureWindowsPath( moddir ).joinpath(PureWindowsPath(modbasefnm))
+      relmodlocfnm = modlocfnm.with_name( winh5fp.name )
+      relmodlocfnm = relmodlocfnm.with_suffix( winmodfp.suffix )
       modlocfnm = modlocfnm.as_posix()
-      if os.path.exists(modlocfnm):
+      relmodlocfnm = relmodlocfnm.as_posix()
+      if os.path.exists(relmodlocfnm):
+        modfnm = relmodlocfnm
+      elif os.path.exists(modlocfnm):
         modfnm = modlocfnm
   return modfnm
