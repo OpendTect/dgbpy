@@ -787,8 +787,6 @@ class SeismicTrainDataset:
                 elif len(self.X.shape)>len(self.y.shape):    #supervised regression
                     data = self.X[index, :, 0, 0, :]
                     label = self.y[index, :]
-        elif classification:
-            return self.X[index, :, 0, 0, :], self.y[index, :]
         else:
             return self.X[index, :, 0, 0, :], self.y[index, :]
 

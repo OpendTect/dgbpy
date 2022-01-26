@@ -1,3 +1,4 @@
+from multiprocessing import dummy
 from dgbpy.torch_classes import DatasetApply
 from sklearn.metrics import accuracy_score, f1_score
 import torch, os, json, pickle, joblib
@@ -14,7 +15,7 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 torch_dict = {
-    'epochs': 10,
+    'epochs': 1,
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss(),
     'batch_size': 8,
@@ -119,38 +120,76 @@ def getModelDims( model_shape, data_format ):
     return 0
   return len(ret)
 
+savetypes = ( 'onnx', 'joblib', 'pickle' )
+defsavetype = savetypes[0]
+
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
   modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
+  
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     model = joblib.load( modfnm )
   elif savetype == savetypes[1]:
+    modfnm = odhdf5.getText( modelgrp, 'path' )
+    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+    model = joblib.load( modfnm )
+  elif savetype == savetypes[2]:
     modeldata = modelgrp['object']
     model = pickle.loads( modeldata[:].tostring() )
   h5file.close()
   return model
 
-savetypes = ( 'joblib', 'pickle' )
-defsavetype = savetypes[0]
+def onnx_from_torch(model, infos):
+  attribs = dgbhdf5.getNrAttribs(infos)
+  isclassification = infos[dgbhdf5.classdictstr]
+  batch_size = torch_dict['batch_size']
+  model_shape = get_model_shape(infos[dgbkeys.inpshapedictstr], attribs, True)
+  dims = getModelDims(model_shape, True)
+  if isclassification:
+    nroutputs = len(infos[dgbkeys.classesdictstr])
+  else:
+    nroutputs = dgbhdf5.getNrOutputs( infos )
+  if model.__class__.__name__ == 'Sequential':
+    from dgbpy.mlmodel_torch_dGB import ResNet18
+    model_instance = ResNet18(nroutputs, dims, attribs)
+  elif model.__class__.__name__ == 'Net':
+    from dgbpy.torch_classes import Net
+    model_instance = Net(nroutputs, dims, attribs)
+  elif model.__class__.__name__ == 'UNet':
+    from dgbpy.torch_classes import UNet
+    model_instance = UNet(out_channels=nroutputs, dim=dims, attribs=attribs)
+  model_instance.load_state_dict(model.state_dict())
+  if dims  == 3:
+    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
+  elif dims == 2:
+    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1], model_shape[2])
+  elif dims == 1:
+    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1])
+  return model_instance, dummy_input
 
-def save( model, outfnm, save_type=defsavetype ):
+def save( model, outfnm, infos, save_type=defsavetype ):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
-  odhdf5.setAttr( h5file, 'type', 'Simple Net' )
+  odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if save_type == savetypes[0]:
+    joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
+    retmodel, dummies = onnx_from_torch(model, infos)
+    torch.onnx.export(retmodel, dummies, joutfnm)
+    odhdf5.setAttr( modelgrp, 'path', joutfnm )
+  elif save_type == savetypes[1]:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
     joblib.dump( model.state_dict(), joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
-  elif save_type == savetypes[1]:
+  elif save_type == savetypes[2]:
     exported_modelstr = pickle.dumps(model.state_dict())
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
