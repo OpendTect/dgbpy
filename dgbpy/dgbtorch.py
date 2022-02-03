@@ -121,7 +121,7 @@ def getModelDims( model_shape, data_format ):
   return len(ret)
 
 savetypes = ( 'onnx', 'joblib', 'pickle' )
-defsavetype = savetypes[0]
+defsavetype = savetypes[1]
 
 def load( modelfnm ):
   model = None
