@@ -301,7 +301,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
     dgbscikit.save( model, outfnm )
   elif platform == dgbkeys.torchplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    dgbtorch.save( model, outfnm )
+    dgbtorch.save( model, outfnm, infos )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
