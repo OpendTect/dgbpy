@@ -19,6 +19,27 @@ import dgbpy.keystr as dgbkeys
 import odpy.common as odcommon
 #import albumentations as A
 
+import onnxruntime as rt
+def Tensor2Numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
+def Numpy2tensor(nparray):
+    return torch.from_numpy(nparray)
+
+class OnnxModel():
+    def __init__(self, filepath : str):
+        self.name = filepath
+
+    def __call__(self, inputs):
+        self.inputs = inputs
+        ort_session = rt.InferenceSession(self.name)
+        ort_inputs = {ort_session.get_inputs()[0].name: Tensor2Numpy(self.inputs)}
+        ort_outs = np.array(ort_session.run(None, ort_inputs))[-1]
+        return Numpy2tensor(ort_outs)
+
+    def eval(self):
+        pass
+
 class Net(nn.Module):   
     def __init__(self, output_classes, dim, nrattribs):
         super(Net, self).__init__()
@@ -617,7 +638,7 @@ class UNet(nn.Module):
     def __init__(self,
                  in_channels: int = 1,
                  out_channels: int = 2,
-                 n_blocks: int = 4,
+                 n_blocks: int = 1,
                  start_filters: int = 32,
                  activation: str = 'relu',
                  normalization: str = 'batch',
