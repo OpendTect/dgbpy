@@ -133,7 +133,9 @@ def load( modelfnm ):
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    model = joblib.load( modfnm )
+    from dgbpy.torch_classes import OnnxModel
+    model = OnnxModel(str(modfnm))
+  
   elif savetype == savetypes[1]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -162,7 +164,7 @@ def onnx_from_torch(model, infos):
     model_instance = Net(nroutputs, dims, attribs)
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
-    model_instance = UNet(out_channels=nroutputs, dim=dims, attribs=attribs)
+    model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
   model_instance.load_state_dict(model.state_dict())
   if dims  == 3:
     dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
@@ -238,23 +240,27 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     nroutputs = len(info[dgbkeys.classesdictstr])
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
-  from dgbpy.mlmodel_torch_dGB import ResNet18
-  dfdm = ResNet18(nroutputs, dim=ndims, nrattribs=attribs)
-  if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
-    info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr or info[dgbkeys.learntypedictstr] == dgbkeys.seisproptypestr:
-    try:
+  
+  if model.__class__.__name__ == "OrderedDict":
+    from dgbpy.mlmodel_torch_dGB import ResNet18
+    dfdm = ResNet18(nroutputs, dim=ndims, nrattribs=attribs)
+    if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
+      info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr or info[dgbkeys.learntypedictstr] == dgbkeys.seisproptypestr:
+      try:
+        dfdm.load_state_dict(model)
+      except RuntimeError:
+        from dgbpy.torch_classes import Net
+        dfdm = Net(output_classes=nroutputs, dim=ndims, nrattribs=attribs)
+        dfdm.load_state_dict(model)
+    elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+      from dgbpy.torch_classes import UNet
+      if isclassification:
+        dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
+      else:
+        dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
       dfdm.load_state_dict(model)
-    except RuntimeError:
-      from dgbpy.torch_classes import Net
-      dfdm = Net(output_classes=nroutputs, dim=ndims, nrattribs=attribs)
-      dfdm.load_state_dict(model)
-  elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-    from dgbpy.torch_classes import UNet
-    if isclassification:
-      dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
-    else:
-      dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
-    dfdm.load_state_dict(model)
+  elif model.__class__.__name__ == 'OnnxModel':
+    dfdm = model
 
   predictions = []
   predictions_prob = []
@@ -272,7 +278,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
           predictions.append(_)
         for _prob in pred_prob:
           predictions_prob.append(_prob)
-  
+
   if withpred:
     if isclassification:
       if not (doprobabilities or withconfidence):
