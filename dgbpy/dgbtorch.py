@@ -15,7 +15,7 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 torch_dict = {
-    'epochs': 1,
+    'epochs': 10,
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss(),
     'batch_size': 8,
@@ -121,7 +121,7 @@ def getModelDims( model_shape, data_format ):
   return len(ret)
 
 savetypes = ( 'onnx', 'joblib', 'pickle' )
-defsavetype = savetypes[1]
+defsavetype = savetypes[0]
 
 def load( modelfnm ):
   model = None
@@ -130,6 +130,9 @@ def load( modelfnm ):
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
   
+  modeltype = odhdf5.getText(h5file, 'type')
+  if modeltype=='Sequential':
+    savetype = savetypes[1]
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -149,7 +152,6 @@ def load( modelfnm ):
 def onnx_from_torch(model, infos):
   attribs = dgbhdf5.getNrAttribs(infos)
   isclassification = infos[dgbhdf5.classdictstr]
-  batch_size = torch_dict['batch_size']
   model_shape = get_model_shape(infos[dgbkeys.inpshapedictstr], attribs, True)
   dims = getModelDims(model_shape, True)
   if isclassification:
@@ -166,12 +168,15 @@ def onnx_from_torch(model, infos):
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
   model_instance.load_state_dict(model.state_dict())
+  input_size = torch_dict['batch_size']
+  if model.__class__.__name__ == 'UNet':
+    input_size = 1
   if dims  == 3:
-    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
   elif dims == 2:
-    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1], model_shape[2])
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
   elif dims == 1:
-    dummy_input = torch.randn(batch_size, model_shape[0], model_shape[1])
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
   return model_instance, dummy_input
 
 def save( model, outfnm, infos, save_type=defsavetype ):
@@ -182,6 +187,8 @@ def save( model, outfnm, infos, save_type=defsavetype ):
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
+  if model.__class__.__name__ == 'Sequential':
+    save_type = savetypes[1]
   if save_type == savetypes[0]:
     joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
     retmodel, dummies = onnx_from_torch(model, infos)
@@ -228,7 +235,6 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
   sampleDataset = DatasetApply(samples, isclassification, 1, ndims=ndims)
-  dataloader = getDataLoader(sampleDataset, batchsize=torch_dict['batch_size'])
   ret = {}
   res = None
   try:
@@ -236,6 +242,14 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     img2img = True
   except KeyError:
     img2img = False
+  
+  if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
+      info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
+      drop_last = True
+  else:
+    drop_last = False
+  batch_size = torch_dict['batch_size']
+  dataloader = getDataLoader(sampleDataset, batch_size=batch_size, drop_last=drop_last)
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
   else:
@@ -267,8 +281,6 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   dfdm.eval()
   for input in dataloader:
       with torch.no_grad():
-        if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-          pass
         out = dfdm(input)
         pred = out.detach().numpy()
         pred_prob = pred.copy()
@@ -342,13 +354,13 @@ def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['bat
     testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
     return trainloader, testloader
 
-def getDataLoader(dataset, batchsize=torch_dict['batch_size']):
-    dataloader = DataLoader(dataset=dataset, batch_size=batchsize, shuffle=False, drop_last=False)
+def getDataLoader(dataset, batch_size=torch_dict['batch_size'], drop_last=False):
+    dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False, drop_last=drop_last)
     return dataloader
 
 def getDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch_size']):
-    trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=False)
-    testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=False)
+    trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=True)
+    testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
     return trainloader, testloader
 
 def DataGenerator(imgdp, batchsize):
@@ -359,8 +371,6 @@ def DataGenerator(imgdp, batchsize):
     y_test = imgdp[dgbkeys.yvaliddictstr]
     inp_ch = x_train.shape[1]
     attribs = dgbhdf5.getNrAttribs(info)
-    inp_shape = len(x_train)
-    out_shape = len(y_train)
     model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
     ndims = getModelDims(model_shape, True)
 

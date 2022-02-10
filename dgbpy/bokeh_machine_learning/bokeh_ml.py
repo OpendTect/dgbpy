@@ -2,6 +2,8 @@ from inspect import isclass
 from bokeh.server.server import Server
 import dgbpy.uibokeh_well as odb
 import odpy.common as odcommon
+import argparse, os, sys
+from dgbpy.bokehserver import StartBokehServer, DefineBokehArguments
 
 undef = 1e30
 survargs= odcommon.getODArgs()
@@ -9,6 +11,56 @@ wellnm = 'None'
 logs = []
 
 import dgbpy.servicemgr as dgbservmgr
+
+parser = argparse.ArgumentParser(
+            description='Select parameters for machine learning model training')
+parser.add_argument( '-v', '--version',
+            action='version', version='%(prog)s 1.0' )
+parser.add_argument( 'h5file',
+            type=argparse.FileType('r'),
+            help='HDF5 file containing the training data' )
+datagrp = parser.add_argument_group( 'Data' )
+datagrp.add_argument( '--dataroot',
+            dest='dtectdata', metavar='DIR', nargs=1,
+            help='Survey Data Root' )
+datagrp.add_argument( '--survey',
+            dest='survey', nargs=1,
+            help='Survey name' )
+traingrp = parser.add_argument_group( 'Training' )
+traingrp.add_argument( '--modelfnm',
+            dest='model', nargs=1,
+            type=argparse.FileType('r'),
+            help='Input model file name' )
+traingrp.add_argument( '--transfer', '--Transfer', dest='transfer',
+            action='store_true', default=False,
+            help='Do transfer training' )
+traingrp.add_argument( '--trainmodelnm',
+            dest='trainmodelnm', nargs='?', default='',
+            help='Output trained model dataset name' )
+traingrp.add_argument( '--mldir',
+            dest='mldir', nargs=1,
+            help='Machine Learning Logging Base Directory' )
+odappl = parser.add_argument_group( 'OpendTect application' )
+odappl.add_argument( '--dtectexec',
+            metavar='DIR', nargs=1,
+            help='Path to OpendTect executables' )
+odappl.add_argument( '--qtstylesheet',
+            metavar='qss', nargs=1,
+            type=argparse.FileType('r'),
+            help='Qt StyleSheet template' )
+loggrp = parser.add_argument_group( 'Logging' )
+loggrp.add_argument( '--proclog',
+            dest='logfile', metavar='file', nargs='?',
+            type=argparse.FileType('a'), default=sys.stdout,
+            help='Progress report output' )
+loggrp.add_argument( '--syslog',
+            dest='sysout', metavar='stdout', nargs='?',
+            type=argparse.FileType('a'), default=sys.stdout,
+            help='Standard output' )
+
+parser = DefineBokehArguments(parser)
+
+args = vars(parser.parse_args())
 
 def training_app(doc):
 # Keep all lengthy operations below
@@ -53,23 +105,11 @@ def training_app(doc):
   from dgbpy import uibokeh, uikeras, uisklearn, uitorch
   from dgbpy import mlio as dgbmlio
 
-  data_path = '/home/olawale/Desktop/PROJECT/OpendTect/new-workflows/Unsupervised Segmentation (Clustering)/'  #Unsupervised Segmentation (Clustering)
-  filenms = ['Log_-_density.h5', 'Log_-_Porosity_prediction_with_gate.h5',
-            'Log_-_Sonic_prediction.h5', 'Attributes_-_SynthRock_logs_-_no_synthseis.h5',
-            'Attributes_-_SynthRock_logs.h5', 'Attributes_-_real_wells_logs.h5',
-            'Log_-_Lithology_supervised_prediction.h5', 'Log_-_Clustering_using_Den-Son-GR.h5', 
-            'Attributes_-_SynthRock_UVQ_logs.h5']
-
-  examplefilenm = data_path+filenms[-1]
   trainingcb = None
   traintype =  dgbmlapply.TrainType.New
   doabort = False
-  args = {
-      'bsmserver': 'localhost:20050',
-      'ppid': 21407,
-      'port': 20051,
-      'bokehid': 1,
-      'model': None}
+
+  examplefilenm = args['h5file'].name
   if 'model' in args:
     model = args['model']
     if model != None and len(model)>0:
@@ -108,7 +148,7 @@ def training_app(doc):
     torchpars = None
     sklearnpars = None
     parsgroups = None
-    traininglogfilenm = None
+    traininglogfilenm = 'process_log_1'
 
     def makeUI(examplefilenm):
       nonlocal info
@@ -136,6 +176,7 @@ def training_app(doc):
       keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
 
     makeUI(examplefilenm)
+    updateUI()
 
     def resetUiFields(cb):
       nonlocal keraspars
