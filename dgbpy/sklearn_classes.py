@@ -6,11 +6,11 @@ import json
 class OnnxModel:
     def __init__(self, filepath : str):
         self.name = filepath
-        
+
     def _do_predict(self,x_data,outidx):
         if not os.path.exists(str(self.name)):
             raise FileNotFoundError()
-            
+
         import onnxruntime as rt
         import numpy as np
         sess = rt.InferenceSession(self.name)
@@ -21,10 +21,10 @@ class OnnxModel:
                             {input_name: x_data.astype(np.single)},
                             run_options=runopts)[0]
         return np.squeeze( pred_onx )
-    
+
     def predict(self,x_data):
         return self._do_predict(x_data,0)
-    
+
     def predict_proba(self,x_data):
         return self._do_predict(x_data,1)
 
@@ -32,12 +32,13 @@ def model_info( modelfnm ):
     model = load( modelfnm )
     mi = model_info_dict( model )
     return (mi['esttype'], mi['modtype'], mi['module'], mi['params'],
-	    mi['nfeatures'], mi['noutputs'], mi['classes'])
+	    mi['nfeatures'], mi['noutputs'], mi['classes'], mi['modclass'])
 
 def model_info_dict( skl_model ):
     minfo = {}
     minfo['esttype'] = getattr(skl_model,'_estimator_type','Unknown')
     minfo['modtype'] = getattr(type(skl_model),'__name__', None)
+    minfo['modclass'] = getattr(skl_model.__class__,'__name__', None)
     minfo['module']  = getattr(skl_model,'__module__',None)
     minfo['params']  = json.dumps(skl_model.get_params())
     if hasattr(skl_model,'estimators_'):
