@@ -15,11 +15,7 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 torch_dict = {
-<<<<<<< HEAD
-    'epochs': 10,
-=======
     'epochs': 15,
->>>>>>> 977a860fe8390b18e45f863717958dfa5f46565f
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss(),
     'batch_size': 8,
