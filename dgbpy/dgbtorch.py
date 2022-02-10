@@ -15,7 +15,11 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 torch_dict = {
+<<<<<<< HEAD
     'epochs': 10,
+=======
+    'epochs': 15,
+>>>>>>> 977a860fe8390b18e45f863717958dfa5f46565f
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss(),
     'batch_size': 8,
@@ -138,7 +142,6 @@ def load( modelfnm ):
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     from dgbpy.torch_classes import OnnxModel
     model = OnnxModel(str(modfnm))
-  
   elif savetype == savetypes[1]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
