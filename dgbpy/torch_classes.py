@@ -13,8 +13,8 @@ import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
-from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d, Dropout
-from sklearn.metrics import accuracy_score, f1_score
+from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
+from sklearn.metrics import accuracy_score
 import dgbpy.keystr as dgbkeys
 import odpy.common as odcommon
 #import albumentations as A
@@ -295,7 +295,6 @@ class ResidualBlock(nn.Module):
 
         self.initialize_weights()
         
-    
     def forward(self, X):
         Y = F.relu(self.bn1(self.conv1(X)))
         Y = self.bn2(self.conv2(Y))
@@ -313,21 +312,12 @@ class ResidualBlock(nn.Module):
         if self.conv3:
             h = self.conv3(X)
     
-
     def initialize_weights(self):
         for m in self.modules():
-            # print(m)
             if isinstance(m, nn.Conv3d) or isinstance(m, nn.Conv2d):
                 nn.init.kaiming_uniform_(m.weight)
-
-                '''
-                # Do not initialize bias (due to batchnorm)-
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-                '''
             
             elif isinstance(m, nn.BatchNorm3d) or isinstance(m, nn.BatchNorm2d):
-                # Standard initialization for batch normalization-
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
@@ -347,9 +337,6 @@ def create_resnet_block(input_filters, output_filters, num_residuals, ndims, fir
             resnet_blk.append(ResidualBlock(input_channels = output_filters, num_channels = output_filters, use_1x1_conv = False, strides = 1, ndims=ndims))
     
     return resnet_blk
-
-
-############ 3D UNET SEGMENTATION START ###############
 
 @torch.jit.script
 def autocrop(encoder_layer: torch.Tensor, decoder_layer: torch.Tensor):
@@ -388,7 +375,6 @@ def conv_layer(dim: int):
     elif dim == 2:
         return nn.Conv2d
 
-
 def get_conv_layer(in_channels: int,
                    out_channels: int,
                    kernel_size: int = 3,
@@ -399,13 +385,11 @@ def get_conv_layer(in_channels: int,
     return conv_layer(dim)(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding,
                            bias=bias)
 
-
 def conv_transpose_layer(dim: int):
     if dim == 3:
         return nn.ConvTranspose3d
     elif dim == 2:
         return nn.ConvTranspose2d
-
 
 def get_up_layer(in_channels: int,
                  out_channels: int,
@@ -419,20 +403,17 @@ def get_up_layer(in_channels: int,
     else:
         return nn.Upsample(scale_factor=2.0, mode=up_mode)
 
-
 def maxpool_layer(dim: int):
     if dim == 3:
         return nn.MaxPool3d
     elif dim == 2:
         return nn.MaxPool2d
 
-
 def get_maxpool_layer(kernel_size: int = 2,
                       stride: int = 2,
                       padding: int = 0,
                       dim: int = 2):
     return maxpool_layer(dim=dim)(kernel_size=kernel_size, stride=stride, padding=padding)
-
 
 def get_activation(activation: str):
     if activation == 'relu':
@@ -441,7 +422,6 @@ def get_activation(activation: str):
         return nn.LeakyReLU(negative_slope=0.1)
     elif activation == 'elu':
         return nn.ELU()
-
 
 def get_normalization(normalization: str,
                       num_channels: int,
@@ -457,7 +437,7 @@ def get_normalization(normalization: str,
         elif dim == 2:
             return nn.InstanceNorm2d(num_channels)
     elif 'group' in normalization:
-        num_groups = int(normalization.partition('group')[-1])  # get the group size from string
+        num_groups = int(normalization.partition('group')[-1]) 
         return nn.GroupNorm(num_groups=num_groups, num_channels=num_channels)
 
 
@@ -469,7 +449,6 @@ class Concatenate(nn.Module):
         x = torch.cat((layer_1, layer_2), 1)
 
         return x
-
 
 class DownBlock(nn.Module):
     """
@@ -534,7 +513,6 @@ class DownBlock(nn.Module):
         if self.pooling:
             y = self.pool(y)  # pooling
         return y, before_pooling
-
 
 class UpBlock(nn.Module):
     """
@@ -621,7 +599,6 @@ class UpBlock(nn.Module):
         if self.normalization:
             y = self.norm2(y)  # normalization 2
         return y
-
 
 class UNet(nn.Module):
     """
@@ -749,13 +726,6 @@ class SeismicTrainDataset:
         self.info = info
         self.X = X.astype('float32')
         self.y = y.astype('float32')
-        '''
-        self.aug = A.Compose([
-            A.ShiftScaleRotate(p=0.35, shift_limit=0, scale_limit=0.30, rotate_limit=30) ,
-            A.HorizontalFlip(p=0.5),
-#             A.RandomCrop(p=1, height=256, width=256),
-        ])
-        '''
 
     def __len__(self):
         return self.X.shape[0]
@@ -874,10 +844,6 @@ class SeismicTestDataset:
 
         return data, label
 
-
-############ 3D UNET SEGMENTATION END ###############
-
-
 class DatasetApply(Dataset):
     def __init__(self, X, isclassification, im_ch, ndims):
         super().__init__()
@@ -939,30 +905,6 @@ class TorchUserModel(ABC):
   predtype : DataPredType enum - type of prediction (must be member of DataPredType enum)
   outtype: OutputType enum - output shape type (OutputType.Pixel or OutputType.Image)
   dimtype : DimType enum - the input dimensions supported by model (must be member of DimType enum)
-
-  Examples
-  --------
-    from dgbpy.torch_classes import TorchUserModel, DataPredType, OutputType, DimType
-  
-    class myModel(TorchUserModel):
-      uiname = 'mymodel'
-      uidescription = 'short description of model'
-      predtype = DataPredType.Classification
-      outtype = OutputType.Pixel
-      dimtype = DimType.D3
-      
-      def _make_model(self, input_shape, nroutputs, learnrate, data_format):
-        inputs = Input(input_shape)
-        conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(inputs)
-        conv1 = Conv3D(2, (3,3,3), activation='relu', padding='same')(conv1)
-        pool1 = MaxPooling3D(pool,size=(2,2,2))(conv1)
-        ...
-        conv8 = Conv3D(1, (1,1,1,), activation='sigmoid')(conv7)
-      
-        model = Model(inputs=[inputs], outputs=[conv8])
-        model.compile(optimizer = Adam(lr = 1e-4), loss = cross_entropy_balanced, metrics = ['accuracy'])
-        return model
-      
     
   """
   mlmodels = []
@@ -1090,17 +1032,13 @@ class TorchUserModel(ABC):
     Parameters
     ----------
     input_shape : tuple
-    Defines input data shape in the torch default data_format for the current backend.
-    For the TensorFlow backend the default data_format is 'channels_last'
     nroutputs : int (number of discrete classes for a classification)
     Number of outputs
     learnrate : float
-    The step size applied at each iteration to move toward a minimum of the loss function
     
     Returns
     -------
     a compiled torch model
-    
     """
     pass
 
@@ -1125,4 +1063,3 @@ class TorchUserModel(ABC):
     return self._model
 
 TorchUserModel.mlmodels = TorchUserModel.findModels()
-

@@ -1,16 +1,12 @@
-from multiprocessing import dummy
 from dgbpy.torch_classes import DatasetApply
-from sklearn.metrics import accuracy_score, f1_score
 import torch, os, json, pickle, joblib
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from pathlib import PurePosixPath, PureWindowsPath
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
-from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -126,7 +122,6 @@ defsavetype = savetypes[0]
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
-  modelpars = json.loads( odhdf5.getAttr(h5file,'model_config') )
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
   
