@@ -1,3 +1,13 @@
+#__________________________________________________________________________
+#
+# (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
+# Author:        O. Ibrahim
+# Date:          Sept 2021
+#
+# _________________________________________________________________________
+# various tools machine learning using PyTorch platform
+#
+
 from dgbpy.torch_classes import DatasetApply
 import torch, os, json, pickle, joblib
 import numpy as np
