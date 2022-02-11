@@ -126,7 +126,7 @@ def load( modelfnm ):
   savetype = odhdf5.getText( modelgrp, 'type' )
   
   modeltype = odhdf5.getText(h5file, 'type')
-  if modeltype=='Sequential':
+  if modeltype=='Sequential' or modeltype=='Net':
     savetype = savetypes[1]
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
@@ -181,7 +181,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
-  if model.__class__.__name__ == 'Sequential':
+  if model.__class__.__name__ == 'Sequential' or model.__class__.__name__ == "Net":
     save_type = savetypes[1]
   if save_type == savetypes[0]:
     joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
