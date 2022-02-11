@@ -12,8 +12,7 @@ from dgbpy.torch_classes import DatasetApply
 import torch, os, json, pickle, joblib
 import numpy as np
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
