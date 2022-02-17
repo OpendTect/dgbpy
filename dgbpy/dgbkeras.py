@@ -220,7 +220,7 @@ def getModelsByType( learntype, classification, ndim ):
       outtype = kc.OutputType.Image
     if classification or dgbhdf5.isSeisClass( learntype ):
       predtype = kc.DataPredType.Classification
-    if dgbhdf5.isLogClusterOutput(learntype):
+    if dgbhdf5.isSegmentation(learntype):
       predtype = kc.DataPredType.Segmentation
     return kc.UserModel.getNamesByType(pred_type=predtype, out_type=outtype, dim_type=dimtype)
 
@@ -288,6 +288,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
   epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
 
   callbacks = [early_stopping,LR_sched,epoch0end]
+
   batchsize = params['batch']
   if logdir != None:
     from keras.callbacks import TensorBoard
