@@ -93,6 +93,11 @@ def isClassification( info ):
     return info[classdictstr]
   return info == classdatavalstr
 
+def isSegmentation( info ):
+  if isinstance(info,dict):
+    return info[segmentdictstr]
+  return info == segmenttypestr
+
 def isSeisClass( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == seisclasstypestr
@@ -105,13 +110,10 @@ def isLogInput( info ):
 
 def isLogOutput( info ):
   if isinstance(info,dict):
-    return info[learntypedictstr] == loglogtypestr or info[learntypedictstr] == seisproptypestr
-  return info == loglogtypestr or info == seisproptypestr
-
-def isLogClusterOutput( info ):
-  if isinstance(info,dict):
-    return info[learntypedictstr] == logclustertypestr or info[learntypedictstr] == seisproptypestr
-  return info == logclustertypestr
+    return info[learntypedictstr] == loglogtypestr or \
+           info[learntypedictstr] == seisproptypestr or \
+           info[learntypedicstr] == logclustertypestr
+  return info == loglogtypestr or info == seisproptypestr or info == logclustertypestr
 
 def isImg2Img( info ):
   if isinstance(info,dict):
@@ -158,7 +160,7 @@ def getCubeLets( infos, collection, groupnm ):
   nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
   img2img = isImg2Img( infos )
-  iscluster = isLogClusterOutput( infos )
+  iscluster = isSegmentation( infos )
   examples = infos[exampledictstr]
   if img2img:
     outnrattribs = 1
@@ -301,8 +303,10 @@ def getInfo( filenm, quick ):
 
   learntype = odhdf5.getText(info,typestr)
   isclassification = isSeisClass( learntype )
+  issegmentation = False
   if odhdf5.hasAttr(info,contentvalstr):
     isclassification = odhdf5.getText(info,contentvalstr) == classdatavalstr
+    issegmentation = odhdf5.getText(info,contentvalstr) == segmenttypestr
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
@@ -405,6 +409,7 @@ def getInfo( filenm, quick ):
 
   retinfo = {
     learntypedictstr: learntype,
+    segmentdictstr: issegmentation,
     inpshapedictstr: inpshape,
     outshapedictstr: outshape,
     classdictstr: isclassification,
@@ -425,7 +430,7 @@ def getInfo( filenm, quick ):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   h5file.close()
 
-  if isLogOutput(learntype) or isLogClusterOutput(learntype):
+  if isLogOutput(learntype):
     return getWellInfo( retinfo, filenm )
 
   if isSeisClass(learntype) or isImg2Img(learntype):

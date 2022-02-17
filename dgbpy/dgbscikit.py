@@ -98,7 +98,7 @@ def getUIMLPlatform():
   return platform[1]
 
 def getUiModelTypes(learntype,isclassification):
-  if dgbhdf5.isLogClusterOutput(learntype):
+  if dgbhdf5.isSegmentation(learntype):
     return getUiClusterTypes()
   if isclassification:
     return dgbkeys.getNames( classmltypes )
