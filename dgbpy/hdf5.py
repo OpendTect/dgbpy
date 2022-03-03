@@ -112,7 +112,7 @@ def isLogOutput( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == loglogtypestr or \
            info[learntypedictstr] == seisproptypestr or \
-           info[learntypedicstr] == logclustertypestr
+           info[learntypedictstr] == logclustertypestr
   return info == loglogtypestr or info == seisproptypestr or info == logclustertypestr
 
 def isImg2Img( info ):
