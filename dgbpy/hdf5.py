@@ -461,6 +461,8 @@ def getWellInfo( info, filenm ):
       classesdictstr: getClassIndicesFromData(info),
       classnmdictstr: getMainOutputs(info)[0]
     })
+  else:
+    info[outshapedictstr] = getNrOutputs(info)
 
   if not isModel(info):
     info.update( {estimatedsizedictstr: getTotalSize(info)} )
