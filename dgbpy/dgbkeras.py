@@ -54,7 +54,7 @@ defbatchstr = 'defaultbatchsz'
 keras_dict = {
   dgbkeys.decimkeystr: False,
   'nbchunk': 10,
-  'epoch': 15,
+  'epochs': 15,
   'batch': 32,
   'patience': 5,
   'learnrate': 1e-4,
@@ -88,14 +88,14 @@ def set_compute_device( prefercpu ):
   tfconfig.set_visible_devices( cpudevs )
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
-               epochs=keras_dict['epoch'],
+               epochs=keras_dict['epochs'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
-    'epoch': epochs,
+    'epochs': epochs,
     'batch': batch,
     'patience': patience,
     'learnrate': learnrate,
@@ -329,7 +329,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
                             get_validation_data( validate_datagen )
 
     try:
-      model.fit(x=train_datagen,epochs=params['epoch'],verbose=1,
+      model.fit(x=train_datagen,epochs=params['epochs'],verbose=1,
                 validation_data=validate_datagen,callbacks=callbacks)
     except Exception as e:
       log_msg('')
