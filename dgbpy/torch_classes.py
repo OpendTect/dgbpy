@@ -139,7 +139,7 @@ class Trainer:
         self.learning_rate = []
         self.training_accuracy = []
         self.validation_accuracy = []
-        self.F1_old = 0.0
+        self.F1_old = float('-inf')
         self.RMSE = 100 ** 10000
 
     def run_trainer(self):
@@ -176,16 +176,18 @@ class Trainer:
                 pred = out.detach().cpu().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred.flatten(), target.flatten())
+                loss = self.criterion(out, target.squeeze(1))
             elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                 target = target.type(torch.LongTensor)
                 pred = out.detach().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred, target)
+                loss = self.criterion(out, target.squeeze(1))
             elif not classification:
                 from sklearn.metrics import mean_squared_error
                 pred = out.detach().cpu().numpy()
                 acc = mean_squared_error(pred.flatten(), target.flatten())
-            loss = self.criterion(out, target.squeeze(1))
+                loss = self.criterion(out, target)
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
@@ -214,35 +216,40 @@ class Trainer:
                     val_pred = out.detach().cpu().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred.flatten(), target.flatten())
+                    loss = self.criterion(out, target.squeeze(1))
                 elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                     target = target.type(torch.LongTensor)
                     val_pred = out.detach().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred, target)
+                    loss = self.criterion(out, target.squeeze(1))
                 elif not classification:
                     from sklearn.metrics import mean_squared_error
                     val_pred = out.detach().cpu().numpy()
                     acc = mean_squared_error(val_pred.flatten(), target.flatten())
-                loss = self.criterion(out, target.squeeze(1))
+                    loss = self.criterion(out, target)
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
-        self.validation_loss.append(np.mean(valid_losses))
-        self.validation_accuracy.append(np.mean(valid_accs))
-        odcommon.log_msg(f'Validation loss: {np.round(np.mean(valid_losses), 4)}')
+        mean_valid_accs = np.mean(valid_accs)
+        mean_valid_losses = np.mean(valid_losses)
+        self.validation_loss.append(mean_valid_losses)
+        self.validation_accuracy.append(mean_valid_accs)
+        odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
+        
         if classification:
-            odcommon.log_msg(f'Validation Accuracy: {np.round(np.mean(valid_accs), 4)}')
+            odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
         else:
-            odcommon.log_msg(f'Validation MSE: {np.round(np.mean(valid_accs), 4)}')
-        if self.F1_old < np.mean(valid_accs) and classification:
-            self.F1_old = np.mean(valid_accs)
+            odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
+        if self.F1_old < mean_valid_accs and classification:
+            self.F1_old = mean_valid_accs
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs)
-        elif self.RMSE > np.mean(valid_accs) and not classification:
-            self.F1_old = np.mean(valid_accs)
+            self.validation_best = mean_valid_accs
+        elif self.RMSE > mean_valid_accs and not classification:
+            self.F1_old = mean_valid_accs
             self.RMSE = self.F1_old
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs)
+            self.validation_best = mean_valid_accs
 
 ########### 3D RESNET 18 ARCHITECTURE START #############
 
