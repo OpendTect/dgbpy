@@ -176,16 +176,18 @@ class Trainer:
                 pred = out.detach().cpu().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred.flatten(), target.flatten())
+                loss = self.criterion(out, target.squeeze(1))
             elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                 target = target.type(torch.LongTensor)
                 pred = out.detach().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred, target)
+                loss = self.criterion(out, target.squeeze(1))
             elif not classification:
                 from sklearn.metrics import mean_squared_error
                 pred = out.detach().cpu().numpy()
                 acc = mean_squared_error(pred.flatten(), target.flatten())
-            loss = self.criterion(out, target.squeeze(1))
+                loss = self.criterion(out, target)
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
@@ -214,16 +216,18 @@ class Trainer:
                     val_pred = out.detach().cpu().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred.flatten(), target.flatten())
+                    loss = self.criterion(out, target.squeeze(1))
                 elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                     target = target.type(torch.LongTensor)
                     val_pred = out.detach().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred, target)
+                    loss = self.criterion(out, target.squeeze(1))
                 elif not classification:
                     from sklearn.metrics import mean_squared_error
                     val_pred = out.detach().cpu().numpy()
                     acc = mean_squared_error(val_pred.flatten(), target.flatten())
-                loss = self.criterion(out, target.squeeze(1))
+                    loss = self.criterion(out, target)
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
