@@ -231,22 +231,25 @@ class Trainer:
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
-        self.validation_loss.append(np.mean(valid_losses))
-        self.validation_accuracy.append(np.mean(valid_accs))
-        odcommon.log_msg(f'Validation loss: {np.round(np.mean(valid_losses), 4)}')
+        mean_valid_accs = np.mean(valid_accs)
+        mean_valid_losses = np.mean(valid_losses)
+        self.validation_loss.append(mean_valid_losses)
+        self.validation_accuracy.append(mean_valid_accs)
+        odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
+        
         if classification:
-            odcommon.log_msg(f'Validation Accuracy: {np.round(np.mean(valid_accs), 4)}')
+            odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
         else:
-            odcommon.log_msg(f'Validation MSE: {np.round(np.mean(valid_accs), 4)}')
-        if self.F1_old < np.mean(valid_accs) and classification:
-            self.F1_old = np.mean(valid_accs)
+            odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
+        if self.F1_old < mean_valid_accs and classification:
+            self.F1_old = mean_valid_accs
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs)
-        elif self.RMSE > np.mean(valid_accs) and not classification:
-            self.F1_old = np.mean(valid_accs)
+            self.validation_best = mean_valid_accs
+        elif self.RMSE > mean_valid_accs and not classification:
+            self.F1_old = mean_valid_accs
             self.RMSE = self.F1_old
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs)
+            self.validation_best = mean_valid_accs
 
 ########### 3D RESNET 18 ARCHITECTURE START #############
 
