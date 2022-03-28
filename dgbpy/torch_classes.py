@@ -139,7 +139,7 @@ class Trainer:
         self.learning_rate = []
         self.training_accuracy = []
         self.validation_accuracy = []
-        self.F1_old = 0.0
+        self.F1_old = float('-inf')
         self.RMSE = 100 ** 10000
 
     def run_trainer(self):
