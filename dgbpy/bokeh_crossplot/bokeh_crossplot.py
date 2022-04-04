@@ -79,7 +79,7 @@ class LogRangeWidget:
         self.depthChg(None, None, None)
 
     def rangeTypeChg(self, attr, old, new):
-        if new is 0:
+        if new == 0:
             self.fields['mrkupper'].visible = self.fields['mrklower'].visible = False
             depths = self.well.depthRange()
             self.fields['zupper'].update(value=depths[0])
@@ -283,7 +283,7 @@ class CrossplotLogTracks:
                     }
         limits = self.well.getLogLimits(lognm)
         track = self.datatrack
-        if logtype is 'sizelog' or logtype is 'colorlog':
+        if logtype == 'sizelog' or logtype == 'colorlog':
             track = self.disptrack
         track.extra_x_ranges[logtype] = bm.Range1d(limits[0], limits[-1])
         self.log_props[logtype]['axis'] = bm.LinearAxis(x_range_name=logtype,axis_label=lognm,
@@ -309,7 +309,7 @@ class CrossplotLogTracks:
 
         limits = self.well.getLogLimits(lognm)
         track = self.datatrack
-        if logtype is 'sizelog' or logtype is 'colorlog':
+        if logtype == 'sizelog' or logtype == 'colorlog':
             track = self.disptrack
 
         track.extra_x_ranges[logtype].update(start=limits[0], end=limits[-1])
@@ -558,6 +558,8 @@ class Crossplot:
         xlognm = self.xplotfig.xaxis.axis_label
         ylognm = self.xplotfig.yaxis.axis_label
         zlognm = None
+        if not xlognm or not ylognm:
+            return
         if self.colormapper:
           zlognm = self.colormapper['field']
         if self.sizemapper:
@@ -804,7 +806,7 @@ def crossplot_app(doc):
     global survargs, wellnm, layout, welllogs
     well = odb.Well(wellnm, args=survargs)
     depths = well.depthRange()
-    if welllogs is '0':
+    if welllogs == '0':
       welllogs = well.getLogIdxStr()
     data = well.getLogs(welllogs)
     lognms = well.getLogNames()
