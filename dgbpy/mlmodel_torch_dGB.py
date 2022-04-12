@@ -72,7 +72,7 @@ def ResNet18(nroutputs, dim, nrattribs):
     elif dim==2:
       Conv = Conv2d
       BatchNorm = BatchNorm2d
-    elif dim==1:
+    elif dim==1 or dim==0:
       Conv = Conv1d
       BatchNorm = BatchNorm1d
 
@@ -94,7 +94,7 @@ def ResNet18(nroutputs, dim, nrattribs):
       nn.AdaptiveAvgPool2d(output_size = (1, 1)),
       nn.Flatten(),
       nn.Linear(in_features = 4, out_features = nroutputs))
-    elif dim==1:
+    elif dim==1 or dim==0:
       model = nn.Sequential(
       b0, b1,
       nn.AdaptiveAvgPool2d(output_size = (1, 1)),

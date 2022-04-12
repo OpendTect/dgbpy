@@ -76,7 +76,7 @@ class Net(nn.Module):
             MaxPool(kernel_size=2, stride=2, padding=self.pool_padding),
         )
 
-        self.after_cnn_size = self.after_cnn(torch.randn(model_shape).unsqueeze(0))
+        self.after_cnn_size = self.after_cnn(torch.randn(self.model_shape).unsqueeze(0))
         self.linear_layers = Sequential(
             Linear(self.after_cnn_size, self.output_classes),
             self.activation,
@@ -84,7 +84,7 @@ class Net(nn.Module):
 
     def after_cnn(self, x):
         x = self.cnn_layers[0](x)
-        x = self.cnn_layers[-1](x   )
+        x = self.cnn_layers[-1](x)
         return int(np.prod(x.size()[1:]))
 
     def forward(self, x):
@@ -260,7 +260,7 @@ class ResidualBlock(nn.Module):
             Conv = Conv2d
             BatchNorm = BatchNorm2d
             MaxPool = MaxPool2d
-        elif self.ndims==1:
+        elif self.ndims==1 or self.ndims==0:
             Conv = Conv1d
             BatchNorm = BatchNorm1d
             MaxPool = MaxPool1d
