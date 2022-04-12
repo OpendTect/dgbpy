@@ -45,6 +45,24 @@ def cross_entropy_balanced(y_true, y_pred):
   cost = tf.reduce_mean(input_tensor=cost * (1 - beta))
   return tf.compat.v1.where(tf.equal(count_pos, 0.0), 0.0, cost)
 
+def compile_model( model, nroutputs, isregression, isunet, learnrate ):
+    opt = getAdamOpt(learning_rate=learnrate)
+    if isregression:
+        loss = 'mse'
+        metrics = ['mae']
+    else:
+        metrics = ['accuracy']
+        if nroutputs>2:
+            loss = 'categorical_crossentropy'
+        else:
+            if isunet:
+                loss  = cross_entropy_balanced
+            else:
+                loss = 'binary_crossentropy'
+
+    model.compile( optimizer=opt, loss=loss, metrics=metrics )
+    return model
+
 def dGBUNet(model_shape, nroutputs, predtype):
     import dgbpy.dgbkeras as dgbkeras
     
@@ -137,14 +155,7 @@ class dGB_UnetSeg(UserModel):
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
-    if nroutputs<=2:
-      loss = cross_entropy_balanced
-    else:
-      loss = 'categorical_crossentropy'
-
-    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
-                   loss = loss, metrics = ['accuracy'] )
-
+    model = compile_model( model, nroutputs, False, True, learnrate )
     return model
   
 class dGB_UnetReg(UserModel):
@@ -156,8 +167,7 @@ class dGB_UnetReg(UserModel):
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
-    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
-                   loss = 'mse', metrics = ['mae'] )
+    model = compile_model( model, nroutputs, True, True, learnrate )
     return model
   
 def dGBLeNet(model_shape, nroutputs, predtype):
@@ -235,14 +245,7 @@ class dGB_LeNet_Classifier(UserModel):
   
   def _make_model(self, input_shape, nroutputs, learnrate):
     model = dGBLeNet(input_shape, nroutputs, self.predtype)
-    
-    loss = 'binary_crossentropy'
-    if nroutputs>2:
-      loss = 'categorical_crossentropy'
-
-    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
-                   loss=loss, metrics=['accuracy'] )
-    
+    model = compile_model( model, nroutputs, False, False, learnrate )    
     return model
 
 class dGB_LeNet_Regressor(UserModel):
@@ -254,8 +257,5 @@ class dGB_LeNet_Regressor(UserModel):
   
   def _make_model(self, input_shape, nroutputs, learnrate):
     model = dGBLeNet(input_shape, nroutputs, self.predtype)
-    model.compile( optimizer = getAdamOpt(learning_rate=learnrate),
-                   loss='mse', metrics=['mae'] )
-    
+    model = compile_model( model, nroutputs, True, False, learnrate )    
     return model
-

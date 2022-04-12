@@ -308,12 +308,13 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   dgbhdf5.addInfo( inpfnm, platform, outfnm, infos, model.__class__.__name__ )
   log_msg( 'Model saved.' )
 
-def getModel( modelfnm, fortrain=False ):
+def getModel( modelfnm, fortrain=False, pars=None ):
   """ Get model and model information
 
   Parameters:
     * modelfnm (str): model file path/name in hdf5 format
-    * fortrain (bool): keras...
+    * fortrain (bool): specifies if the model might be further trained
+    * pars (dict): parameters to be used when restoring the model if needed
 
   Returs:
     * tuple: (trained model and model/project info)
@@ -323,7 +324,7 @@ def getModel( modelfnm, fortrain=False ):
   platform = infos[dgbkeys.plfdictstr]
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    model = dgbkeras.load( modelfnm, fortrain )
+    model = dgbkeras.load( modelfnm, fortrain, infos, pars )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     model = dgbscikit.load( modelfnm )
