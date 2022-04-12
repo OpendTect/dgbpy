@@ -72,7 +72,7 @@ def ResNet18(nroutputs, dim, nrattribs):
     elif dim==2:
       Conv = Conv2d
       BatchNorm = BatchNorm2d
-    elif dim==1:
+    elif dim==1 or dim==0:
       Conv = Conv1d
       BatchNorm = BatchNorm1d
 
@@ -94,7 +94,7 @@ def ResNet18(nroutputs, dim, nrattribs):
       nn.AdaptiveAvgPool2d(output_size = (1, 1)),
       nn.Flatten(),
       nn.Linear(in_features = 4, out_features = nroutputs))
-    elif dim==1:
+    elif dim==1 or dim==0:
       model = nn.Sequential(
       b0, b1,
       nn.AdaptiveAvgPool2d(output_size = (1, 1)),
@@ -112,5 +112,5 @@ class dGB_Simple_Net_Regressor(TorchUserModel):
     def _make_model(self, model_shape, nroutputs, nrattribs):
       from dgbpy.dgbtorch import getModelDims
       ndim = getModelDims(model_shape, 'channels_first')
-      model = Net(output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
+      model = Net(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
