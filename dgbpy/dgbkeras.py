@@ -17,6 +17,7 @@ import math
 from pathlib import Path
 
 from odpy.common import log_msg, redirect_stdout, restore_stdout
+import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
@@ -388,7 +389,7 @@ def save( model, outfnm ):
   except Exception:
     model.save( outfnm )
 
-def load( modelfnm, fortrain ):
+def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   redirect_stdout()
   dgb_defs = {
     'cross_entropy_balanced': cross_entropy_balanced,
@@ -397,6 +398,22 @@ def load( modelfnm, fortrain ):
   from tensorflow.keras.models import load_model
   try:
     ret = load_model( modelfnm, compile=fortrain, custom_objects=dgb_defs )
+    if fortrain and not infos == None:
+        iscompiled = True
+        try:
+          h5file = odhdf5.openFile( modelfnm, 'r' )
+          iscompiled = odhdf5.hasAttr( h5file, 'training_config' )
+        finally:
+          h5file.close()
+        if not iscompiled:
+          from dgbpy.mlmodel_keras_dGB import compile_model
+          learnrate = keras_dict['learnrate']
+          if not pars == None and 'learnrate' in pars:
+            learnrate = pars['learnrate']
+          nroutputs = dgbhdf5.getNrOutputs( infos )
+          isregression = dgbhdf5.isRegression( infos )
+          isunet = dgbhdf5.isImg2Img( infos )
+          ret = compile_model( ret, nroutputs, isregression, isunet, learnrate )
   except ValueError:
     configfile = os.path.splitext( modelfnm )[0] + '.json'
     if not os.path.isfile(configfile):

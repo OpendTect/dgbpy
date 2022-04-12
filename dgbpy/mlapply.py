@@ -304,7 +304,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   if type == None:
     type = TrainType.New
   if type != TrainType.New:
-    (model,infos) = dgbmlio.getModel( modelin, fortrain=True )
+    (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
 
   trainingdp = None
   validation_split = 0.2 #Params?
