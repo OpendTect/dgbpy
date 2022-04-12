@@ -112,5 +112,5 @@ class dGB_Simple_Net_Regressor(TorchUserModel):
     def _make_model(self, model_shape, nroutputs, nrattribs):
       from dgbpy.dgbtorch import getModelDims
       ndim = getModelDims(model_shape, 'channels_first')
-      model = Net(output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
+      model = Net(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
