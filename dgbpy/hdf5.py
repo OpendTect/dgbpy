@@ -123,6 +123,11 @@ def isImg2Img( info ):
 def isModel( info ):
   return plfdictstr in info
 
+def isMultiLabelRegression( info ):
+  if not isRegression( info ) or isImg2Img( info ):
+    return False
+  return getNrOutputs( info ) > 1
+
 def getOutdType( classinfo ):
   max = classinfo.max()
   min = classinfo.min()
