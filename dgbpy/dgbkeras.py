@@ -131,12 +131,14 @@ def get_data_format( model ):
       return laycfg['data_format']
   return None
 
-def getCubeletShape( model ):
+def getCubeletShape( model, info ):
   data_format = get_data_format( model )
   if data_format == 'channels_first':
     cubeszs = model.input_shape[2:]
   elif data_format == 'channels_last':
     cubeszs = model.input_shape[1:-1]
+  if cubeszs[0] == None:
+    cubeszs = tuple( info[dgbkeys.inpshapedictstr] )
   return cubeszs
 
 def rm_tree(pth):
@@ -452,7 +454,7 @@ def transfer( model ):
 
   return model
 
-def apply( model, samples, isclassification, withpred, withprobs, \
+def apply( model, info, samples, isclassification, withpred, withprobs, \
            withconfidence, doprobabilities, scaler=None, batch_size=None ):
   if batch_size == None:
     batch_size = keras_dict['batch']
@@ -463,7 +465,7 @@ def apply( model, samples, isclassification, withpred, withprobs, \
 
   inp_shape = samples.shape
   data_format = 'channels_first'
-  samples = adaptToModel( model, samples, sample_data_format=data_format )
+  samples = adaptToModel( model, info, samples, sample_data_format=data_format )
   model_outshape = model.output_shape
   img2img = len(model_outshape) > 2
   if len(model_outshape) <= 2:
@@ -518,12 +520,12 @@ def apply( model, samples, isclassification, withpred, withprobs, \
   return ret
 
 
-def adaptToModel( model, samples, sample_data_format='channels_first' ):
+def adaptToModel( model, info, samples, sample_data_format='channels_first' ):
   nrdims = len( model.input_shape ) - 2
   nrsamples = samples.shape[0]
   samples_nrdims = len(samples.shape)
   model_data_format = get_data_format( model )
-  modelcubeszs = getCubeletShape( model )
+  modelcubeszs = getCubeletShape( model, info )
   if sample_data_format == 'channels_first':
     nrattribs = samples.shape[1]
     cube_shape = samples.shape[2:]
