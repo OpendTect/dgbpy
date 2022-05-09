@@ -446,8 +446,9 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
   res = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
+    dictinpshape = tuple( info[dgbkeys.inpshapedictstr] )
     res = dgbkeras.apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
-                          scaler=None, batch_size=batchsize  )
+                          dictinpshape, scaler=None, batch_size=batchsize  )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     res = dgbscikit.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )

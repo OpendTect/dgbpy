@@ -131,6 +131,11 @@ def get_data_format( model ):
       return laycfg['data_format']
   return None
 
+def hasValidCubeletShape( cubeszs ):
+  if cubeszs[0] == None or cubeszs[1] == None or cubeszs[2] == None:
+    return False
+  return True
+
 def getCubeletShape( model ):
   data_format = get_data_format( model )
   if data_format == 'channels_first':
@@ -453,7 +458,7 @@ def transfer( model ):
   return model
 
 def apply( model, samples, isclassification, withpred, withprobs, \
-           withconfidence, doprobabilities, scaler=None, batch_size=None ):
+           withconfidence, doprobabilities, dictinpshape=None, scaler=None, batch_size=None ):
   if batch_size == None:
     batch_size = keras_dict['batch']
   redirect_stdout()
@@ -463,7 +468,7 @@ def apply( model, samples, isclassification, withpred, withprobs, \
 
   inp_shape = samples.shape
   data_format = 'channels_first'
-  samples = adaptToModel( model, samples, sample_data_format=data_format )
+  samples = adaptToModel( model, samples, dictinpshape, sample_data_format=data_format )
   model_outshape = model.output_shape
   img2img = len(model_outshape) > 2
   if len(model_outshape) <= 2:
@@ -517,13 +522,16 @@ def apply( model, samples, isclassification, withpred, withprobs, \
 
   return ret
 
-
-def adaptToModel( model, samples, sample_data_format='channels_first' ):
+def adaptToModel( model, samples, dictinpshape=None, sample_data_format='channels_first' ):
   nrdims = len( model.input_shape ) - 2
   nrsamples = samples.shape[0]
   samples_nrdims = len(samples.shape)
   model_data_format = get_data_format( model )
   modelcubeszs = getCubeletShape( model )
+  if not hasValidCubeletShape(modelcubeszs) and dictinpshape != None:
+    modelcubeszs = dictinpshape
+  if not hasValidCubeletShape(modelcubeszs):
+    raise Exception("Invalid input shape found")
   if sample_data_format == 'channels_first':
     nrattribs = samples.shape[1]
     cube_shape = samples.shape[2:]
