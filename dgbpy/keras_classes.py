@@ -69,7 +69,7 @@ class TrainingSequence(Sequence):
           x_data = trainbatch[dgbkeys.xtraindictstr]
           y_data = trainbatch[dgbkeys.ytraindictstr]
       model = self._model
-      dictinpshape = tuple( info[dgbkeys.inpshapedictstr] )
+      dictinpshape = tuple( infos[dgbkeys.inpshapedictstr] )
       self._x_data = dgbkeras.adaptToModel( model, x_data, dictinpshape )
       if len(y_data.shape) > 2:
           self._y_data = dgbkeras.adaptToModel( model, y_data, dictinpshape )

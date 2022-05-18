@@ -61,7 +61,9 @@ keras_dict = {
   'learnrate': 1e-4,
   'epochdrop': 5,
   'type': None,
-  'prefercpu': None
+  'prefercpu': None,
+  'withaugmentation': withaugmentation,
+  'withtensorboard': withtensorboard
 }
 
 def can_use_gpu():
@@ -92,7 +94,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                epochs=keras_dict['epochs'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
-               nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu']):
+               nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],
+               withaugmentation=keras_dict['withaugmentation'], withtensorboard=keras_dict['withtensorboard']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -101,7 +104,9 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'patience': patience,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
-    'type': nntype
+    'type': nntype,
+    'withaugmentation': withaugmentation,
+    'withtensorboard': withtensorboard
   }
   if prefercpu == None:
     prefercpu = get_cpu_preference()
@@ -267,8 +272,7 @@ def getDefaultModel(setup,type=keras_dict['type'],
   return None
 
 
-def train(model,training,params=keras_dict,trainfile=None,logdir=None,
-          withaugmentation=withaugmentation,tempnm=None):
+def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from keras.callbacks import EarlyStopping, LambdaCallback
@@ -301,6 +305,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
     tensor_board = TensorBoard(log_dir=logdir, \
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
+  withaugmentation=params['withaugmentation']
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )

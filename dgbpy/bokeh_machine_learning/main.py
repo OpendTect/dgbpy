@@ -137,6 +137,7 @@ def training_app(doc):
   with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],args['bokehid']) as this_service:
     traintabnm = 'Training'
     paramtabnm = 'Parameters'
+    adparamtabnm = "Advanced"
 
     mh = MsgHandler('--Training Started--', this_service, 'ml_training_msg',
                    {'training_started': ''})
@@ -146,7 +147,8 @@ def training_app(doc):
 
     trainpanel = Panel(title=traintabnm)
     parameterspanel = Panel(title=paramtabnm)
-    mainpanel = Tabs(tabs=[trainpanel,parameterspanel])
+    adparameterspanel = Panel(title=adparamtabnm)
+    mainpanel = Tabs(tabs=[trainpanel,parameterspanel,adparameterspanel])
 
     ML_PLFS = []
     ML_PLFS.append( uikeras.getPlatformNm(True) )
@@ -154,14 +156,13 @@ def training_app(doc):
     ML_PLFS.append( uisklearn.getPlatformNm(True) )
 
     platformfld = Select(title="Machine learning platform:",options=ML_PLFS)
-    tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
-                                   active=[], visible=True)
 
     info = None
     keraspars = None
-    torchpars = None
+    torchpars = None  
     sklearnpars = None
     parsgroups = None
+    kerasadvpars = None
     traininglogfilenm = args['logfile'].name
 
     def makeUI(examplefilenm):
@@ -170,6 +171,7 @@ def training_app(doc):
       nonlocal torchpars
       nonlocal sklearnpars
       nonlocal parsgroups
+      nonlocal kerasadvpars
       info = dgbmlio.getInfo( examplefilenm, quick=True )
       uikeras.info = info
       uitorch.info = info
@@ -178,6 +180,7 @@ def training_app(doc):
       torchpars = uitorch.getUiPars()
       sklearnpars = uisklearn.getUiPars()
       parsgroups = (keraspars,torchpars,sklearnpars)
+      kerasadvpars = uikeras.getAdvancedUiPars()
 
     def updateUI():
       nonlocal info
@@ -208,8 +211,14 @@ def training_app(doc):
       elif platformnm == uisklearn.getPlatformNm():
         sklearnpars = uisklearn.getUiPars(sklearnpars)
 
-    parsresetbut = uibokeh.getButton('Reset', callback_fn=resetUiFields)
+    def resetAdvancedUiFields(cb):
+      nonlocal kerasadvpars
+      platformnm = platformfld.value
+      if platformnm == uikeras.getPlatformNm():
+        kerasadvpars = uikeras.getAdvancedUiPars(kerasadvpars)
 
+    parsresetbut = uibokeh.getButton('Reset', callback_fn=resetUiFields)
+    parsAdvancedResetBut = uibokeh.getButton('Reset', callback_fn=resetAdvancedUiFields)
     parsbackbut = uibokeh.getButton('Back',\
       callback_fn=partial(uibokeh.setTabFromButton,panelnm=mainpanel,tabnm=traintabnm))
 
@@ -254,12 +263,12 @@ def training_app(doc):
     this_service.addAction('BokehParChg', procArgChgCB )
 
     def mlchgCB( attrnm, old, new):
-      nonlocal tensorboardfld
-      selParsGrp( new )
+      nonlocal adparameterspanel
       if new==uikeras.getPlatformNm(True)[0]:
-          tensorboardfld.visible = True
+        adparameterspanel.disabled = False
       else:
-          tensorboardfld.visible = False
+        adparameterspanel.disabled = True
+      selParsGrp( new )
 
     def getParsGrp( platformnm ):
       for platform,parsgroup in zip(ML_PLFS,parsgroups):
@@ -278,7 +287,7 @@ def training_app(doc):
 
     def getUiParams():
       if platformfld.value == uikeras.getPlatformNm():
-        return uikeras.getUiParams( keraspars )
+        return uikeras.getUiParams( keraspars, kerasadvpars )
       elif platformfld.value == uisklearn.getPlatformNm():
         return uisklearn.getUiParams( sklearnpars )
       elif platformfld.value == uitorch.getPlatformNm():
@@ -305,7 +314,7 @@ def training_app(doc):
         mldir = args['mldir']
         if mldir != None and len(mldir)>0:
           dict.update({'logdir': mldir[0]})
-          dict.update({'cleanlogdir': len(tensorboardfld.active)!=0})
+          dict.update({'cleanlogdir': len(kerasadvpars['uiobjects']['cleartensorboardfld'].active)!=0})
       dict.update({dgbkeys.learntypedictstr: traintype.name})
       return ret
 
@@ -385,7 +394,8 @@ def training_app(doc):
 
     platformfld.on_change('value',mlchgCB)
     buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
-    trainpanel.child = column( platformfld, tensorboardfld, buttonsgrp )
+    trainpanel.child = column( platformfld, buttonsgrp )
+    adparameterspanel.child = column(kerasadvpars['grp'], row(parsAdvancedResetBut, parsbackbut))
 
     def initWin():
       mllearntype = info[dgbkeys.learntypedictstr]

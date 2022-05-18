@@ -284,7 +284,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     * examplefilenm (str): file name/path to example file in hdf5 format
     * platform (str): machine learning platform choice (options are; keras, scikit-learn, torch)
     * type (str): type of training; new or transfer, or continue (Resume)
-    * params (dict): machine learning hyperpaametersor paramters options
+    * params (dict): machine learning hyperparameters or parameters options
     * outnm (str): name to save trained model as
     * logdir (str): the path of the directory where to save the log
                     files to be parsed by TensorBoard (only applicable 
@@ -319,7 +319,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
-    logdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
+    logdir=None
+    if 'withtensorboard' in params and params['withtensorboard']:
+      logdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
     if type == TrainType.New:
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
@@ -336,9 +338,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     print('--Training Started--', flush=True)
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, logdir=logdir,
-                              withaugmentation=dgbkeras.withaugmentation,
-                              tempnm=tempmodelnm )
+                              trainfile=examplefilenm, logdir=logdir,tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:
       if tempmodelnm != None and os.path.exists(tempmodelnm):
         model = dgbmlio.getModel( tempmodelnm, True )
