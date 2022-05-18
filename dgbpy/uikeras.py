@@ -102,13 +102,32 @@ def getUiPars(uipars=None):
   decimateCB( uiobjs['dodecimatefld'].active,uiobjs['chunkfld'],uiobjs['sizefld'] )
   return uipars
 
+def getAdvancedUiPars(uipars=None):
+  dict = keras_dict
+  uiobjs={}
+  if not uipars:
+    uiobjs = {
+      'augmentfld': CheckboxGroup(labels=['Enable Data Augmentation'], visible=True, margin=(5, 5, 0, 5)),
+      'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
+      'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
+    }
+    parsgrp = column(*list(uiobjs.values()))
+    uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
+  else:
+    uiobjs=uipars['uiobjects']
+  uiobjs['augmentfld'].active = [] if not dict['withaugmentation'] else [0]
+  uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
+  uiobjs['cleartensorboardfld'].active = []
+  return uipars
+
 def chunkfldCB(sizefld,attr,old,new):
   if sizefld == None:
     return
   sizefld.text = getSizeStr( info[dgbkeys.estimatedsizedictstr]/new )
 
-def getUiParams( keraspars ):
+def getUiParams( keraspars, advkeraspars ):
   kerasgrp = keraspars['uiobjects']
+  advkerasgrp = advkeraspars['uiobjects']
   nrepochs = kerasgrp['epochfld'].value
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
@@ -116,6 +135,8 @@ def getUiParams( keraspars ):
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
              not isSelected( kerasgrp['rundevicefld'] )
+  withaugmentation = True if len(advkerasgrp['augmentfld'].active)!=0 else False
+  withtensorboard = True if len(advkerasgrp['tensorboardfld'].active)!=0 else False
   return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \
                              nbchunk=kerasgrp['chunkfld'].value, \
                              epochs=kerasgrp['epochfld'].value, \
@@ -124,7 +145,8 @@ def getUiParams( keraspars ):
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
                              nntype=kerasgrp['modeltypfld'].value, \
-                             prefercpu=runoncpu)
+                             prefercpu=runoncpu, withaugmentation=withaugmentation, \
+                             withtensorboard=withtensorboard)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
