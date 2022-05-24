@@ -137,7 +137,7 @@ def get_data_format( model ):
   return None
 
 def hasValidCubeletShape( cubeszs ):
-  if cubeszs[0] == None or cubeszs[1] == None or cubeszs[2] == None:
+  if None in cubeszs:
     return False
   return True
 
