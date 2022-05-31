@@ -13,7 +13,7 @@ Log plotting GUI
 import argparse
 
 import numpy as np
-from bokeh.server.server import Server
+from bokeh.io import curdoc
 import bokeh.layouts as bl
 import bokeh.models as bm
 import dgbpy.uibokeh_well as odb
@@ -21,7 +21,7 @@ import odpy.common as odcommon
 
 undef = 1e30
 survargs= odcommon.getODArgs()
-wellnm = 'None'
+wellnm = None
 logs = []
 
 def logplot_app(doc):
@@ -30,18 +30,4 @@ def logplot_app(doc):
   doc.add_root(ltmgr.tracklayout)
   doc.title = 'Plot well'
 
-
-def main():
-  global survargs, wellnm, logs
-
-  survargs = {'dtectdata': ['/mnt/Data/seismic/ODData'], 'survey': ['F3_Demo_2020']}
-  wellnm = 'F03-2'
-  logs = ['Sonic','Gamma Ray','P-Impedance_rel']
-
-  server = Server({'/' : logplot_app})
-  server.start()
-  server.io_loop.add_callback(server.show, "/")
-  server.io_loop.start()
-
-if __name__ == "__main__":
-    main()
+logplot_app(curdoc())

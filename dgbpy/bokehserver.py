@@ -5,9 +5,13 @@
 #
 # Support methods for embedded Bokeh Server
 #
-# 
+#
 import os
+import argparse
 from bokeh.util.logconfig import basicConfig
+from bokeh.application import Application
+from bokeh.application.handlers import DirectoryHandler, ScriptHandler
+from bokeh.io import curdoc
 from bokeh.server.server import Server
 import dgbpy.servicemgr as dgbservmgr
 
@@ -16,11 +20,7 @@ def DefineBokehArguments(parser):
   netgrp.add_argument( '--bsmserver',
             dest='bsmserver', action='store',
             type=str, default='',
-            help='Bokeh service manager connection details')
-  netgrp.add_argument( '--bokehid',
-            dest='bokehid', action='store',
-            type=int, default=-1,
-            help='Bokeh server id')
+            help='Bokeh service manager connection details' )
   netgrp.add_argument( '--ppid',
             dest='ppid', action='store',
             type=int, default=-1,
@@ -43,11 +43,11 @@ def DefineBokehArguments(parser):
             help='Show the app in a browser')
   return parser
 
-def _getDocUrl(server, app_path):
+def _getDocUrl(server):
   address_string = 'localhost'
   if server.address is not None and server.address != '':
     address_string = server.address
-  url = "http://%s:%d%s%s" % (address_string, server.port, server.prefix, app_path)
+  url = "http://%s:%d%s" % (address_string, server.port, server.prefix)
   return url
 
 def StartBokehServer(applications, args, attempts=20):
@@ -65,12 +65,16 @@ def StartBokehServer(applications, args, attempts=20):
       server.start()
 
       msg = dgbservmgr.Message()
-      msg.sendObjectToAddress(args['bsmserver'],
-                      'bokeh_started', {'bokehid': args['bokehid'],
-                                        'bokehurl': _getDocUrl(server,application),
-                                        'bokehpid': os.getpid()})
-      if args['show']:
-          server.show( application )
+      for app in list(applications.keys()):
+        msg.sendObjectToAddress(args['bsmserver'], 'bokeh_started',
+                                        { 'bokehapp': app,
+                                          'bokehurl': _getDocUrl(server),
+                                          'bokehpid': os.getpid()
+                                        }
+                                )
+        if args['show']:
+          server.show( app )
+      
       try:
           server.io_loop.start()
       except RuntimeError:
@@ -81,7 +85,34 @@ def StartBokehServer(applications, args, attempts=20):
         port += 1
       else:
         raise ex
-      
-  raise Exception("Failed to find available port")
-    
 
+  raise Exception("Failed to find available port")
+
+def main():
+  parser = argparse.ArgumentParser()
+  parser = DefineBokehArguments(parser)
+  bokehargs = vars(parser.parse_args())
+
+  apps = ['bokeh_apps/crossplot', 'bokeh_apps/example_viewer', 'bokeh_apps/trainui']
+  applications = {}
+  dirnm = os.path.dirname(__file__)
+  for app in apps:
+    file = os.path.join(dirnm,app)
+    handler = None
+    if os.path.isdir(file):
+      handler = DirectoryHandler(filename=file)
+    else:
+      handler = ScriptHandler(filename=file)
+
+    application = Application(metadata=bokehargs)
+    application.add(handler)
+
+    route = handler.url_path()
+    applications[route] = application
+
+#  import odpy.common as odcommon
+#  odcommon.initLogging(args)
+  StartBokehServer(applications, bokehargs)
+
+if __name__ == "__main__":
+    main()

@@ -26,7 +26,10 @@ from odpy.ranges import niceRange, niceNumber
 class Well:
     def __init__(self,wellname, args=None):
         self.survargs = args
-        self.wellname = wellname
+        if wellname:
+            self.wellname = wellname
+        else:
+            self.wellname = odwm.getNames()[0]
         self.track = None
         self.markers = None
         self.logcache = None
@@ -249,7 +252,7 @@ class GridPropertyWidget:
         if len(new)==0:
             disable = True
         for (key, field) in self.fields.items():
-            if key is 'visible':
+            if key=='visible':
                 continue
             field.disabled = disable
 

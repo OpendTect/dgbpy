@@ -36,7 +36,8 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     self._parentproc = None
     if ppid > 0:
       self._parentproc = psutil.Process(ppid)
-      tornado.ioloop.PeriodicCallback(self._parentChkCB, 1000)
+      self.PCB = tornado.ioloop.PeriodicCallback(self._parentChkCB, 1000)
+      self.PCB.start()
 
     self._startServer( tornadoport )
     self._actions = dict()
@@ -70,7 +71,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     while attempts:
       attempts -=1
       if self._is_port_in_use(port,local_ip):
-        odcommon.std_msg( 'Port in use:', port )
+        odcommon.log_msg( 'Port in use:', port )
         port += 1
         continue
       try:
@@ -80,14 +81,14 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       except OSError as ex:
 # using error code since the error string is translated in current locale
         if '10048' in str(ex):
-          odcommon.std_msg( 'Failed to listen to port:', port )
+          odcommon.log_msg( 'Failed to listen to port:', port )
           port += 1
         else:
           raise ex
     raise Exception("Failed to find available port");
 
   def _register(self, port, address):
-#    odcommon.std_msg( 'Registering with port', port, 'and address', address )
+    odcommon.std_msg( 'Registering with port', port, 'and address', address )
     Message().sendObject(self.cmdhost, self.cmdport,
                    'bokeh_register', {'servicename': self.serviceID,
                                 'hostname': address,
@@ -97,9 +98,9 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     
   def _parentChkCB(self):
     if self._parentproc != None and not self._parentproc.is_running():
-      odcommon.std_msg('Found dead parent, exiting')
-      self.stop()
-      os.kill(psutil.Process().pid, signal.SIGINT)
+      odcommon.log_msg('Found dead parent, exiting')
+      self.PCB.stop()
+      os.kill(psutil.Process().pid, signal.SIGKILL)
       
   async def handle_stream(self, stream, address):
     hdrlen = 10
@@ -157,6 +158,7 @@ class Message:
     packet.setIsNewRequest()
     obj = dict()
     obj[objkey] = jsonobj
+    odcommon.log_msg('Sending: ',obj)
     packet.setTextPayload(obj)
     tornado.ioloop.IOLoop.current().add_callback(self._send, host, port, packet)
     
