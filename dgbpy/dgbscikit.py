@@ -379,6 +379,10 @@ def getNewScaler( mean, scale ):
   scaler.n_samples_seen_ = len(mean)
   return scaler
 
+def getNewMinMaxScaler( min, max ):
+  scaler = MinMaxScaler( feature_range=(min,max) )
+  return scaler
+
 def getScaler( x_train, byattrib ):
   nrattribs = x_train.shape[1]
   mean = list()

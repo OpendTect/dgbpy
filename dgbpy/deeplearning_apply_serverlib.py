@@ -184,10 +184,33 @@ class ModelApplier:
                   loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
+
+        mean = None
+        stddev = None
+        if dgbhdf5.applyLocalStd( self.info_ ):
+          mean = np.mean( samples )
+          stddev = np.std( samples )
+          samples = dgbscikit.transform( samples, mean, stddev )
+        elif dgbhdf5.applyGlobalStd( self.info_ ):
+          samples = dgbscikit.scale( samples, self.scaler_ )
+          samples = dgbscikit.unscale( samples, self.extscaler_ )
+        elif dgbhdf5.applyNormalization( self.info_ ):
+          min = np.min( samples )
+          samples = samples-min
+          max = np.max( samples )
+          samples = samples/max
+        elif dgbhdf5.applyMinMax( self.info_ ):
+          min_in = np.min( samples )
+          max_in = np.max( samples )
+          min_out = 0
+          max_out = 255
+          samples = (samples-min_in) / (max_in-min_in)
+          samples = samples*(max_out-min_out) + min_out
+
 #        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
-        samples = dgbscikit.scale( samples, self.scaler_ )
+#        samples = dgbscikit.scale( samples, self.scaler_ )
 #        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
-        samples = dgbscikit.unscale( samples, self.extscaler_ )
+#        samples = dgbscikit.unscale( samples, self.extscaler_ )
 #        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
 #        min = np.min( samples ) 
 #        samples = samples-min
@@ -197,6 +220,14 @@ class ModelApplier:
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   scaler=None, applyinfo=self.applyinfo_, \
                                   batchsize=self.batchsize_ )
+
+        if dgbhdf5.unscaleOutput( self.info_ ):
+          if dgbhdf5.applyLocalStd( self.info_ ):
+            ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr] * stddev + mean;
+          elif dgbhdf5.applyGlobalStd( self.info_ ):
+            samples = dgbscikit.scale( samples, self.extscaler_ )
+            samples = dgbscikit.unscale( samples, self.scaler_ )
+
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )

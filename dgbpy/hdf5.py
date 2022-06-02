@@ -120,6 +120,31 @@ def isImg2Img( info ):
     return info[learntypedictstr] == seisimgtoimgtypestr
   return info == seisimgtoimgtypestr
 
+def unscaleOutput( info ):
+  if isinstance(info,dict) and outputunscaledictstr in info:
+    return info[outputunscaledictstr]
+  return False
+
+def applyGlobalStd( info ):
+  if isinstance(info,dict) and inpscalingdictstr in info:
+    return info[inpscalingdictstr] == globalstdtypestr
+  return info == globalstdtypestr
+
+def applyLocalStd( info ):
+  if isinstance(info,dict) and inpscalingdictstr in info:
+    return info[inpscalingdictstr] == localstdtypestr
+  return info == localstdtypestr
+
+def applyNormalization( info ):
+  if isinstance(info,dict) and inpscalingdictstr in info:
+    return info[inpscalingdictstr] == normalizetypestr
+  return info == normalizetypestr
+
+def applyMinMaxScaling( info ):
+  if isinstance(info,dict) and inpscalingdictstr in info:
+    return info[inpscalingdictstr] == minmaxtypestr
+  return info == minmaxtypestr
+
 def isModel( info ):
   return plfdictstr in info
 
@@ -315,6 +340,21 @@ def getInfo( filenm, quick ):
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
+  scalingtype = globalstdtypestr
+  scalingtypestr='Input.Scaling.Type'
+  if odhdf5.hasAttr(info,scalingtypestr):
+    scalingtype = odhdf5.getText(info,scalingtypestr)
+
+  scalingvalrg = [0,255]
+  scalingvalstr = 'Input.Scaling.Value Range'
+  if odhdf5.hasAttr(info,scalingvalstr):
+    scalingvalrg = odhdf5.getDInterval(info,scalingvalstr)
+
+  unscaleoutput = False
+  outunscalestr = 'Output.Unscale'
+  if odhdf5.hasAttr(info,outunscalestr):
+    unscaleoutput = odhdf5.getBoolValue(info,outunscalestr)
+
   extxt = 'Examples.'
   ex_sz = odhdf5.getIntValue(info, extxt+'Size')
   idx = 0
@@ -419,6 +459,9 @@ def getInfo( filenm, quick ):
     outshapedictstr: outshape,
     classdictstr: isclassification,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
+    inpscalingdictstr: scalingtype,
+    inpscalingvalsdictstr: scalingvalrg,
+    outputunscaledictstr: unscaleoutput,
     exampledictstr: examples,
     inputdictstr: inputs,
     filedictstr: filenm
