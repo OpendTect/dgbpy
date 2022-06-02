@@ -213,10 +213,16 @@ def exampleplot_app(doc):
         doc.add_root(layoutplots)
         survChgCB( plotparams, gridcol, collslider, cubeslider, 'value', '', survslider.options[0] )
 
+    doc.title = 'Examine Machine Learning examples'
     args = curdoc().session_context.server_context.application_context.application.metadata
-    with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id()) as this_service:
-        this_service.addAction('BokehParChg', bokehParChgCB )
-        doc.title = 'Examine Machine Learning examples'
+    if args:
+        with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id()) as this_service:
+            this_service.addAction('BokehParChg', bokehParChgCB )
+    else:
+        from sys import argv
+        import json
+        data = json.loads(argv[1])
+        bokehParChgCB(data)
 
 
 exampleplot_app(curdoc())
