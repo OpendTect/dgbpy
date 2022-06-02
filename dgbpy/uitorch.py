@@ -84,17 +84,35 @@ def getUiPars(uipars=None):
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   return uipars
 
-def getUiParams( torchpars ):
+def getAdvancedUiPars(uipars=None):
+  dict = torch_dict
+  uiobjs={}
+  if not uipars:
+    uiobjs = {
+      'augmentfld': CheckboxGroup(labels=['Enable Data Augmentation'], visible=True, margin=(5, 5, 0, 5)),
+    }
+    parsgrp = column(*list(uiobjs.values()))
+    uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
+  else:
+    uiobjs = uipars['uiobjects']
+  uiobjs['augmentfld'].active = [] if not dict['withaugmentation'] else [0]
+  return uipars
+
+def getUiParams( torchpars, advtorchpars ):
   torchgrp = torchpars['uiobjects']
+  advtorchgrp = advtorchpars['uiobjects']
   nrepochs = torchgrp['epochfld'].value
   epochdroprate = torchgrp['epochfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
+  withaugmentation = True if len(advtorchgrp['augmentfld'].active)!=0 else False
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
-                             nntype=torchgrp['modeltypfld'].value, epochdrop=torchgrp['epochdrop'].value)
+                             nntype=torchgrp['modeltypfld'].value, \
+                             epochdrop=torchgrp['epochdrop'].value, \
+                             withaugmentation=withaugmentation)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
