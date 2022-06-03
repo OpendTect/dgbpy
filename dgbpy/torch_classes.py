@@ -714,71 +714,142 @@ class UNet(nn.Module):
         return f'{d}'
 
 class SeismicTrainDataset:
-    def __init__(self, X, y, info,  im_ch, ndims):
+    def __init__(self, imgdp, withaugmentation=True):
         super().__init__()
+        from dgbpy import dgbtorch 
+        X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, False)
         self.im_ch = im_ch
         self.ndims = ndims
         self.info = info
         self.X = X.astype('float32')
         self.y = y.astype('float32')
+        self._augmentation = withaugmentation
+        self._data_IDs = []
+
+        inp_shape = self.X.shape[1:]
+        if self._augmentation and len(inp_shape) == 4:
+            self._rotdims = (2, 3)
+            cubesz = self.X.shape[2:4]
+            if cubesz[0] == cubesz[1]:
+                self._rot = range(4)
+                self._rotidx = self._rot
+            else:
+                self._rot = range(2)
+                self._rotidx = range(0,4,2)
+        elif self._augmentation and len(inp_shape) == 3:
+            self._rot = range(2)
+            self._rotidx = range(0,4,2)
+            self._rotdims = 2
+        else:
+            self._rot = range(1)
+        self._data_IDs = range(len(self.X)*len(self._rot))
+
+    def _data_generation(self, data_IDs_temp):
+        x_data = self.X
+        y_data = self.y   
+        inp_shape = x_data.shape[1:]
+        out_shape = y_data.shape[1:]   
+        nrpts = len(data_IDs_temp)
+        X = np.empty( (nrpts,*inp_shape), dtype=x_data.dtype )
+        Y = np.empty( (nrpts,*out_shape), dtype=y_data.dtype )
+        nrrot = len(self._rot)
+        if nrrot == 1:
+            X = x_data[data_IDs_temp]
+            Y = y_data[data_IDs_temp]
+        else:
+            iindex,frem = np.divmod(data_IDs_temp,nrrot)
+            n = 0
+            rotdims = self._rotdims
+            flip2d = not isinstance( rotdims, tuple )
+            for j,k in zip(self._rot,self._rotidx):
+                rotidx = iindex[frem==j]
+                m = len(rotidx)
+                if m > 0:
+                    wrrg = range(n,n+m)
+                    if flip2d:
+                        if k == 0:
+                            X[wrrg] = x_data[rotidx]
+                        else:
+                            X[wrrg] = np.fliplr(x_data[rotidx])
+                    else:
+                        X[wrrg] = np.rot90(x_data[rotidx],k,rotdims)
+                    if len(y_data.shape) > 2:
+                        if flip2d:
+                            if k == 0:
+                                Y[wrrg] = y_data[rotidx]
+                            else:
+                                Y[wrrg] = np.fliplr(y_data[rotidx])
+                        else:
+                            Y[wrrg] = np.rot90(y_data[rotidx],k,rotdims)
+                    else:
+                        Y[wrrg] = y_data[rotidx]
+                    n = wrrg.stop
+        X, Y = self._adaptShape(X, Y, self.ndims)
+        return (X, Y)
 
     def __len__(self):
-        return self.X.shape[0]
+        return len(self._data_IDs)
 
-    def __getitem__(self,index):
+    def _adaptShape(self, X, Y, ndims):
         classification = self.info[dgbkeys.classdictstr]
-        if self.ndims == 3:
-            if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, :, :, :]
-                label = self.y[index, :, :, :, :]
-            elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
-                data = self.X[index, :, :, :]
-                label = self.y[index, :]
+        if ndims == 3:
+            if len(X.shape)==len(Y.shape) and len(X.shape)==5 and classification:     #segmentation
+                data = X[0, :, :, :, :]
+                label = Y[0, :, :, :, :]
+            elif len(X.shape)>len(Y.shape) and classification:     #supervised
+                data = X[0, :, :, :]
+                label = Y[0, :]
             elif not self.info[dgbkeys.classdictstr]:
-                if len(self.X.shape)==len(self.y.shape):
-                    data = self.X[index, :, :, :, :]
-                    label = self.y[index, :, :, :, :]
-                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
-                    data = self.X[index, :, :, :, :]
-                    label = self.y[index, :]
-        elif self.ndims == 2:
-            if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, 0, :, :]
-                label = self.y[index, :, 0, :, :]
-            elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised
-                data = self.X[index,  :, 0, :, :]
-                label = self.y[index, :]
+                if len(X.shape)==len(Y.shape):
+                    data = X[0, :, :, :, :]
+                    label = Y[0, :, :, :, :]
+                elif len(X.shape)>len(Y.shape):    #supervised regression
+                    data = X[0, :, :, :, :]
+                    label = Y[0, :]
+        elif ndims == 2:
+            if len(X.shape)==len(Y.shape) and len(X.shape)==5 and classification:     #segmentation
+                data = X[0, :, 0, :, :]
+                label = Y[0, :, 0, :, :]
+            elif len(X.shape)>len(Y.shape) and classification:     #supervised
+                data = X[0, :, 0, :, :]
+                label = Y[0, :]
             elif not self.info[dgbkeys.classdictstr]:
-                if len(self.X.shape)==len(self.y.shape):
-                    data = self.X[index, :, 0, :, :]
-                    label = self.y[index, :, 0, :, :]
-                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
-                    data = self.X[index, :, 0, :, :]
-                    label = self.y[index, :]
-        elif self.ndims == 1:
-            if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:     #segmentation
-                data = self.X[index, :, 0, 0, :]
-                label = self.y[index, :, 0, 0, :]
-            elif len(self.X.shape)>len(self.y.shape) and classification:     #supervised classification
-                data = self.X[index, :, 0, 0, :]
-                label = self.y[index, :]
+                if len(X.shape)==len(Y.shape):
+                    data = X[0, :, 0, :, :]
+                    label = Y[0, :, 0, :, :]
+                elif len(X.shape)>len(Y.shape):    #supervised regression
+                    data = X[0, :, 0, :, :]
+                    label = Y[0, :]
+        elif ndims == 1:
+            if len(X.shape)==len(Y.shape) and len(X.shape)==5 and classification:     #segmentation
+                data = X[0, :, 0, 0, :]
+                label = Y[0, :, 0, 0, :]
+            elif len(X.shape)>len(Y.shape) and classification:     #supervised classification
+                data = X[0, :, 0, 0, :]
+                label = Y[0, :]
             elif not self.info[dgbkeys.classdictstr]:
-                if len(self.X.shape)==len(self.y.shape):
-                    data = self.X[index, :, 0, 0, :]
-                    label = self.y[index, :, 0, 0, :]
-                elif len(self.X.shape)>len(self.y.shape):    #supervised regression
-                    data = self.X[index, :, 0, 0, :]
-                    label = self.y[index, :]
+                if len(X.shape)==len(Y.shape):
+                    data = X[0, :, 0, 0, :]
+                    label = Y[0, :, 0, 0, :]
+                elif len(X.shape)>len(Y.shape):    #supervised regression
+                    data = X[0, :, 0, 0, :]
+                    label = Y[0, :]
         elif classification:
-            return self.X[index, :, 0, 0, :], self.y[index, :]
+            return X[0, :, 0, 0, :], Y[:]
         else:
-            return self.X[index, :, 0, 0, :], self.y[index, :]
-
+            return X[0, :, 0, 0, :], Y[:]
         return data, label
 
+
+    def __getitem__(self,index):
+        index = [idx for idx in [self._data_IDs[index]]]
+        return self._data_generation(index)
+
 class SeismicTestDataset:
-    def __init__(self, X, y, info,  im_ch, ndims):
+    def __init__(self, imgdp):
         super().__init__()
+        from dgbpy import dgbtorch
+        X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, True)
         self.im_ch = im_ch
         self.ndims = ndims
         self.info = info

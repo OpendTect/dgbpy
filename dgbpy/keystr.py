@@ -119,3 +119,10 @@ def getNameFromList( lst, itmnm, uiname ):
     else:
       return lstitms[0]
   return None
+
+def getDefaultAugmentation():
+  import os
+  if 'ML_WITH_AUGMENTATION' in os.environ:
+    return not ( os.environ['ML_WITH_AUGMENTATION'] == False or \
+                 os.environ['ML_WITH_AUGMENTATION'] == 'No' )
+  return False

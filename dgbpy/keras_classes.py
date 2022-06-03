@@ -24,6 +24,7 @@ class TrainingSequence(Sequence):
       self._forvalid = forvalidation
       self._model = model
       self._nrdone = -1
+      self._doshuffle = True
       self._tempnm = tempnm
       self._lastsaved = datetime.now()
       self._batch_size = batch_size
@@ -43,6 +44,9 @@ class TrainingSequence(Sequence):
 
   def __len__(self):
       return int(np.floor(len(self._data_IDs)/float(self._batch_size)))
+
+  def enable_shuffling(self, yn):
+    self._doshuffle = yn
 
   def set_chunk(self,ichunk):
       from dgbpy import dgbkeras
@@ -69,7 +73,8 @@ class TrainingSequence(Sequence):
           x_data = trainbatch[dgbkeys.xtraindictstr]
           y_data = trainbatch[dgbkeys.ytraindictstr]
       model = self._model
-      dictinpshape = tuple( infos[dgbkeys.inpshapedictstr] )
+      dictinpshape = infos[dgbkeys.inpshapedictstr]
+      dictinpshape = tuple( dictinpshape ) if not isinstance(dictinpshape, int) else (dictinpshape,)
       self._x_data = dgbkeras.adaptToModel( model, x_data, dictinpshape )
       if len(y_data.shape) > 2:
           self._y_data = dgbkeras.adaptToModel( model, y_data, dictinpshape )
@@ -111,7 +116,8 @@ class TrainingSequence(Sequence):
               dgbkeras.save( self._model, self._tempnm )
               self._lastsaved = now
       self._indexes = np.arange(len(self._data_IDs))
-      np.random.shuffle(self._indexes)
+      if self._doshuffle:
+        np.random.shuffle(self._indexes)
 
   def __getitem__(self, index):
       islast = index==(len(self)-1)

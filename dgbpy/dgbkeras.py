@@ -28,10 +28,6 @@ withtensorboard = True
 if 'KERAS_WITH_TENSORBOARD' in os.environ:
   withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
                           os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
-withaugmentation = False
-if 'KERAS_WITH_AUGMENTATION' in os.environ:
-  withaugmentation = not ( os.environ['KERAS_WITH_AUGMENTATION'] == False or \
-                           os.environ['KERAS_WITH_AUGMENTATION'] == 'No' )
 
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
@@ -62,7 +58,7 @@ keras_dict = {
   'epochdrop': 5,
   'type': None,
   'prefercpu': None,
-  'withaugmentation': withaugmentation,
+  'withaugmentation': dgbkeys.getDefaultAugmentation(),
   'withtensorboard': withtensorboard
 }
 
@@ -307,7 +303,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=Non
     callbacks.append( tensor_board )
   withaugmentation=params['withaugmentation']
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
-  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
+  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=False )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
