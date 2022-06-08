@@ -15,6 +15,14 @@ from bokeh.io import curdoc
 from bokeh.server.server import Server
 import dgbpy.servicemgr as dgbservmgr
 
+def get_request_id():
+  reqargs = curdoc().session_context.request.arguments
+  try:
+    bokehid = int(reqargs.get('bokehid')[0])
+  except:
+    bokehid = -1
+  return bokehid
+
 def DefineBokehArguments(parser):
   netgrp = parser.add_argument_group( 'Network' )
   netgrp.add_argument( '--bsmserver',
@@ -74,7 +82,7 @@ def StartBokehServer(applications, args, attempts=20):
                                 )
         if args['show']:
           server.show( app )
-      
+
       try:
           server.io_loop.start()
       except RuntimeError:

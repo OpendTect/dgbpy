@@ -25,21 +25,12 @@ import odpy.common as odcommon
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import keystr as dgbkeys
-import dgbpy.servicemgr as dgbservmgr
 
 from plot_examples import plot_slices
 
 logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
 odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
 odcommon.proclog_logger.setLevel( 'DEBUG' )
-
-def get_request_id():
-  reqargs = curdoc().session_context.request.arguments
-  try:
-    bokehid = int(reqargs.get('bokehid')[0])
-  except:
-    bokehid = -1
-  return bokehid
 
 palettelist = ['Inferno256', 'Viridis256', 'Turbo256', 'Greys256']
 
@@ -216,13 +207,16 @@ def exampleplot_app(doc):
     doc.title = 'Examine Machine Learning examples'
     args = curdoc().session_context.server_context.application_context.application.metadata
     if args:
-        with dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id()) as this_service:
+        from dgbpy.bokehserver import get_request_id
+        from dgbpy.servicemgr import ServiceMgr
+        with ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id()) as this_service:
             this_service.addAction('BokehParChg', bokehParChgCB )
     else:
         from sys import argv
         import json
-        data = json.loads(argv[1])
-        bokehParChgCB(data)
+        if len(argv)>1:
+            data = json.loads(argv[1])
+            bokehParChgCB(data)
 
 
 exampleplot_app(curdoc())

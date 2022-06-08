@@ -1,15 +1,25 @@
 import odpy.wellman as odwm
 import numpy as np
+from functools import partial
+from bokeh.io import curdoc
 from bokeh.layouts import row, column
 from bokeh.models import ColumnDataSource, MultiSelect, Select, Button, RadioGroup, Spinner
 from bokeh.plotting import figure
+import logging
+import odpy.common as odcommon
+
+odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
+odcommon.proclog_logger.setLevel( 'DEBUG' )
+
 
 class MulitWellSelector:
 	def __init__(self):
 		self._wellnms = odwm.getNames()
 		self.apply_but = Button(label='Apply', button_type='success')
-
 		self.well_select = MultiSelect(title='Select wells', width_policy='max', height_policy='fit',	options=self._wellnms)
+
+	def select_wells(self, wellnms):
+		self.well_select.update(value=wellnms)
 
 	def get_controls(self):
 		controls = column(self.apply_but, self.well_select)
@@ -51,11 +61,14 @@ class MultiWellLogSelector:
 		return sorted(logset)
 
 	def update_select(self):
+		sellogs = None
+		if self.common:
+			sellogs = self.get_commonlogs(self.withdepth)
+		else:
+			sellogs = self.get_uniquelogs(self.withdepth)
+
 		for log_select in self.log_select.values():
-			if self.common:
-				log_select.options = self.get_commonlogs(self.withdepth)
-			else:
-				log_select.options = self.get_uniquelogs(self.withdepth)
+			log_select.options = sellogs
 			if not log_select.value:
 				log_select.value = log_select.options[0]
 
@@ -100,9 +113,12 @@ class MultiWellCrossPlot:
 		self.well_select.well_select.on_change("value", self.on_well_select)
 		self._logsel = [None, None]
 
+	def set_well_selection(self, wells):
+		self.well_select.select_wells(wells)
+
 	def on_well_select(self, attr, old, new):
 		self.log_select.set_wells(new)
-		self.log_select.update_select()
+		curdoc().add_next_tick_callback(self.log_select.update_select)
 
 	def on_apply(self):	
 			wells = self.well_select.well_select.value

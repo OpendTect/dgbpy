@@ -23,7 +23,9 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uisklearn, uitorch, uikeras
 from dgbpy import mlio as dgbmlio
-import dgbpy.servicemgr as dgbservmgr
+from dgbpy.servicemgr import ServiceMgr
+from dgbpy.bokehserver import get_request_id
+
 import odpy.common as odcommon
 
 from trainui import get_default_info, MsgHandler, get_platforms
@@ -34,14 +36,6 @@ odcommon.proclog_logger.setLevel( 'DEBUG' )
 odcommon.log_msg( 'Before start training UI')
 
 srcfile = __file__
-
-def get_request_id():
-  reqargs = curdoc().session_context.request.arguments
-  try:
-    bokehid = int(reqargs.get('bokehid')[0])
-  except:
-    bokehid = -1
-  return bokehid
 
 def training_app(doc):
   odcommon.log_msg( 'Start training UI')
@@ -353,16 +347,16 @@ def training_app(doc):
 
   args = curdoc().session_context.server_context.application_context.application.metadata
   if args:
-    this_service = dgbservmgr.ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
+    this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
     mh = MsgHandler('--Training Started--', this_service, 'bokeh_app_msg', {'training_started': ''})
     mh.add('--Epoch0End--', 'bokeh_app_msg', {'show tensorboard': ''})
     mh.setLevel(logging.DEBUG)
     odcommon.proclog_logger.addHandler(mh)
   else:
-    data = json.loads(sys.argv[1])
-    print(data)
-    trainingParChgCB(data)
+    if len(sys.argv)>1:
+      data = json.loads(sys.argv[1])
+      trainingParChgCB(data)
 
   initWin()
 
