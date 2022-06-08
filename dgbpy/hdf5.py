@@ -148,6 +148,11 @@ def applyMinMaxScaling( info ):
 def isModel( info ):
   return plfdictstr in info
 
+def isMultiLabelRegression( info ):
+  if not isRegression( info ) or isImg2Img( info ):
+    return False
+  return getNrOutputs( info ) > 1
+
 def getOutdType( classinfo ):
   max = classinfo.max()
   min = classinfo.min()
@@ -504,6 +509,8 @@ def getWellInfo( info, filenm ):
       classesdictstr: getClassIndicesFromData(info),
       classnmdictstr: getMainOutputs(info)[0]
     })
+  else:
+    info[outshapedictstr] = getNrOutputs(info)
 
   if not isModel(info):
     info.update( {estimatedsizedictstr: getTotalSize(info)} )

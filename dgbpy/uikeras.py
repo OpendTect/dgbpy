@@ -90,7 +90,7 @@ def getUiPars(uipars=None):
     
   uiobjs['modeltypfld'].value = defmodel
   uiobjs['batchfld'].value = str(defbatchsz)
-  uiobjs['epochfld'].value = dict['epoch']
+  uiobjs['epochfld'].value = dict['epochs']
   uiobjs['patiencefld'].value = dict['patience']
   uiobjs['lrfld'].value = np.log10(dict['learnrate'])
   uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value

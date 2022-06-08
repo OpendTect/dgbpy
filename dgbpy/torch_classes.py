@@ -41,11 +41,12 @@ class OnnxModel():
         pass
 
 class Net(nn.Module):   
-    def __init__(self, output_classes, dim, nrattribs):
+    def __init__(self, model_shape, output_classes, dim, nrattribs):
         super(Net, self).__init__()
         
         self.output_classes = output_classes
         self.dim, self.nrattribs = dim, nrattribs
+        self.model_shape, self.pool_padding = model_shape, 1
         if output_classes==1:
             self.activation = ReLU()
         else:
@@ -62,47 +63,34 @@ class Net(nn.Module):
             BatchNorm = BatchNorm1d
             Conv = Conv1d
             MaxPool = MaxPool1d
+        elif dim==0:
+            BatchNorm = BatchNorm1d
+            Conv = Conv1d
+            MaxPool = MaxPool1d
+            self.padding = 0
 
         self.cnn_layers = Sequential(
             Conv(nrattribs, 4, kernel_size=3, stride=1, padding=1),
             BatchNorm(4),
             ReLU(inplace=True),
-            MaxPool(kernel_size=2, stride=2),
+            MaxPool(kernel_size=2, stride=2, padding=self.pool_padding),
         )
 
-        self.linear_layers_3D = Sequential(
-            Linear(4096, self.output_classes),
-            self.activation,
-        )
-
-        self.linear_layers_2D = Sequential(
-            Linear(512, self.output_classes),
-            self.activation,
-        )
-        
-        self.linear_layers_1D = Sequential(
-            Linear(64, self.output_classes),
+        self.after_cnn_size = self.after_cnn(torch.randn(self.model_shape).unsqueeze(0))
+        self.linear_layers = Sequential(
+            Linear(self.after_cnn_size, self.output_classes),
             self.activation,
         )
 
-        self.linear_layers_D = Sequential(
-            Linear(40, self.output_classes),
-            self.activation,
-        )
- 
+    def after_cnn(self, x):
+        x = self.cnn_layers[0](x)
+        x = self.cnn_layers[-1](x)
+        return int(np.prod(x.size()[1:]))
+
     def forward(self, x):
         x = self.cnn_layers(x)
         x = x.view(x.size(0), -1)
-        try:
-            if self.dim==3:
-                x = self.linear_layers_3D(x)
-            elif self.dim==2:
-                x = self.linear_layers_2D(x)
-            elif self.dim==1:
-                x = self.linear_layers_1D(x)
-        except RuntimeError:
-            x = self.linear_layers_D(x)
-
+        x = self.linear_layers(x)
         return x   
 
 class Trainer:
@@ -139,7 +127,7 @@ class Trainer:
         self.learning_rate = []
         self.training_accuracy = []
         self.validation_accuracy = []
-        self.F1_old = 0.0
+        self.F1_old = float('-inf')
         self.MAE = 100 ** 10000
 
     def run_trainer(self):
@@ -180,16 +168,18 @@ class Trainer:
                 pred = out.detach().cpu().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred.flatten(), target.flatten())
+                loss = self.criterion(out, target.squeeze(1))
             elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                 target = target.type(torch.LongTensor)
                 pred = out.detach().numpy()
                 pred = np.argmax(pred, axis=1)
                 acc = accuracy_score(pred, target)
+                loss = self.criterion(out, target.squeeze(1))                
             elif not classification:
                 from sklearn.metrics import mean_absolute_error
                 pred = out.detach().cpu().numpy()
                 acc = mean_absolute_error(pred.flatten(), target.flatten())
-            loss = self.criterion(out, target.squeeze(1))
+                loss = self.criterion(out, target)
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
@@ -218,35 +208,40 @@ class Trainer:
                     val_pred = out.detach().cpu().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred.flatten(), target.flatten())
+                    loss = self.criterion(out, target.squeeze(1))
                 elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                     target = target.type(torch.LongTensor)
                     val_pred = out.detach().numpy()
                     val_pred = np.argmax(val_pred, axis=1)
                     acc = accuracy_score(val_pred, target)
+                    loss = self.criterion(out, target.squeeze(1))
                 elif not classification:
                     from sklearn.metrics import mean_absolute_error
                     val_pred = out.detach().cpu().numpy()
                     acc = mean_absolute_error(val_pred.flatten(), target.flatten())
-                loss = self.criterion(out, target.squeeze(1))
+                    loss = self.criterion(out, target)
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
-        self.validation_loss.append(np.mean(valid_losses))
-        self.validation_accuracy.append(np.mean(valid_accs))
-        odcommon.log_msg(f'Validation loss: {np.round(np.mean(valid_losses), 4)}')
+        mean_valid_accs = np.mean(valid_accs)
+        mean_valid_losses = np.mean(valid_losses)
+        self.validation_loss.append(mean_valid_losses)
+        self.validation_accuracy.append(mean_valid_accs)
+        odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
+        
         if classification:
-            odcommon.log_msg(f'Validation Accuracy: {np.round(np.mean(valid_accs, dtype="float64"), 4)}')
+            odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
         else:
-            odcommon.log_msg(f'Validation MAE: {np.round(np.mean(valid_accs, dtype="float64"), 4)}')
-        if self.F1_old < np.mean(valid_accs) and classification:
-            self.F1_old = np.mean(valid_accs)
+            odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
+        if self.F1_old < mean_valid_accs and classification:
+            self.F1_old = mean_valid_accs
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs, dtype="float64")
-        elif self.MAE > np.mean(valid_accs) and not classification:
-            self.F1_old = np.mean(valid_accs)
+            self.validation_best = mean_valid_accs
+        elif self.MAE > mean_valid_accs and not classification:
+            self.F1_old = mean_valid_accs
             self.MAE = self.F1_old
             self.savemodel = self.model
-            self.validation_best = np.mean(valid_accs, dtype="float64")
+            self.validation_best = mean_valid_accs
 
 ########### 3D RESNET 18 ARCHITECTURE START #############
 
@@ -269,7 +264,7 @@ class ResidualBlock(nn.Module):
             Conv = Conv2d
             BatchNorm = BatchNorm2d
             MaxPool = MaxPool2d
-        elif self.ndims==1:
+        elif self.ndims==1 or self.ndims==0:
             Conv = Conv1d
             BatchNorm = BatchNorm1d
             MaxPool = MaxPool1d

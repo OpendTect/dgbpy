@@ -22,6 +22,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
+from sklearn.multioutput import MultiOutputRegressor
 
 from sklearn.cluster import KMeans, MeanShift, SpectralClustering
 
@@ -97,11 +98,13 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-def getUiModelTypes(learntype,isclassification):
+def getUiModelTypes(learntype,isclassification,ismultiregression):
   if dgbhdf5.isSegmentation(learntype):
     return getUiClusterTypes()
   if isclassification:
     return dgbkeys.getNames( classmltypes )
+  if ismultiregression:
+    return dgbkeys.getNames( (regmltypes[1],) )
   return dgbkeys.getNames( regmltypes )
 
 def getUiLinearTypes():
@@ -116,7 +119,9 @@ def getUiClusterTypes():
 def getUiClusterMethods():
   return dgbkeys.getNames( clustermethods )
 
-def getUiEnsembleTypes():
+def getUiEnsembleTypes(ismultiregression):
+  if ismultiregression:
+    return dgbkeys.getNames( (ensembletypes[2],) )
   return dgbkeys.getNames( ensembletypes )
 
 def getUiNNTypes():
@@ -432,6 +437,10 @@ def unscale( samples, scaler ):
 def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']
   isclassification = setup[dgbhdf5.classdictstr]
+  ismultilabelregression = dgbhdf5.isMultiLabelRegression(setup)
+  if ismultilabelregression and modelname != 'Random Forests':
+    log_msg('Multilabel prediction is only supported for Random Forest in Scikit')   
+    return None
   try:
     if modelname =='Clustering':
       method = params['methodname']
@@ -471,6 +480,8 @@ def getDefaultModel( setup, params=scikit_dict ):
       max_depth = params['maxdep']
       if isclassification:
         model = RandomForestClassifier(n_estimators=n_estimators,criterion='gini',max_depth=max_depth,n_jobs=-1)
+      elif ismultilabelregression:
+        model = MultiOutputRegressor(RandomForestRegressor(n_estimators=n_estimators,criterion='mse',max_depth=max_depth,n_jobs=-1))
       else:
         model = RandomForestRegressor(n_estimators=n_estimators,criterion='mse',max_depth=max_depth,n_jobs=-1)
     elif modelname == 'Gradient Boosting':
@@ -523,7 +534,10 @@ def getDefaultModel( setup, params=scikit_dict ):
 
 def train(model, trainingdp):
   x_train = trainingdp[dgbkeys.xtraindictstr]
-  y_train = trainingdp[dgbkeys.ytraindictstr].ravel()
+  if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
+    y_train = trainingdp[dgbkeys.ytraindictstr]
+  else:
+    y_train = trainingdp[dgbkeys.ytraindictstr].ravel()
   printProcessTime( 'Training with scikit-learn', True, print_fn=log_msg )
   log_msg( '\nTraining on', len(y_train), 'samples' )
   log_msg( 'Validate on', len(trainingdp[dgbkeys.yvaliddictstr]), 'samples\n' )
@@ -540,7 +554,10 @@ def assessQuality( model, trainingdp ):
     return
   try:
     x_validate = trainingdp[dgbkeys.xvaliddictstr]
-    y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
+    if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
+      y_validate = trainingdp[dgbkeys.yvaliddictstr]
+    else:
+      y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
     y_predicted = model.predict(x_validate)
     if trainingdp[dgbkeys.infodictstr][dgbkeys.classdictstr]:
       cc = np.sum( y_predicted==y_validate) / len(y_predicted)
@@ -572,7 +589,11 @@ def save( model, outfnm, save_type=defsavetype ):
   odhdf5.setAttr( h5file, 'backend', 'scikit-learn' )
   odhdf5.setAttr( h5file, 'sklearn_version', sklearn.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
-  odhdf5.setAttr( h5file, 'model_config', json.dumps(model.get_params()) )
+  if isinstance(model, MultiOutputRegressor):
+    params = {key:value for key,value in model.get_params().items() if key != "estimator"}
+    odhdf5.setAttr( h5file, 'model_config', json.dumps(params) )
+  else:
+    odhdf5.setAttr( h5file, 'model_config', json.dumps(model.get_params()) )
   modelgrp = h5file.create_group( 'model' )
   if hasXGBoost():
     from xgboost import XGBClassifier, XGBRegressor, \

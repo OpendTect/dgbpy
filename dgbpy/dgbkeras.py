@@ -55,7 +55,7 @@ defbatchstr = 'defaultbatchsz'
 keras_dict = {
   dgbkeys.decimkeystr: False,
   'nbchunk': 10,
-  'epoch': 15,
+  'epochs': 15,
   'batch': 32,
   'patience': 5,
   'learnrate': 1e-4,
@@ -89,14 +89,14 @@ def set_compute_device( prefercpu ):
   tfconfig.set_visible_devices( cpudevs )
 
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
-               epochs=keras_dict['epoch'],
+               epochs=keras_dict['epochs'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
-    'epoch': epochs,
+    'epochs': epochs,
     'batch': batch,
     'patience': patience,
     'learnrate': learnrate,
@@ -132,7 +132,7 @@ def get_data_format( model ):
   return None
 
 def hasValidCubeletShape( cubeszs ):
-  if cubeszs[0] == None or cubeszs[1] == None or cubeszs[2] == None:
+  if None in cubeszs:
     return False
   return True
 
@@ -302,7 +302,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
-  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation )
+  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=False )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
@@ -335,7 +335,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,
                             get_validation_data( validate_datagen )
 
     try:
-      model.fit(x=train_datagen,epochs=params['epoch'],verbose=1,
+      model.fit(x=train_datagen,epochs=params['epochs'],verbose=1,
                 validation_data=validate_datagen,callbacks=callbacks)
     except Exception as e:
       log_msg('')
