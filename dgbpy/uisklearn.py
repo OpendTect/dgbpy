@@ -117,6 +117,7 @@ def getEnsembleGrp(uipars=None):
   rfgrp = {}
   xgdtgrp = None
   xgrfgrp = None
+  ismultiregression = dgbhdf5.isMultiLabelRegression(info)
   if uipars:
     uiobjs  = uipars['uiobjects']
     if hasXGBoost():
@@ -147,7 +148,7 @@ def getEnsembleGrp(uipars=None):
     gbgrp = getGBGrp()
     adagrp = getAdaGrp()
     uiobjs = {'ensembletyp': Select(title='Model',
-                             options=getUiEnsembleTypes())}
+                             options=getUiEnsembleTypes(ismultiregression))}
     if hasXGBoost():
       xggrpuiobjs = xgdtgrp['uiobjects']
       uiobjs.update({
@@ -170,16 +171,19 @@ def getEnsembleGrp(uipars=None):
               'estparfldada': adagrp['uiobjects']['estparfldada'],
               'lrparfldada': adagrp['uiobjects']['lrparfldada'],
               })
-    if hasXGBoost():
-      ensemblegrp = (xgdtgrp,xgrfgrp,rfgrp,gbgrp,adagrp)
+    if not ismultiregression:
+      if hasXGBoost():
+        ensemblegrp = (xgdtgrp,xgrfgrp,rfgrp,gbgrp,adagrp)
+      else:
+        ensemblegrp = (rfgrp,gbgrp,adagrp)
+      uiobjs['ensembletyp'].on_change('value',partial(ensembleChgCB,cb=uiobjs['ensembletyp'],ensemblegrp=ensemblegrp))
     else:
-      ensemblegrp = (rfgrp,gbgrp,adagrp)
-    uiobjs['ensembletyp'].on_change('value',partial(ensembleChgCB,cb=uiobjs['ensembletyp'],ensemblegrp=ensemblegrp))
+      ensemblegrp = (rfgrp,)
     uipars = {'uiobjects': uiobjs, 'name': regmltypes[1][1],}
 
-  if hasXGBoost():
+  if hasXGBoost() and not ismultiregression:
     uiobjs['ensembletyp'].value = 'XGBoost: (Decision Tree)'
-  else:
+  elif ismultiregression or not hasXGBoost():
     uiobjs['ensembletyp'].value = 'Random Forests'
   return uipars
 
@@ -475,7 +479,7 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
 def getUiClusterPars( uipars=None ):
   learntype = info[dgbkeys.learntypedictstr]
   isclassification = info[dgbkeys.classdictstr]
-  models = getUiModelTypes(learntype,isclassification)
+  models = getUiModelTypes(learntype,isclassification, None)
 
   if len(models)==0:
     divfld = Div(text="""No scikit-learn models found for this workflow.""")
@@ -507,7 +511,8 @@ def getUiPars(uipars=None):
     return getUiClusterPars( uipars )
 
   isclassification = info[dgbkeys.classdictstr]
-  models = getUiModelTypes(learntype,isclassification)
+  ismultiregression = dgbhdf5.isMultiLabelRegression(info)
+  models = getUiModelTypes(learntype,isclassification,ismultiregression)
 
   if len(models)==0:
       divfld = Div(text="""No scikit-learn models found for this workflow.""")
@@ -528,52 +533,60 @@ def getUiPars(uipars=None):
       'svmgrp': getSVMGrp( isclassification, uipars=None )
     }
     modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
-    uiobjs['modeltyp'].on_change('value',partial(modelChgCB,cb=uiobjs['modeltyp'],modelsgrp=modelsgrp))
+    if not ismultiregression:
+      uiobjs['modeltyp'].on_change('value',partial(modelChgCB,cb=uiobjs['modeltyp'],modelsgrp=modelsgrp))
     pars = [uiobjs['modeltyp']]
     ensemblepars = [uiobjs['ensemblegrp']['uiobjects']['ensembletyp']]
-    if hasXGBoost():
-      xgdtpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgdt'], \
-                  uiobjs['ensemblegrp']['uiobjects']['depparfldxgdt'], \
-                  uiobjs['ensemblegrp']['uiobjects']['lrparfldxgdt'], \
-                 ]
-      xgrfpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgrf'], \
-                  uiobjs['ensemblegrp']['uiobjects']['depparfldxgrf'], \
-                  uiobjs['ensemblegrp']['uiobjects']['lrparfldxgrf'], \
-                 ]
-      ensemblepars.extend( xgdtpars )
-      ensemblepars.extend( xgrfpars )
-    ensemblepars.extend([
-                    uiobjs['ensemblegrp']['uiobjects']['estparfldrf'], \
-                    uiobjs['ensemblegrp']['uiobjects']['depparfldrf'], \
-                    uiobjs['ensemblegrp']['uiobjects']['estparfldgb'], \
-                    uiobjs['ensemblegrp']['uiobjects']['depparfldgb'], \
-                    uiobjs['ensemblegrp']['uiobjects']['lrparfldgb'], \
-                    uiobjs['ensemblegrp']['uiobjects']['estparfldada'], \
-                    uiobjs['ensemblegrp']['uiobjects']['lrparfldada'], \
-                   ] )
-    nnpars = [uiobjs['nngrp']['uiobjects']['nntyp'], \
-              uiobjs['nngrp']['uiobjects']['itrparfld'], \
-              uiobjs['nngrp']['uiobjects']['lrparfld'], \
-              uiobjs['nngrp']['uiobjects']['lay1parfld'], \
-              uiobjs['nngrp']['uiobjects']['lay2parfld'], \
-              uiobjs['nngrp']['uiobjects']['lay3parfld'], \
-              uiobjs['nngrp']['uiobjects']['lay4parfld'], \
-              uiobjs['nngrp']['uiobjects']['lay5parfld'], \
-              uiobjs['nngrp']['uiobjects']['buttonparfld'], \
-             ]
-    svmpars = [uiobjs['svmgrp']['uiobjects']['svmtyp'], \
-               uiobjs['svmgrp']['uiobjects']['kernel'], \
-               uiobjs['svmgrp']['uiobjects']['degree'] \
+    if not ismultiregression:
+      if hasXGBoost():
+        xgdtpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgdt'], \
+                    uiobjs['ensemblegrp']['uiobjects']['depparfldxgdt'], \
+                    uiobjs['ensemblegrp']['uiobjects']['lrparfldxgdt'], \
+                  ]
+        xgrfpars = [uiobjs['ensemblegrp']['uiobjects']['estparfldxgrf'], \
+                    uiobjs['ensemblegrp']['uiobjects']['depparfldxgrf'], \
+                    uiobjs['ensemblegrp']['uiobjects']['lrparfldxgrf'], \
+                  ]
+        ensemblepars.extend( xgdtpars )
+        ensemblepars.extend( xgrfpars )
+      ensemblepars.extend([
+                      uiobjs['ensemblegrp']['uiobjects']['estparfldrf'], \
+                      uiobjs['ensemblegrp']['uiobjects']['depparfldrf'], \
+                      uiobjs['ensemblegrp']['uiobjects']['estparfldgb'], \
+                      uiobjs['ensemblegrp']['uiobjects']['depparfldgb'], \
+                      uiobjs['ensemblegrp']['uiobjects']['lrparfldgb'], \
+                      uiobjs['ensemblegrp']['uiobjects']['estparfldada'], \
+                      uiobjs['ensemblegrp']['uiobjects']['lrparfldada'], \
+                    ] )
+      nnpars = [uiobjs['nngrp']['uiobjects']['nntyp'], \
+                uiobjs['nngrp']['uiobjects']['itrparfld'], \
+                uiobjs['nngrp']['uiobjects']['lrparfld'], \
+                uiobjs['nngrp']['uiobjects']['lay1parfld'], \
+                uiobjs['nngrp']['uiobjects']['lay2parfld'], \
+                uiobjs['nngrp']['uiobjects']['lay3parfld'], \
+                uiobjs['nngrp']['uiobjects']['lay4parfld'], \
+                uiobjs['nngrp']['uiobjects']['lay5parfld'], \
+                uiobjs['nngrp']['uiobjects']['buttonparfld'], \
               ]
+      svmpars = [uiobjs['svmgrp']['uiobjects']['svmtyp'], \
+                uiobjs['svmgrp']['uiobjects']['kernel'], \
+                uiobjs['svmgrp']['uiobjects']['degree'] \
+                ]
 
-    if isclassification:
-      pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'],
-                   uiobjs[linearkey]['uiobjects']['solvertyp']])
+      if isclassification:
+        pars.extend([uiobjs[linearkey]['uiobjects']['logtyp'],
+                    uiobjs[linearkey]['uiobjects']['solvertyp']])
+      else:
+        pars.extend([uiobjs[linearkey]['uiobjects']['lineartyp']])
+      pars.extend(ensemblepars)
+      pars.extend(nnpars)
+      pars.extend(svmpars)
     else:
-      pars.extend([uiobjs[linearkey]['uiobjects']['lineartyp']])
-    pars.extend(ensemblepars)
-    pars.extend(nnpars)
-    pars.extend(svmpars)
+      ensemblepars.extend([
+                uiobjs['ensemblegrp']['uiobjects']['estparfldrf'], \
+                uiobjs['ensemblegrp']['uiobjects']['depparfldrf'], \
+              ] )
+      pars.extend(ensemblepars)
     parsgrp = column(*pars)
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
@@ -582,15 +595,19 @@ def getUiPars(uipars=None):
   if isclassification:
     uiobjs['modeltyp'].value = models[0]
     uiobjs[linearkey] = getLogGrp(uiobjs[linearkey])
-  else:
+  elif not ismultiregression:
     uiobjs['modeltyp'].value = models[1]
+    uiobjs[linearkey] = getLinearGrp(uiobjs[linearkey])
+  else:
+    uiobjs['modeltyp'].value = models[0]
     uiobjs[linearkey] = getLinearGrp(uiobjs[linearkey])
   uiobjs['ensemblegrp'] = getEnsembleGrp(uiobjs['ensemblegrp'])
   uiobjs['nngrp'] = getNNGrp(uiobjs['nngrp'])
   uiobjs['svmgrp'] = getSVMGrp( isclassification, uipars=uiobjs['svmgrp'])
 
   modelsgrp = (uiobjs[linearkey], uiobjs['ensemblegrp'], uiobjs['nngrp'], uiobjs['svmgrp'])
-  modelChgCB( 'value', deftype, deftype, uiobjs['modeltyp'], modelsgrp )
+  if not ismultiregression:
+    modelChgCB( 'value', deftype, deftype, uiobjs['modeltyp'], modelsgrp )
   return uipars
 
 
