@@ -13,7 +13,7 @@ def crossplotapp(doc):
     nonlocal xplot
     wells = paramobj.get("Well") 
     if wells:
-      doc.add_next_tick_callback(partial(xplot.set_well_selection,wells=wells))
+      doc.add_next_tick_callback(partial(xplot.select_wells,wellnms=wells))
 
   doc.add_root(xplot.get_controls())
   doc.title = "Multi-well Crossplot"
