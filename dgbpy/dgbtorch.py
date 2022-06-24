@@ -26,7 +26,7 @@ torch_dict = {
     'batch_size': 8,
     'learnrate': 0.0001,
     'type': None,
-    'withaugmentation': dgbkeys.getDefaultAugmentation()
+    'transform':['RandomRotation']
 }
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
@@ -45,14 +45,14 @@ def getParams(
     epochs=torch_dict['epochs'],
     epochdrop=torch_dict['epochdrop'],
     batch=torch_dict['batch_size'],
-    withaugmentation=torch_dict['withaugmentation']):
+    transform=torch_dict['transform']):
   ret = {
     'type': nntype,
     'learnrate': learnrate,
     'epochs': epochs,
     'epochdrop': epochdrop,
     'batch': batch,
-    'withaugmentation': withaugmentation
+    'transform': transform
   }
   return ret
 
@@ -212,7 +212,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 
 def train(model, imgdp, params):
     from dgbpy.torch_classes import Trainer
-    trainloader, testloader = DataGenerator(imgdp, batchsize=params['batch'],withaugmentation=params['withaugmentation'])
+    trainloader, testloader = DataGenerator(imgdp, batchsize=params['batch'],transform=params['transform'])
     criterion = torch_dict['criterion']
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
@@ -383,9 +383,9 @@ def getSeismicDatasetPars(imgdp, _forvalid):
     ndims = getModelDims(model_shape, True)
     return x_data, y_data, info, inp_ch, ndims
 
-def DataGenerator(imgdp, batchsize, withaugmentation=True):
+def DataGenerator(imgdp, batchsize, transform=list()):
     from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
-    train_dataset = SeismicTrainDataset(imgdp, withaugmentation=withaugmentation)
+    train_dataset = SeismicTrainDataset(imgdp, transform=transform)
     test_dataset = SeismicTestDataset(imgdp)
 
     trainloader, testloader = getDataLoaders(train_dataset, test_dataset, batchsize)

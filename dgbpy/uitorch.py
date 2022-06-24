@@ -95,7 +95,7 @@ def getAdvancedUiPars(uipars=None):
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
     uiobjs = uipars['uiobjects']
-  uiobjs['augmentfld'].active = [] if not dict['withaugmentation'] else [0]
+  uiobjs['augmentfld'].active = [] if not dict['transform'] else [0]
   return uipars
 
 def getUiParams( torchpars, advtorchpars ):
@@ -106,13 +106,13 @@ def getUiParams( torchpars, advtorchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  withaugmentation = True if len(advtorchgrp['augmentfld'].active)!=0 else False
+  transform = ['RandomRotation'] if len(advtorchgrp['augmentfld'].active)!=0 else False
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
-                             withaugmentation=withaugmentation)
+                             transform=transform)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
