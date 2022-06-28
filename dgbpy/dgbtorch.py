@@ -19,6 +19,11 @@ import odpy.hdf5 as odhdf5
 import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+transform_dict = {
+    'RandomRotation':{'p':0.5}
+}
+
 torch_dict = {
     'epochs': 15,
     'epochdrop': 5,
@@ -26,7 +31,7 @@ torch_dict = {
     'batch_size': 8,
     'learnrate': 0.0001,
     'type': None,
-    'transform':['RandomRotation']
+    'transform':transform_dict
 }
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
@@ -383,7 +388,7 @@ def getSeismicDatasetPars(imgdp, _forvalid):
     ndims = getModelDims(model_shape, True)
     return x_data, y_data, info, inp_ch, ndims
 
-def DataGenerator(imgdp, batchsize, transform=list()):
+def DataGenerator(imgdp, batchsize, transform=dict()):
     from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
     train_dataset = SeismicTrainDataset(imgdp, transform=transform)
     test_dataset = SeismicTestDataset(imgdp)
