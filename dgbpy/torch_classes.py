@@ -713,26 +713,12 @@ class UNet(nn.Module):
         d = {self.__class__.__name__: attributes}
         return f'{d}'
 
-def getTransform(transforms):
-    if not transforms:
-        return False
-    elif not hasattr(transforms, '__iter__'):
-        transforms = [transforms]
-    _transforms = list(map(lambda tr: globals()[tr](p=0.5), transforms))
-    return TransformCompose(_transforms)
-
-class TransformCompose():
-    def __init__(self, transforms):
-        self.transforms = transforms
-
-    def __call__(self, image, label, image_only=False):
-        for transform in self.transforms:
-            image, label =  transform(image, label, image_only=image_only)
-        return image, label
-        
 class RandomRotation():
     def __init__(self, p=0.55):
         self.p = p
+
+    def update_pars(self, transform_dict):
+        self.p = float(transform_dict['p'])
 
     def __call__(self, image, label, image_only = False):
         if self.p > np.random.uniform(0,1):
@@ -759,6 +745,59 @@ class RandomRotation():
         else:
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
+class RandomGaussianNoise():
+    def __init__(self, p=1, std=.2):
+        self.p = p
+        self.std = std
+
+    def update_pars(self, transform_dict):
+        self.p = float(transform_dict['p'])
+        self.std = float(transform_dict['std'])
+        
+    def __call__(self, image, label, image_only=True):
+        self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape)
+        if self.p > np.random.uniform(0,1):
+            return self.transform(image), label
+        else:
+            return image, label
+
+    def transform(self, arr):
+        arr = self.noise + arr
+        return arr
+
+
+all_transforms = {
+    'RandomRotation': RandomRotation,
+    'RandomGaussianNoise': RandomGaussianNoise,
+}
+
+class TransformComposefromList():
+    def __init__(self, transforms):
+        if not hasattr(transforms, '__iter__'):
+            transforms = [transforms]
+        self.transforms = transforms
+
+    def __call__(self, image, label, image_only=False):
+        for transform in self.transforms:
+            image, label =  transform(image, label, image_only=image_only)
+        return image, label
+
+class TransformComposefromDict():
+    def __init__(self, transforms):
+        self.transforms = []
+        for transform, transform_pars in transforms.items():
+            if transform in all_transforms:
+                transform = all_transforms[transform]()
+                transform.update_pars(transform_pars)
+                self.transforms.append(transform)
+            else:
+                odcommon.log_msg('Invalid transform', transform)
+
+    def __call__(self, image, label, image_only=False):
+        for transform in self.transforms:
+            image, label =  transform(image, label, image_only=image_only)
+        return image, label
+
 class SeismicTrainDataset:
     def __init__(self, imgdp, transform=list()):
         from dgbpy import dgbtorch
@@ -768,7 +807,10 @@ class SeismicTrainDataset:
         self.info = info
         self.X = X.astype('float32')
         self.y = y.astype('float32')
-        self.transform = getTransform(transform)
+        if isinstance(transform, dict):
+            self.transform = TransformComposefromDict(transform)
+        elif isinstance(transform, (list, *all_transforms.values())):
+            self.transform = TransformComposefromList(transform)
 
     def __len__(self):
         return self.X.shape[0]

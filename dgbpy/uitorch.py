@@ -106,7 +106,7 @@ def getUiParams( torchpars, advtorchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  transform = ['RandomRotation'] if len(advtorchgrp['augmentfld'].active)!=0 else False
+  transform = {'RandomRotation':{'p':0.5}} if len(advtorchgrp['augmentfld'].active)!=0 else False
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
