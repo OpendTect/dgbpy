@@ -755,7 +755,7 @@ class RandomGaussianNoise():
         self.std = float(transform_dict['std'])
         
     def __call__(self, image, label, image_only=True):
-        self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape)
+        self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
         if self.p > np.random.uniform(0,1):
             return self.transform(image), label
         else:
