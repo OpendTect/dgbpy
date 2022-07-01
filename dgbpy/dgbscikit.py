@@ -15,7 +15,7 @@ import numpy as np
 import pickle
 
 import sklearn
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
@@ -361,15 +361,15 @@ def getSVMPars( modelname='Support Vector Machine',
     }
 
 def getNewScaler( mean, scale ):
-  """ Gets new scaler object
+  """ Gets new scaler object for standardization 
 
   Parameters:
     * mean (ndarray of shape (n_features,) or None): mean value to be used for scaling
     * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the
-      data to achieve zero mean and unit variance (fromm sklearn docs)
+      data to achieve zero mean and unit variance (from sklearn docs)
 
   Returns:
-    * object: scaler (an instance of sklearn.preprocessing..StandardScaler())
+    * object: scaler (an instance of sklearn.preprocessing.StandardScaler())
   """
 
   scaler = StandardScaler()
@@ -379,11 +379,38 @@ def getNewScaler( mean, scale ):
   scaler.n_samples_seen_ = len(mean)
   return scaler
 
-def getNewMinMaxScaler( min, max ):
-  scaler = MinMaxScaler( feature_range=(min,max) )
+def getNewMinMaxScaler( data, minout=0, maxout=1 ):
+  """ Gets new scaler object for normalization
+
+  Parameters:
+    * data ndarray: data used to fit the MinMaxScaler object
+    * minout int: desired minimum value of transformed data
+    * maxout int: desired maximum value of transformed data
+
+  Returns:
+    * object: scaler (an instance of sklearn.preprocessing.MinMaxScaler())
+
+  """
+
+  scaler = MinMaxScaler( feature_range=(minout, maxout), copy=False )
+  scaler.fit( data.reshape((np.prod(data.shape),1)) )
   return scaler
 
 def getScaler( x_train, byattrib ):
+  """ Extract scaler for standardization of features.
+  The scaler is such that when it is applied to the samples they get
+  a mean of 0 and standard deviation of 1, globally or per channel
+
+  Parameters:
+    * x_train ndarray: data used to fit the StandardScaler object
+    * byattrib Boolean: sets a per channel scaler if True
+
+    Returns:
+    * object: scaler (an instance of sklearn.preprocessing.StandardScaler())
+
+
+  """
+
   nrattribs = x_train.shape[1]
   mean = list()
   var = list()
@@ -413,9 +440,26 @@ def transformBack( samples, mean, stddev ):
   return samples
 
 def scale( samples, scaler ):
+  """ Applies a scaler transformation to an array of features
+  If the scaler is a StandardScaler, the returned samples have 
+  a mean and standard deviation according to the value set in the scaler.
+  If the scaler is a MinMaxScaler, the returned samples have
+  a min/max value according to the range set in that scaler
+  Scaling is applied on the input array directly.
+
+  Parameters:
+    * samples ndarray: input/output values to be scaled
+    * scaler sklearn.preprocessing scaler object (see sklearn docs)
+
+  """
+
   if scaler == None:
     return samples
-  if scaler.n_samples_seen_ == 1:
+  if isinstance(scaler,MinMaxScaler):
+    shape = samples.shape
+    samples = scaler.transform( samples.reshape((np.prod(shape),1)) )
+    samples = samples.reshape( shape )
+  elif scaler.n_samples_seen_ == 1:
     samples = transform( samples, scaler.mean_[0], scaler.scale_[0] )
   else:
     for i in range(scaler.n_samples_seen_):
@@ -424,9 +468,22 @@ def scale( samples, scaler ):
   return samples
 
 def unscale( samples, scaler ):
+  """ Applies an inverse scaler transformation to an array of features
+  Scaling is applied on the input array directly.
+
+  Parameters:
+    * samples ndarray: input/output values to be unscaled
+    * scaler sklearn.preprocessing scaler object (see sklearn docs)
+
+  """
+
   if scaler == None:
     return samples
-  if scaler.n_samples_seen_ == 1:
+  if isinstance(scaler,MinMaxScaler):
+    shape = samples.shape
+    samples = scaler.inverse_transform( samples.reshape((np.prod(shape),1)) )
+    samples = samples.reshape( shape )
+  elif scaler.n_samples_seen_ == 1:
     samples = transformBack( samples, scaler.mean_[0], scaler.scale_[0] )
   else:
     for i in range(scaler.n_samples_seen_):

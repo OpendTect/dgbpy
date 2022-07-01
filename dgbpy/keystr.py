@@ -11,6 +11,7 @@
 
 # Dictionary keys (lower case, mostly alphabetic only):
 
+arrayorderdictstr = 'array_order'
 classdictstr = 'classification'
 classesdictstr = 'classes'
 classnmdictstr = 'classnm'
@@ -66,6 +67,7 @@ zstepdictstr = 'zstep'
 
 # Value keys
 
+carrorderstr = 'C-Order'
 classdatavalstr = 'Classification Data'
 classesvalstr = 'Classes'
 classificationvalstr = 'Classification'
@@ -85,6 +87,7 @@ modelnm = 'new model'
 normalizetypestr = 'Normalization'
 numpyvalstr = 'numpy'
 outshapestr = 'Output.Shape'
+reversestr = 'Reverse'
 scikitplfnm = 'scikit'
 segmenttypestr = 'Segmentation'
 seisclasstypestr = 'Seismic Classification'
