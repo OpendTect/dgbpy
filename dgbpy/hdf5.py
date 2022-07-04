@@ -145,6 +145,11 @@ def applyMinMaxScaling( info ):
     return info[inpscalingdictstr] == minmaxtypestr
   return info == minmaxtypestr
 
+def applyArrTranspose( info ):
+  if isinstance(info,dict) and arrayorderdictstr in info:
+    return info[arrayorderdictstr] == reversestr
+  return info == reversestr
+
 def isModel( info ):
   return plfdictstr in info
 
@@ -340,6 +345,11 @@ def getInfo( filenm, quick ):
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
+  arrayorder = carrorderstr
+  arrorderstr = 'Examples.ArrayOrder'
+  if odhdf5.hasAttr(info,arrorderstr):
+    arrayorder = odhdf5.getText(info,arrorderstr)
+
   scalingtype = globalstdtypestr
   scalingtypestr='Input.Scaling.Type'
   if odhdf5.hasAttr(info,scalingtypestr):
@@ -459,6 +469,7 @@ def getInfo( filenm, quick ):
     outshapedictstr: outshape,
     classdictstr: isclassification,
     interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
+    arrayorderdictstr: arrayorder,
     inpscalingdictstr: scalingtype,
     inpscalingvalsdictstr: scalingvalrg,
     outputunscaledictstr: unscaleoutput,

@@ -32,8 +32,9 @@ class ModelApplier:
         self.pars_ = None
         self.fakeapply_ = isfake
         self.scaler_ = None
-        self.extscaler_ = None
         self.info_ = self._get_info(modelfnm)
+        self.needtranspose_ = False
+        self._set_transpose()
         self.model_ = None
         self.applyinfo_ = None
         self.batchsize_ = None
@@ -44,13 +45,20 @@ class ModelApplier:
         if self.fakeapply_:
             info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
         return info
+
+    def _set_transpose(self):
+        if dgbhdf5.isSeisClass( self.info_ ) or \
+            dgbhdf5.isImg2Img( self.info_ ):
+            self.needtranspose_ = dgbhdf5.applyArrTranspose( self.info_ )
+        else:
+            self.needtranspose_ = False
     
     def setOutputs(self, outputs):
         if self.fakeapply_:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
-        (self.scaler_,self.extscaler_) = self.getScaler( outputs )
+        self.scaler_ = self.getScaler( outputs )
         if dgbkeras.prefercpustr in outputs:
             dgbkeras.set_compute_device( outputs[dgbkeras.prefercpustr] )
         if dgbkeras.defbatchstr in outputs:
@@ -59,6 +67,7 @@ class ModelApplier:
             return None
         modelfnm = self.info_[dgbkeys.filedictstr]
         (self.model_,self.info_) = dgbmlio.getModel( modelfnm, fortrain=False )
+        self._set_transpose()
 
     def _usePar(self, pars):
         self.pars_ = pars
@@ -66,18 +75,9 @@ class ModelApplier:
     def hasModel(self):
         return self.model_ != None
 
-    def getDefaultScaler(self):
-        means = list()
-        stddevs = list()
-        for i in range(dgbhdf5.getNrAttribs(self.info_)):
-            stddevs.append( 50 )
-            means.append( 128 )
-        self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
-        return self.extscaler_
-
     def getScaler( self, outputs ):
         if not 'scales' in outputs:
-            return (self.scaler_,self.extscaler_)
+            return self.scaler_
 
         scales = outputs['scales']
         means = list()
@@ -126,20 +126,36 @@ class ModelApplier:
                     stddevs.append( inpscale.scale_[i] )
                   if len(means) > 0:
                     self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
-        elif dgbkeys.mlsoftkey in inputs:
-            inp = inputs[dgbkeys.mlsoftkey]
-            means = list()
-            stddevs = list()
-            if dgbkeys.scaledictstr in inp:
-                inpscale = inp[dgbkeys.scaledictstr]
-                for (scale,mean) in zip(inpscale.scale_,inpscale.mean_):
-                    stddevs.append( scale )
-                    means.append( mean )
-                self.extscaler_ = dgbscikit.getNewScaler( means, stddevs )
-            else:
-                self.extscaler_ = self.getDefaultScaler()
 
-        return (self.scaler_,self.extscaler_)
+        return self.scaler_
+
+    def preprocess(self,samples):
+        if dgbhdf5.applyLocalStd( self.info_ ):
+            self.scaler_ = dgbscikit.getScaler( samples, True )
+        elif dgbhdf5.applyNormalization( self.info_ ):
+            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples )
+        elif dgbhdf5.applyMinMaxScaling( self.info_ ):
+            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, maxout=255 )
+        elif dgbhdf5.applyGlobalStd( self.info_ ):
+            if self.scaler_ == None:
+                self.debugmsg_ = 'Missing scaler for global standardization' 
+                raise TypeError
+
+        if self.scaler_ != None:
+            dgbscikit.scale( samples, self.scaler_ )
+        if self.needtranspose_:
+            samples = np.transpose( samples, axes=(0,1,4,3,2) )
+        return samples
+
+    def postprocess(self,samples):
+        if dgbhdf5.unscaleOutput( self.info_ ):
+            if self.needtranspose_:
+                samples = np.transpose( samples, axes=(0,1,4,3,2) )
+
+            if self.scaler_:
+                dgbscikit.unscale( samples, self.scaler_ )
+
+        return samples
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
@@ -184,49 +200,14 @@ class ModelApplier:
                   loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
             allsamples.append( loc_samples )
         samples = np.concatenate( allsamples )
+        samples = self.preprocess( samples )
 
-        mean = None
-        stddev = None
-        if dgbhdf5.applyLocalStd( self.info_ ):
-          mean = np.mean( samples )
-          stddev = np.std( samples )
-          samples = dgbscikit.transform( samples, mean, stddev )
-        elif dgbhdf5.applyGlobalStd( self.info_ ):
-          samples = dgbscikit.scale( samples, self.scaler_ )
-          samples = dgbscikit.unscale( samples, self.extscaler_ )
-        elif dgbhdf5.applyNormalization( self.info_ ):
-          min = np.min( samples )
-          samples = samples-min
-          max = np.max( samples )
-          samples = samples/max
-        elif dgbhdf5.applyMinMax( self.info_ ):
-          min_in = np.min( samples )
-          max_in = np.max( samples )
-          min_out = 0
-          max_out = 255
-          samples = (samples-min_in) / (max_in-min_in)
-          samples = samples*(max_out-min_out) + min_out
-
-#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
-#        samples = dgbscikit.scale( samples, self.scaler_ )
-#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
-#        samples = dgbscikit.unscale( samples, self.extscaler_ )
-#        self.debugstr = self.debug_msg( samples[0,0,0,0,:1].squeeze() )
-#        min = np.min( samples ) 
-#        samples = samples-min
-#        max = np.max( samples )
-#        samples = samples/max
-#        samples = samples*255 
         ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                   scaler=None, applyinfo=self.applyinfo_, \
                                   batchsize=self.batchsize_ )
 
-        if dgbhdf5.unscaleOutput( self.info_ ):
-          if dgbhdf5.applyLocalStd( self.info_ ):
-            ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr] * stddev + mean;
-          elif dgbhdf5.applyGlobalStd( self.info_ ):
-            samples = dgbscikit.scale( samples, self.extscaler_ )
-            samples = dgbscikit.unscale( samples, self.scaler_ )
+        if dgbkeys.preddictstr in ret:
+            ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
 
         res = list()
         outkeys = list()
