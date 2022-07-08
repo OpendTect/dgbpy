@@ -1,6 +1,7 @@
 from functools import partial
 
 import numpy as np
+from enum import Enum
 
 from bokeh.layouts import column
 from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
@@ -89,24 +90,43 @@ def getAdvancedUiPars(uipars=None):
   uiobjs={}
   if not uipars:
     uiobjs = {
-      'augmentfld': CheckboxGroup(labels=['Enable Data Augmentation'], visible=True, margin=(5, 5, 0, 5)),
+      'augmentheadfld': CheckboxGroup(labels=['Data Augmentation'], visible=True, margin=(5, 5, 0, 5), active = [0]),
+      'augmentfld': CheckboxGroup(labels=['Random Flip', 'Random Gaussian Noise'], visible=True, margin=(0, 5, 0, 25)),
     }
+
+    uiobjs['augmentheadfld'].on_click(partial(enableAugmentationCB, widget=uiobjs['augmentfld']))
+
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
     uiobjs = uipars['uiobjects']
-  uiobjs['augmentfld'].active = [] if not dict['transform'] else [0]
-  return uipars
+
+  setDefaultTransforms = []
+  for transform in dict['transform']:
+    setDefaultTransforms.append(uiTransform[transform].value)
+  uiobjs['augmentheadfld'].active = [0]
+  uiobjs['augmentfld'].active = setDefaultTransforms
+  return uipars     
+
+def enableAugmentationCB(args, widget=None):
+  widget.disabled =  uibokeh.integerListContains([widget.disabled], 0)
+
+def getUiTransforms(advtorchgrp):
+  transforms = {}
+  selectedkeys = advtorchgrp['augmentfld'].active
+  for key in selectedkeys:
+    transforms[uiTransform(key).name] = torch_dict['transform'][uiTransform(key).name]
+  return transforms
 
 def getUiParams( torchpars, advtorchpars ):
-  torchgrp = torchpars['uiobjects']
+  torchgrp = torchpars['uiobjects']     
   advtorchgrp = advtorchpars['uiobjects']
   nrepochs = torchgrp['epochfld'].value
   epochdroprate = torchgrp['epochfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  transform = {'RandomRotation':{'p':0.5}} if len(advtorchgrp['augmentfld'].active)!=0 else False
+  transform = getUiTransforms(advtorchgrp)
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
@@ -116,3 +136,7 @@ def getUiParams( torchpars, advtorchpars ):
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
+
+class uiTransform(Enum):
+  RandomFlip = 0
+  RandomGaussianNoise = 1
