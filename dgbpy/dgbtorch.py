@@ -21,7 +21,8 @@ import dgbpy.torch_classes as tc
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 transform_dict = {
-    'RandomRotation':{'p':0.5}
+    'RandomFlip':{'p':0.3},
+    'RandomGaussianNoise' :{'p':0.3, 'std':0.3}
 }
 
 torch_dict = {

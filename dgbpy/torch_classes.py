@@ -713,7 +713,7 @@ class UNet(nn.Module):
         d = {self.__class__.__name__: attributes}
         return f'{d}'
 
-class RandomRotation():
+class RandomFlip():
     def __init__(self, p=0.55):
         self.p = p
 
@@ -746,7 +746,7 @@ class RandomRotation():
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
 class RandomGaussianNoise():
-    def __init__(self, p=1, std=.2):
+    def __init__(self, p=0.3, std=.3):
         self.p = p
         self.std = std
 
@@ -767,7 +767,7 @@ class RandomGaussianNoise():
 
 
 all_transforms = {
-    'RandomRotation': RandomRotation,
+    'RandomFlip': RandomFlip,
     'RandomGaussianNoise': RandomGaussianNoise,
 }
 
