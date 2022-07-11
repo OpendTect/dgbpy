@@ -72,3 +72,11 @@ def get_platforms():
   mlplatform.append( uitorch.getPlatformNm(True) )
   mlplatform.append( uisklearn.getPlatformNm(True) )
   return mlplatform
+
+def get_default_platform(mllearntype=dbk.loglogtypestr):
+    if mllearntype == dbk.loglogtypestr or \
+      mllearntype == dbk.logclustertypestr or \
+      mllearntype == dbk.seisproptypestr:
+        return uisklearn.getPlatformNm(True)[0]
+    else:
+      return uikeras.getPlatformNm(True)[0]

@@ -28,7 +28,7 @@ from dgbpy.bokehserver import get_request_id
 
 import odpy.common as odcommon
 
-from trainui import get_default_info, MsgHandler, get_platforms
+from trainui import get_default_info, MsgHandler, get_platforms, get_default_platform
 logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
 odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
 odcommon.proclog_logger.setLevel( 'DEBUG' )
@@ -116,16 +116,6 @@ def training_app(doc):
     nonlocal torchadvpars
     if examplefilenm:
       info = dgbmlio.getInfo( examplefilenm, quick=True )
-    uikeras.info = info
-    uitorch.info = info
-    uisklearn.info = info
-    keraspars = uikeras.getUiPars()
-    torchpars = uitorch.getUiPars()
-    sklearnpars = uisklearn.getUiPars()
-    parsgroups = (keraspars,torchpars,sklearnpars)
-    kerasadvpars = uikeras.getAdvancedUiPars()
-    torchadvpars = uitorch.getAdvancedUiPars()
-    advparsgroups = (kerasadvpars, torchadvpars, None)
 
   trainingcb = None
   doabort = False
@@ -141,6 +131,8 @@ def training_app(doc):
   tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
                                    active=[], visible=True)
   this_service = None
+  parsresetbut = None
+  parsbackbut = None
 
   def getParsGrp( platformnm ):
     for platform,parsgroup,advparsgroup in zip(get_platforms(),parsgroups,advparsgroups):
@@ -158,7 +150,7 @@ def training_app(doc):
 
   def selParsGrp( platformnm ):
     parsgrp,advparsgrp = getParsGrp( platformnm )
-    if parsgrp == None:
+    if not parsgrp or not parsresetbut or not parsbackbut :
       return
     doc.clear()
     parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
@@ -168,8 +160,28 @@ def training_app(doc):
       this_service.sendObject('bokeh_app_msg', {'platform_change': platformnm})
 
   def mlchgCB( attrnm, old, new):
+    nonlocal info
+    nonlocal keraspars
+    nonlocal torchpars
+    nonlocal sklearnpars
+    nonlocal parsgroups
+    nonlocal advparsgroups
+    nonlocal kerasadvpars
+    nonlocal torchadvpars
     nonlocal tensorboardfld
     nonlocal adparameterspanel
+    uikeras.info = info
+    uitorch.info = info
+    uisklearn.info = info
+    keraspars = uikeras.getUiPars()
+    torchpars = uitorch.getUiPars()
+    sklearnpars = uisklearn.getUiPars()
+    parsgroups = (keraspars,torchpars,sklearnpars)
+    kerasadvpars = uikeras.getAdvancedUiPars()
+    torchadvpars = uitorch.getAdvancedUiPars()
+    advparsgroups = (kerasadvpars, torchadvpars, None)
+    keraspars['uiobjects']['dodecimatefld'].active = []
+    keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
     if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
       adparameterspanel.disabled = False
     else:
@@ -177,18 +189,15 @@ def training_app(doc):
     selParsGrp( new )
 
   def updateUI():
-    nonlocal info
-    nonlocal keraspars
-    nonlocal torchpars
     nonlocal platformfld
+
     if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       platformfld.options.remove( uisklearn.getPlatformNm(True) )
       if platformfld.value == uisklearn.getPlatformNm(False):
-        platformfld.value = platformfld.options[0][0]
+        platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     else:
       platformfld.options = get_platforms()
-    keraspars['uiobjects']['dodecimatefld'].active = []
-    keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
+    platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     mlchgCB('value', 0, platformfld.value)
 
   makeUI( trainingpars['Examples File'] )
@@ -335,13 +344,9 @@ def training_app(doc):
   trainpanel.child = column( platformfld, buttonsgrp )
 
   def initWin():
-    mllearntype = info[dgbkeys.learntypedictstr]
-    if mllearntype == dgbkeys.loglogtypestr or \
-      mllearntype == dgbkeys.logclustertypestr or \
-      mllearntype == dgbkeys.seisproptypestr:
-      platformfld.value = uisklearn.getPlatformNm(True)[0]
-    else:
-      platformfld.value = uikeras.getPlatformNm(True)[0]
+    nonlocal info
+    nonlocal platformfld
+    platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     mlchgCB( 'value', 0, platformfld.value )
     doc.title = 'Machine Learning'
 
