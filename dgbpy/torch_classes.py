@@ -131,6 +131,7 @@ class Trainer:
         self.RMSE = 100 ** 10000
 
     def run_trainer(self):
+        self.model = self.model.to(self.device)
         odcommon.log_msg(f'Device is: {self.device}')
         for i in range(self.epochs):
             """Epoch counter"""
@@ -157,30 +158,30 @@ class Trainer:
         train_accs = []
         classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.training_DataLoader:
+            if classification: target = target.type(torch.LongTensor)
+            input, target = input.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             out = self.model(input) 
             if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:
-                target = target.type(torch.LongTensor)
+                loss = self.criterion(out, target.squeeze(1))
+                out = torch.argmax(out, axis=1)
                 pred = out.detach().cpu().numpy()
-                pred = np.argmax(pred, axis=1)
-                acc = accuracy_score(pred.flatten(), target.flatten())
-                loss = self.criterion(out, target.squeeze(1))
+                acc = accuracy_score(pred.flatten(), target.cpu().flatten())
             elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
-                target = target.type(torch.LongTensor)
-                pred = out.detach().numpy()
-                pred = np.argmax(pred, axis=1)
-                acc = accuracy_score(pred, target)
                 loss = self.criterion(out, target.squeeze(1))
+                out = torch.argmax(out, axis=1)
+                pred = out.detach().cpu().numpy()
+                acc = accuracy_score(pred, target.cpu())
             elif not classification:
+                loss = self.criterion(out, target)
                 from sklearn.metrics import mean_squared_error
                 pred = out.detach().cpu().numpy()
-                acc = mean_squared_error(pred.flatten(), target.flatten())
-                loss = self.criterion(out, target)
+                acc = mean_squared_error(pred.flatten(), target.cpu().flatten())
+            loss.backward()
+            self.optimizer.step()
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
-            loss.backward()
-            self.optimizer.step()
         self.training_loss.append(np.mean(train_losses))
         self.training_accuracy.append(np.mean(train_accs))
         self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
@@ -196,26 +197,25 @@ class Trainer:
         valid_accs = []
         classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.validation_DataLoader:
+            if classification: target = target.type(torch.LongTensor)
+            input, target = input.to(self.device), target.to(self.device)
             with torch.no_grad():
                 out = self.model(input)
                 if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:  #segmentation
-                    target = target.type(torch.LongTensor)
-                    target = target[:, :, :, :]
+                    loss = self.criterion(out, target.squeeze(1))
+                    out = torch.argmax(out, axis=1)
                     val_pred = out.detach().cpu().numpy()
-                    val_pred = np.argmax(val_pred, axis=1)
-                    acc = accuracy_score(val_pred.flatten(), target.flatten())
-                    loss = self.criterion(out, target.squeeze(1))
+                    acc = accuracy_score(val_pred.flatten(), target.cpu().flatten())
                 elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
-                    target = target.type(torch.LongTensor)
-                    val_pred = out.detach().numpy()
-                    val_pred = np.argmax(val_pred, axis=1)
-                    acc = accuracy_score(val_pred, target)
                     loss = self.criterion(out, target.squeeze(1))
+                    out = torch.argmax(out, axis=1)
+                    val_pred = out.detach().cpu().numpy()
+                    acc = accuracy_score(val_pred, target.cpu())
                 elif not classification:
+                    loss = self.criterion(out, target)
                     from sklearn.metrics import mean_squared_error
                     val_pred = out.detach().cpu().numpy()
-                    acc = mean_squared_error(val_pred.flatten(), target.flatten())
-                    loss = self.criterion(out, target)
+                    acc = mean_squared_error(val_pred.flatten(), target.cpu().flatten())
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
