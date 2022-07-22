@@ -16,6 +16,7 @@ from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
 from sklearn.metrics import accuracy_score
 import dgbpy.keystr as dgbkeys
+import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
 #import albumentations as A
 
@@ -606,7 +607,7 @@ class UNet(nn.Module):
     def __init__(self,
                  in_channels: int = 1,
                  out_channels: int = 2,
-                 n_blocks: int = 1,
+                 n_blocks: int = 2,
                  start_filters: int = 32,
                  activation: str = 'relu',
                  normalization: str = 'batch',
@@ -714,18 +715,17 @@ class UNet(nn.Module):
         return f'{d}'
 
 class RandomFlip():
-    def __init__(self, p=0.55):
+    def __init__(self, p=0.3):
         self.p = p
 
-    def update_pars(self, transform_dict):
-        self.p = float(transform_dict['p'])
+    def transformLabel(self, info):
+        return dgbhdf5.isImg2Img(info)
 
-    def __call__(self, image, label, image_only = False):
+    def __call__(self, image=None, label=None):
         if self.p > np.random.uniform(0,1):
-            if image_only:
+            if isinstance(label, type(None)):
                 return self.transform(image), label
-            else:
-                return self.transform(image), self.transform(label)
+            return self.transform(image), self.transform(label)
         return image, label
 
     def transform_pars(self, inp_shape):
@@ -746,60 +746,107 @@ class RandomFlip():
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
 class RandomGaussianNoise():
-    def __init__(self, p=0.3, std=.3):
+    def __init__(self, p=0.3, std=0.1):
         self.p = p
         self.std = std
 
-    def update_pars(self, transform_dict):
-        self.p = float(transform_dict['p'])
-        self.std = float(transform_dict['std'])
+    def transformLabel(self, info):
+        return False
         
-    def __call__(self, image, label, image_only=True):
-        self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
+    def __call__(self, image=None, label=None):
         if self.p > np.random.uniform(0,1):
+            self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
             return self.transform(image), label
-        else:
-            return image, label
+        return image, label
 
     def transform(self, arr):
         arr = self.noise + arr
         return arr
 
+class ScaleTransform():
+    def __init__(self):
+        from dgbpy.dgbscikit import scale
+        self.scale = scale
+
+    def transformLabel(self, info):
+        return dgbhdf5.doOutputScaling(info)       
+
+    def __call__(self, image=None, label=None):
+        if isinstance(label, type(None)):
+            return self.transform(image), label
+        return self.transform(image), self.transform(label)
+        
+class Normalization(ScaleTransform):
+    def __init__(self):
+        super().__init__()
+        from dgbpy.dgbscikit import getNewMinMaxScaler
+        self.getNewMinMaxScaler = getNewMinMaxScaler
+
+    def transform(self, arr):
+        self.scaler = self.getNewMinMaxScaler(arr)
+        return self.scale(arr, self.scaler)
+
+class StandardScaler(ScaleTransform):
+    def __init__(self):
+        super().__init__()
+        from dgbpy.dgbscikit import getScaler
+        self.getScaler = getScaler
+
+    def transform(self, arr):
+        self.scaler = self.getScaler(arr, False)
+        return self.scale(arr, self.scaler)
+
+class MinMaxScaler(ScaleTransform):
+    def __init__(self):
+        super().__init__()
+        from dgbpy.dgbscikit import getNewMinMaxScaler
+        self.getNewMinMaxScaler = getNewMinMaxScaler
+ 
+    def transform(self, arr):
+        self.scaler = self.getNewMinMaxScaler(arr, maxout=255)
+        return self.scale(arr, self.scaler)
 
 all_transforms = {
     'RandomFlip': RandomFlip,
     'RandomGaussianNoise': RandomGaussianNoise,
+    dgbkeys.localstdtypestr: StandardScaler,
+    dgbkeys.normalizetypestr: Normalization,
+    dgbkeys.minmaxtypestr: MinMaxScaler
 }
 
 class TransformComposefromList():
-    def __init__(self, transforms):
+    """
+        Applies all the transform from a list to the data.
+    """
+    def __init__(self, transforms, info):
         if not hasattr(transforms, '__iter__'):
             transforms = [transforms]
-        self.transforms = transforms
+        self.info = info
+        self.transforms = self._readTransforms(transforms)
+        self.do_label = self.transformLabel()
 
-    def __call__(self, image, label, image_only=False):
+    def _readTransforms(self, transforms):
+        for tr, transform_i in enumerate(transforms):
+            if transform_i in all_transforms:
+                transforms[tr] = all_transforms[transform_i]()
+        return transforms
+
+    def transformLabel(self):
+        doLabelTransform = tuple()
         for transform in self.transforms:
-            image, label =  transform(image, label, image_only=image_only)
-        return image, label
+            doLabelTransform += transform.transformLabel(self.info),
+        return doLabelTransform
 
-class TransformComposefromDict():
-    def __init__(self, transforms):
-        self.transforms = []
-        for transform, transform_pars in transforms.items():
-            if transform in all_transforms:
-                transform = all_transforms[transform]()
-                transform.update_pars(transform_pars)
-                self.transforms.append(transform)
+    def __call__(self, image, label):
+        for tr_label, transform_i in enumerate(self.transforms):
+            if self.do_label[tr_label]:
+                image, label = transform_i(image=image, label=label)
             else:
-                odcommon.log_msg('Invalid transform', transform)
-
-    def __call__(self, image, label, image_only=False):
-        for transform in self.transforms:
-            image, label =  transform(image, label, image_only=image_only)
+                image, _ = transform_i(image=image, label=None)
         return image, label
 
 class SeismicTrainDataset:
-    def __init__(self, imgdp, transform=list()):
+    def __init__(self, imgdp, scaler, transform=list()):
         from dgbpy import dgbtorch
         X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, False)
         self.im_ch = im_ch
@@ -807,21 +854,21 @@ class SeismicTrainDataset:
         self.info = info
         self.X = X.astype('float32')
         self.y = y.astype('float32')
-        if isinstance(transform, dict):
-            self.transform = TransformComposefromDict(transform)
-        elif isinstance(transform, (list, *all_transforms.values())):
-            self.transform = TransformComposefromList(transform)
+
+        if isinstance(transform, (list, *all_transforms.values())):
+            if scaler and isinstance(scaler, (StandardScaler, Normalization, MinMaxScaler)):
+                transform.append(scaler)
+            self.transform = TransformComposefromList(transform, info)
 
     def __len__(self):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        image_only = len(self.y.shape) < 3
         if self.ndims < 2:
             X, Y = self._adaptShape(self.X[idx], self.y[idx])
             return X, Y
         if self.transform:
-            X, Y = self.transform(self.X[idx], self.y[idx], image_only=image_only)
+            X, Y = self.transform(self.X[idx], self.y[idx])
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
@@ -880,7 +927,7 @@ class SeismicTrainDataset:
         return data, label
 
 class SeismicTestDataset:
-    def __init__(self, imgdp):
+    def __init__(self, imgdp, scaler):
         super().__init__()
         from dgbpy import dgbtorch
         X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, True)
@@ -889,9 +936,17 @@ class SeismicTestDataset:
         self.info = info
         self.X = X.astype('float32')
         self.y = y.astype('float32')
+        self.transform = []
+        if scaler and isinstance(scaler, (list, StandardScaler, Normalization, MinMaxScaler)):
+            self.transform = TransformComposefromList(scaler, info)
 
     def __len__(self):
         return self.X.shape[0]
+
+    def transformer(self, image, label):
+        if self.transform:
+            return self.transform(image, label)
+        return image, label
 
     def __getitem__(self,index):
         classification = self.info[dgbkeys.classdictstr]
@@ -942,20 +997,24 @@ class SeismicTestDataset:
         else:
             return self.X[index, :, 0, 0, :], self.y[index, :]
 
-        return data, label
+        return self.transformer(data, label)
 
 class DatasetApply(Dataset):
-    def __init__(self, X, isclassification, im_ch, ndims):
+    def __init__(self, X, info, scaler, isclassification, im_ch, ndims):
         super().__init__()
         self.im_ch = im_ch
         self.ndims = ndims
         self.X = X.astype('float32')
         self.isclassification = isclassification
+        if scaler and isinstance(scaler, (list, StandardScaler, Normalization, MinMaxScaler)):
+            self.transform = TransformComposefromList(scaler, info)
 
     def __len__(self):
         return self.X.shape[0]
     
     def __getitem__(self,index):
+        if self.transform:
+            self.X[index],_ = self.transform(self.X[index], None)
         if self.ndims == 3:
             return self.X[index, :, :, :, :]
         elif self.ndims == 2:

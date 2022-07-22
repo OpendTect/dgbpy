@@ -20,10 +20,10 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-transform_dict = {
-    'RandomFlip':{'p':0.3},
-    'RandomGaussianNoise' :{'p':0.3, 'std':0.3}
-}
+transform_dict = [
+    'RandomFlip',
+    'RandomGaussianNoise' 
+]
 
 torch_dict = {
     'epochs': 15,
@@ -32,6 +32,7 @@ torch_dict = {
     'batch_size': 8,
     'learnrate': 0.0001,
     'type': None,
+    'scale': dgbkeys.globalstdtypestr,
     'transform':transform_dict
 }
 platform = (dgbkeys.torchplfnm, 'PyTorch')
@@ -51,6 +52,7 @@ def getParams(
     epochs=torch_dict['epochs'],
     epochdrop=torch_dict['epochdrop'],
     batch=torch_dict['batch_size'],
+    scale=torch_dict['scale'],
     transform=torch_dict['transform']):
   ret = {
     'type': nntype,
@@ -58,6 +60,7 @@ def getParams(
     'epochs': epochs,
     'epochdrop': epochdrop,
     'batch': batch,
+    'scale': scale,
     'transform': transform
   }
   return ret
@@ -218,7 +221,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 
 def train(model, imgdp, params):
     from dgbpy.torch_classes import Trainer
-    trainloader, testloader = DataGenerator(imgdp, batchsize=params['batch'],transform=params['transform'])
+    trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
@@ -241,12 +244,10 @@ def train(model, imgdp, params):
     return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
-  if scaler != None:
-    samples = scaler.transform( samples )
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
-  sampleDataset = DatasetApply(samples, isclassification, 1, ndims=ndims)
+  sampleDataset = DatasetApply(samples, info, scaler, isclassification, 1, ndims=ndims)
   ret = {}
   res = None
   try:
@@ -281,9 +282,9 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       from dgbpy.torch_classes import UNet
       if isclassification:
-        dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
+        dfdm = UNet(out_channels=nroutputs, n_blocks=2, dim=ndims)
       else:
-        dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
+        dfdm = UNet(out_channels=1,  n_blocks=2, dim=ndims)
       dfdm.load_state_dict(model)
   elif model.__class__.__name__ == 'OnnxModel':
     dfdm = model
@@ -389,10 +390,10 @@ def getSeismicDatasetPars(imgdp, _forvalid):
     ndims = getModelDims(model_shape, True)
     return x_data, y_data, info, inp_ch, ndims
 
-def DataGenerator(imgdp, batchsize, transform=dict()):
+def DataGenerator(imgdp, batchsize, scaler=None, transform=dict()):
     from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
-    train_dataset = SeismicTrainDataset(imgdp, transform=transform)
-    test_dataset = SeismicTestDataset(imgdp)
+    train_dataset = SeismicTrainDataset(imgdp, scaler, transform=transform)
+    test_dataset = SeismicTestDataset(imgdp, scaler)
 
     trainloader, testloader = getDataLoaders(train_dataset, test_dataset, batchsize)
     return trainloader, testloader
