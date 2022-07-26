@@ -723,7 +723,7 @@ class RandomFlip():
 
     def __call__(self, image=None, label=None):
         if self.p > np.random.uniform(0,1):
-            if isinstance(label, type(None)):
+            if not isinstance(label, np.ndarray):
                 return self.transform(image), label
             return self.transform(image), self.transform(label)
         return image, label
@@ -772,7 +772,7 @@ class ScaleTransform():
         return dgbhdf5.doOutputScaling(info)       
 
     def __call__(self, image=None, label=None):
-        if isinstance(label, type(None)):
+        if not isinstance(label, np.ndarray):
             return self.transform(image), label
         return self.transform(image), self.transform(label)
         
@@ -819,7 +819,7 @@ class TransformComposefromList():
         Applies all the transform from a list to the data.
     """
     def __init__(self, transforms, info):
-        if not hasattr(transforms, '__iter__'):
+        if not isinstance(transforms, (list, tuple)):
             transforms = [transforms]
         self.info = info
         self.transforms = self._readTransforms(transforms)

@@ -20,7 +20,7 @@ import dgbpy.torch_classes as tc
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-transform_dict = [
+transform_list = [
     'RandomFlip',
     'RandomGaussianNoise' 
 ]
@@ -33,7 +33,7 @@ torch_dict = {
     'learnrate': 0.0001,
     'type': None,
     'scale': dgbkeys.globalstdtypestr,
-    'transform':transform_dict
+    'transform':transform_list
 }
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
@@ -390,7 +390,7 @@ def getSeismicDatasetPars(imgdp, _forvalid):
     ndims = getModelDims(model_shape, True)
     return x_data, y_data, info, inp_ch, ndims
 
-def DataGenerator(imgdp, batchsize, scaler=None, transform=dict()):
+def DataGenerator(imgdp, batchsize, scaler=None, transform=list()):
     from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
     train_dataset = SeismicTrainDataset(imgdp, scaler, transform=transform)
     test_dataset = SeismicTestDataset(imgdp, scaler)
