@@ -111,7 +111,7 @@ def computeScaler( infos, scalebyattrib, force=False ):
       inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
-def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalScaler, force=False, 
+def getScaledTrainingData( filenm, flatten=False, scale=True, force=False, 
                            nbchunks=1, split=None ):
   """ Gets scaled training data
 
@@ -123,21 +123,24 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
     * split (float): size of validation data (between 0-1)
   """
 
+  if isinstance(scale,bool):
+    doscale = scale
+    scalebyattrib = True
+  else:
+    doscale = scale[0]
+    scalebyattrib = len(scale) < 2 or scale[1]
+
   infos = dgbmlio.getInfo( filenm )
   dsets = dgbmlio.getChunks(infos[dgbkeys.datasetdictstr],nbchunks)
   datasets = []
   for dset in dsets:
     datasets.append( dgbmlio.getDatasetNms(dset,validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets})
-
-  scaler, doscale = dgbhdf5.getDefaultScaler(scaler, infos)
-  scalebyattrib = doscale
-  infos = dgbhdf5.updateScaleInfo(scaler, infos)
   if doscale:
     infos = computeScaler( infos, scalebyattrib, force )
   if nbchunks > 1: #Decimate, only need to return the updated info
     return {dgbkeys.infodictstr: infos}
-  return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=doscale )
+  return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=scale )
 
 def getInputList( datasets ):
   """ 
@@ -313,8 +316,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
     
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
-                                        force=False,
+                                        scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
     logdir=None
@@ -352,8 +354,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbtorch.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
-                                        force=False,
+                                        scale=True, force=False,
                                         split=validation_split )
 
     if type == TrainType.New:
@@ -368,8 +369,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbscikit.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
-                                        force=False,
+                                        scale=True, force=False,
                                         split=validation_split )
     if type == TrainType.New:
       model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
@@ -530,3 +530,4 @@ def split( arrays, ratio ):
     return None
   nrpts = len(arrays[0])
   np.random.shuffle( np.arange(np.int64(nrpts)) )
+
