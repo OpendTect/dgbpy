@@ -150,6 +150,30 @@ def applyArrTranspose( info ):
     return info[arrayorderdictstr] == reversestr
   return info == reversestr
 
+from enum import Enum
+class Scaler(Enum):
+  GlobalScaler = globalstdtypestr
+  StandardScaler = localstdtypestr
+  Normalization = normalizetypestr
+  MinMaxScaler = minmaxtypestr
+
+def getDefaultScaler(scaler, info):
+  if isLogOutput(info) or scaler == Scaler.GlobalScaler:
+    return Scaler.GlobalScaler, True
+  return scaler, False
+
+def updateScaleInfo( scaler, info ):
+  if not scaler:
+    return info
+  info[inpscalingdictstr] = Scaler(scaler).value
+  info[outputunscaledictstr] = doOutputScaling(info)
+  return info
+
+def doOutputScaling( info ):
+  if isImg2Img(info) and isRegression(info):
+    return True
+  return False
+
 def isModel( info ):
   return plfdictstr in info
 
@@ -610,7 +634,8 @@ def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
     for i in range(len(scale.scale_)):
       keyvali = keyval+str(i)+'.Stats'
       odhdf5.setArray( dsinfoout, keyvali, [scale.mean_[i], scale.scale_[i]] )
-
+  odhdf5.setAttr(dsinfoout, 'Input.Scaling.Type', infos[inpscalingdictstr])
+  odhdf5.setAttr(dsinfoout, 'Output.Unscale', infos[outputunscaledictstr])
   h5fileout.close()
 
 def getClassIndices( info, filternms=None ):

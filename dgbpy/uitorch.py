@@ -4,10 +4,11 @@ import numpy as np
 from enum import Enum
 
 from bokeh.layouts import column
-from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
+from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider, RadioGroup
 
 from odpy.common import log_msg
 from dgbpy.dgbtorch import *
+from dgbpy.torch_classes import hasOpenCV
 import dgbpy.keystr as dgbkeys
 from dgbpy import uibokeh
 
@@ -89,13 +90,15 @@ def getAdvancedUiPars(uipars=None):
   dict = torch_dict
   uiobjs={}
   if not uipars:
+    aug_labels = ['Random Flip', 'Random Gaussian Noise']
+    if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
-      'augmentheadfld': CheckboxGroup(labels=['Data Augmentation'], visible=True, margin=(5, 5, 0, 5), active = [0]),
-      'augmentfld': CheckboxGroup(labels=['Random Flip', 'Random Gaussian Noise'], visible=True, margin=(0, 5, 0, 25)),
+      'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
+      'scalingfld': RadioGroup(labels=['Global Normalization', 'Local Standardization', 'Local Normalization', 'MinMax Scaling'],
+                               active=0, margin = [5, 5, 5, 25]),
+      'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
+      'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
     }
-
-    uiobjs['augmentheadfld'].on_click(partial(enableAugmentationCB, widget=uiobjs['augmentfld']))
-
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
@@ -104,7 +107,6 @@ def getAdvancedUiPars(uipars=None):
   setDefaultTransforms = []
   for transform in dict['transform']:
     setDefaultTransforms.append(uiTransform[transform].value)
-  uiobjs['augmentheadfld'].active = [0]
   uiobjs['augmentfld'].active = setDefaultTransforms
   return uipars     
 
@@ -112,11 +114,15 @@ def enableAugmentationCB(args, widget=None):
   widget.disabled =  uibokeh.integerListContains([widget.disabled], 0)
 
 def getUiTransforms(advtorchgrp):
-  transforms = {}
+  transforms = []
   selectedkeys = advtorchgrp['augmentfld'].active
   for key in selectedkeys:
-    transforms[uiTransform(key).name] = torch_dict['transform'][uiTransform(key).name]
+    transforms.append(uiTransform(key).name)
   return transforms
+
+def getUiScaler(selectedOption):
+  scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
+  return scalers[selectedOption]
 
 def getUiParams( torchpars, advtorchpars ):
   torchgrp = torchpars['uiobjects']     
@@ -126,12 +132,14 @@ def getUiParams( torchpars, advtorchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
+  scale = getUiScaler(advtorchgrp['scalingfld'].active)
   transform = getUiTransforms(advtorchgrp)
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
+                             scale = scale,
                              transform=transform)
 
 def isSelected( fldwidget, index=0 ):
@@ -140,3 +148,4 @@ def isSelected( fldwidget, index=0 ):
 class uiTransform(Enum):
   RandomFlip = 0
   RandomGaussianNoise = 1
+  RandomRotation = 2
