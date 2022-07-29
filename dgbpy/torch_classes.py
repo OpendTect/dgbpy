@@ -720,7 +720,7 @@ class RandomFlip():
     def transformLabel(self, info):
         return dgbhdf5.isImg2Img(info)
 
-    def __call__(self, image=None, label=None):
+    def __call__(self, image=None, label=None, ndims=None):
         if self.p > np.random.uniform(0,1):
             if not isinstance(label, np.ndarray):
                 return self.transform(image), label
@@ -752,7 +752,7 @@ class RandomGaussianNoise():
     def transformLabel(self, info):
         return False
         
-    def __call__(self, image=None, label=None):
+    def __call__(self, image=None, label=None, ndims=None):
         if self.p > np.random.uniform(0,1):
             self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
             return self.transform(image), label
@@ -779,21 +779,38 @@ class RandomRotation():
     def transformLabel(self, info):
         return dgbhdf5.isImg2Img(info)
    
-    def __call__(self, image=None, label=None):
+    def __call__(self, image=None, label=None, ndims=None):
         if self.p > np.random.uniform(0,1):
+            self.ndims = ndims
             angle = np.random.choice(range(-self.angle, self.angle))
             if not isinstance(label, np.ndarray):
                 return self.transform(image, angle), label
             return self.transform(image, angle), self.transform(label, angle)
         return image, label
-    
+
     def transform(self, arr, angle):
+        if self.ndims == 2:
+            return self.transform_2d(arr, angle)
+        return self.transform_3d(arr, angle)
+    
+    def transform_2d(self, arr, angle):
         center = ( (arr.shape[-1])//2, (arr.shape[-2])//2 )
+        dst_image = (arr.shape[-1], arr.shape[-2])
         M = self.cv2.getRotationMatrix2D(center, angle, 1)
+        _arr = arr.copy()
+        for attrib in range(_arr.shape[0]):
+            rotated_arr = self.cv2.warpAffine( np.squeeze(_arr[attrib]), M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
+            _arr[attrib,:] = rotated_arr[np.newaxis, :]
+        return _arr.copy()
+
+    def transform_3d(self, arr, angle):
+        center = ( (arr.shape[-2])//2, (arr.shape[-3])//2 )
         dst_image = (arr.shape[-2], arr.shape[-3])
-        rotated_arr = self.cv2.warpAffine( np.squeeze(arr, axis=0), M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
-        rotated_arr = np.expand_dims(rotated_arr, axis=0)
-        return rotated_arr
+        M = self.cv2.getRotationMatrix2D(center, angle, 1)
+        _arr = arr.copy()
+        for attrib in range(_arr.shape[0]):
+            _arr[attrib,:] = self.cv2.warpAffine( _arr[attrib], M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
+        return _arr.copy()
 
 class ScaleTransform():
     def __init__(self):
@@ -803,7 +820,7 @@ class ScaleTransform():
     def transformLabel(self, info):
         return dgbhdf5.doOutputScaling(info)       
 
-    def __call__(self, image=None, label=None):
+    def __call__(self, image=None, label=None, ndims=None):
         if not isinstance(label, np.ndarray):
             return self.transform(image), label
         return self.transform(image), self.transform(label)
@@ -851,10 +868,11 @@ class TransformComposefromList():
     """
         Applies all the transform from a list to the data.
     """
-    def __init__(self, transforms, info):
+    def __init__(self, transforms, info, ndims):
         if not isinstance(transforms, (list, tuple)):
             transforms = [transforms]
         self.info = info
+        self.ndims = ndims
         self.transforms = self._readTransforms(transforms)
         self.do_label = self.transformLabel()
 
@@ -880,9 +898,9 @@ class TransformComposefromList():
     def __call__(self, image, label):
         for tr_label, transform_i in enumerate(self.transforms):
             if self.do_label[tr_label]:
-                image, label = transform_i(image=image, label=label)
+                image, label = transform_i(image=image, label=label, ndims=self.ndims)
             else:
-                image, _ = transform_i(image=image, label=None)
+                image, _ = transform_i(image=image, label=None, ndims=self.ndims)
         return image, label
 
 class SeismicTrainDataset:
@@ -898,7 +916,7 @@ class SeismicTrainDataset:
         if isinstance(transform, (list, *all_transforms.values())):
             if scaler and isinstance(scaler, (StandardScaler, Normalization, MinMaxScaler)):
                 transform.append(scaler)
-            self.transform = TransformComposefromList(transform, info)
+            self.transform = TransformComposefromList(transform, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
@@ -978,7 +996,7 @@ class SeismicTestDataset:
         self.y = y.astype('float32')
         self.transform = []
         if scaler and isinstance(scaler, (list, StandardScaler, Normalization, MinMaxScaler)):
-            self.transform = TransformComposefromList(scaler, info)
+            self.transform = TransformComposefromList(scaler, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
