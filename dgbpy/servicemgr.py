@@ -5,7 +5,7 @@
 #
 # Service Manager
 #
-# 
+#
 import json
 import os
 import psutil
@@ -15,6 +15,7 @@ import struct
 import sys
 import threading
 import odpy.common as odcommon
+import tornado.ioloop
 from tornado.iostream import StreamClosedError
 import tornado.tcpserver
 
@@ -39,12 +40,13 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       self.PCB = tornado.ioloop.PeriodicCallback(self._parentChkCB, 1000)
       self.PCB.start()
 
+    self._ioloop = tornado.ioloop.IOLoop.current()
     self._startServer( tornadoport )
     self._actions = dict()
-    
+
   def __enter__(self):
     return self
-  
+
   def __exit__(self, exc_type, exc_value, traceback):
     pass
 #    self.stop()
@@ -59,7 +61,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       except:
         pass
       return retval
-    
+
   def _startServer(self, tornadoport, attempts=20):
     address = 'localhost'
     if self.cmdport == None:
@@ -89,19 +91,19 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
 
   def _register(self, port, address):
     odcommon.std_msg( 'Registering with port', port, 'and address', address )
-    Message().sendObject(self.cmdhost, self.cmdport,
+    Message(self._ioloop).sendObject(self.cmdhost, self.cmdport,
                    'bokeh_register', {'servicename': self.serviceID,
                                 'hostname': address,
                                 'port': port,
                                 'pid': os.getpid()
                                 })
-    
+
   def _parentChkCB(self):
     if self._parentproc != None and not self._parentproc.is_running():
       odcommon.log_msg('Found dead parent, exiting')
       self.PCB.stop()
       os.kill(psutil.Process().pid, signal.SIGKILL)
-      
+
   async def handle_stream(self, stream, address):
     hdrlen = 10
     while True:
@@ -115,13 +117,13 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
         stream.close()
       except StreamClosedError:
         break
-      
+
   def _processPacket(self, inpacket):
     payload = inpacket.getTextPayload()
     result = {}
     for key, params in payload.items():
       result = self._actions.get(key)(params)
-      
+
     obj = dict()
     obj[key] = result
     inpacket.setTextPayload(obj)
@@ -133,12 +135,15 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
   def sendObject(self, objkey, jsonobj):
       msgobj = {'bokehid': self.serviceID}
       msgobj.update(jsonobj)
-      Message().sendObjectToAddress(self.cmdserver, objkey, msgobj)
-      
+      Message(self._ioloop).sendObjectToAddress(self.cmdserver, objkey, msgobj)
+
   def can_connect(self):
       return self.cmdhost != None and self.cmdport != None
-    
+
 class Message:
+  def __init__(self, ioloop=None):
+    self.ioloop = ioloop
+
   def parseAddress(self, address):
     host = None
     port = None
@@ -150,7 +155,7 @@ class Message:
       host = info[0]
       port = int(info[1])
     return host, port
-        
+
   def sendObject(self, host, port, objkey, jsonobj):
     if host == None and port == None:
         return
@@ -158,10 +163,13 @@ class Message:
     packet.setIsNewRequest()
     obj = dict()
     obj[objkey] = jsonobj
-    odcommon.log_msg('Sending: ',obj)
+    odcommon.log_msg('Sending: ',obj, ' to ', host, port)
     packet.setTextPayload(obj)
-    tornado.ioloop.IOLoop.current().add_callback(self._send, host, port, packet)
-    
+    if self.ioloop:
+      self.ioloop.add_callback(self._send, host, port, packet)
+    else:
+      tornado.ioloop.IOLoop.current().add_callback(self._send, host, port, packet)
+
   def sendObjectToAddress(self, address, objkey, jsonobj):
     host, port = self.parseAddress(address)
     self.sendObject(host, port, objkey, jsonobj)
@@ -171,7 +179,10 @@ class Message:
     packet.setIsNewRequest()
     action = {'action': eventstr}
     packet.setTextPayload(action)
-    tornado.ioloop.IOLoop.current().add_callback(self._send, host, port, packet)
+    if self.ioloop:
+      self.ioloop.add_callback(self._send, host, port, packet)
+    else:
+      tornado.ioloop.IOLoop.current().add_callback(self._send, host, port, packet)
 
   def sendEventToAddress(self, address, eventstr):
     host, port = self.parseAddress(address)
@@ -199,7 +210,7 @@ class Packet:
     self._reqid = self._curreqid
     self._subid = -1
     return self._reqid
-    
+
   def setTextPayload(self, jsonobj):
     content_encoding = 'utf-8'
     payload = {
@@ -209,7 +220,7 @@ class Packet:
           'arrsize': None,
     }
     self._createPacket(payload)
-    
+
   def getTextPayload(self):
     content_encoding = 'utf-8'
     payload_bytes = self._odhdr_decode()
@@ -223,14 +234,14 @@ class Packet:
       ):
       if reqhdr not in self.jsonheader:
         raise ValueError(f'Missing required header "{reqhdr}".')
-    
+
     content_len = self.jsonheader['content-length']
     if len(data)!=content_len:
         raise ValueError(f'Message payload size error, expected "{content_len}" got "{len(data)}".')
-    
+
     if self.jsonheader['content-type']=='text/json':
       payload, data = self._json_decode(data, content_encoding)
-      
+
     return payload
 
   def _createPacket(self, payload):
@@ -261,8 +272,8 @@ class Packet:
     self._reqid = struct.unpack('=i',self.packet[4:8])[0]
     self._subid = struct.unpack('=h',self.packet[8:hdrlen])[0]
     return self.packet[hdrlen:]
-    
-    
+
+
   def _json_decode(self, json_bytes, encoding):
     hdrlen = 4
     jsonobj_len = struct.unpack('=i',json_bytes[:hdrlen])[0]

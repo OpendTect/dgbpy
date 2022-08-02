@@ -26,7 +26,7 @@ def computeScaler_( datasets, infos, scalebyattrib ):
   Parameters:
     * datasets (dict): dataset
     * infos (dict): information about example file
-    * scalebyattrib (bool): 
+    * scalebyattrib (bool):
   """
 
   ret = dgbmlio.getTrainingDataByInfo( infos, datasets )
@@ -118,7 +118,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   Parameters:
     * filenm (str): path to file
     * flatten (bool):
-    * scale (bool or iter): 
+    * scale (bool or iter):
     * nbchunks (int): number of data chunks to be created
     * split (float): size of validation data (between 0-1)
   """
@@ -140,13 +140,13 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=doscale )
 
 def getInputList( datasets ):
-  """ 
+  """
 
   Parameters:
-    * datasets (dict): dataset from example file 
+    * datasets (dict): dataset from example file
 
   Returns:
-    * dict: 
+    * dict:
   """
 
   ret = {}
@@ -232,11 +232,11 @@ def getScaler( x_train, byattrib=True ):
 
   Parameters:
     * x_train (array): data to be scaled
-    * byattrib (bool): True if scaling should be done by individual attribute 
+    * byattrib (bool): True if scaling should be done by individual attribute
                        present in data, False if otherwise
 
   Returns:
-    * object: StandardScaler object fitted on data (from sklearn.preprocessing)                       
+    * object: StandardScaler object fitted on data (from sklearn.preprocessing)
   """
 
   import dgbpy.dgbscikit as dgbscikit
@@ -247,7 +247,7 @@ def getNewScaler( mean, scale ):
 
   Parameters:
     * mean (ndarray of shape (n_features,) or None): mean value to be used for scaling
-    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the 
+    * scale ndarray of shape (n_features,) or None: Per feature relative scaling of the
       data to achieve zero mean and unit variance (fromm sklearn docs)
 
   Returns:
@@ -284,17 +284,17 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     * params (dict): machine learning hyperparameters or parameters options
     * outnm (str): name to save trained model as
     * logdir (str): the path of the directory where to save the log
-                    files to be parsed by TensorBoard (only applicable 
+                    files to be parsed by TensorBoard (only applicable
                     for the keras platform)
-    * clearlogs (bool): clears previous logs if any when set to True 
+    * clearlogs (bool): clears previous logs if any when set to True
     * modelin (str): model file path/name in hdf5 format
     * args (dict, optional):
-      Dictionary with the members 'dtectdata' and 'survey' as 
+      Dictionary with the members 'dtectdata' and 'survey' as
       single element lists, and/or 'dtectexec' (see odpy.common.getODSoftwareDir)
 
   Returns:
-    * 
-    
+    *
+
   """
 
   (model,infos) = (None,None)
@@ -311,15 +311,15 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbkeras.getParams()
     dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
-    
+
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
-    logdir=None
+    tblogdir=None
     if 'withtensorboard' in params and params['withtensorboard']:
-      logdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
+      tblogdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
     if type == TrainType.New:
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
@@ -336,7 +336,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     print('--Training Started--', flush=True)
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, logdir=logdir,tempnm=tempmodelnm )
+                              trainfile=examplefilenm, logdir=tblogdir,tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:
       if tempmodelnm != None and os.path.exists(tempmodelnm):
         model = dgbmlio.getModel( tempmodelnm, True )
@@ -479,7 +479,7 @@ def inputCount( infos, raw=False, dsets=None ):
 
   Parameters:
     * infos (dict): info from example file
-    * raw (bool): set to True to return total input count, 
+    * raw (bool): set to True to return total input count,
                   False for otherwise (train and validation split counts)
     * dsets (dict): dataset
 
@@ -510,7 +510,7 @@ def inputCountList( infos, dsetslist ):
   return ret
 
 def inputCount_( dsets ):
-  """ Gets count of input images 
+  """ Gets count of input images
 
     * dsets (dict): dataset
 

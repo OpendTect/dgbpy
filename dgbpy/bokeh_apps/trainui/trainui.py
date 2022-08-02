@@ -20,7 +20,7 @@ class MsgHandler(logging.StreamHandler):
       logmsg = self.format(record)
       for msgstr in self.msginfo.keys():
         if msgstr in logmsg:
-          curdoc().add_next_tick_callback(partial(self.sendmsg, msgnm=msgstr))
+          self.sendmsg(msgstr)
     except (KeyboardInterrupt, SystemExit):
       raise
     except:
@@ -45,7 +45,7 @@ def get_default_input():
   retinfo = {
     'Dummy': {
                 'collection': {'Dummy': {'id': 0}},
-                'id': 0, 
+                'id': 0,
                 'scale': StandardScaler()
               }
   }
