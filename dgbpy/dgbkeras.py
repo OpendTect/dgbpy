@@ -58,7 +58,8 @@ keras_dict = {
   'epochdrop': 5,
   'type': None,
   'prefercpu': None,
-  'withaugmentation': dgbkeys.getDefaultAugmentation(),
+  'transform': [],
+  'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard
 }
 
@@ -90,8 +91,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                epochs=keras_dict['epochs'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
-               nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],
-               withaugmentation=keras_dict['withaugmentation'], withtensorboard=keras_dict['withtensorboard']):
+               nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -101,7 +102,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'learnrate': learnrate,
     'epochdrop': epochdrop,
     'type': nntype,
-    'withaugmentation': withaugmentation,
+    'transform': transform,
+    'scale': scale,
     'withtensorboard': withtensorboard
   }
   if prefercpu == None:
@@ -301,9 +303,9 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=Non
     tensor_board = TensorBoard(log_dir=logdir, \
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
-  withaugmentation=params['withaugmentation']
-  train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=withaugmentation, tempnm=tempnm )
-  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, with_augmentation=False )
+  transform, scale = params['transform'], params['scale']
+  train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm )
+  validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
