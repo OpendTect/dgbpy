@@ -9,12 +9,14 @@
 from functools import partial
 
 import numpy as np
+from enum import Enum
 
 from bokeh.layouts import column
-from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider
+from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider, RadioGroup
 
 from odpy.common import log_msg
 from dgbpy.dgbkeras import *
+from dgbpy.transforms import hasOpenCV
 from dgbpy import uibokeh
 
 info = None
@@ -106,8 +108,14 @@ def getAdvancedUiPars(uipars=None):
   dict = keras_dict
   uiobjs={}
   if not uipars:
+    aug_labels = ['Random Flip', 'Random Gaussian Noise']
+    if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
-      'augmentfld': CheckboxGroup(labels=['Enable Data Augmentation'], visible=True, margin=(5, 5, 0, 5)),
+      'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
+      'scalingfld': RadioGroup(labels=['Global Normalization', 'Local Standardization', 'Local Normalization', 'MinMax Scaling'],
+                               active=0, margin = [5, 5, 5, 25]),
+      'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
+      'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
       'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
       'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
@@ -115,7 +123,11 @@ def getAdvancedUiPars(uipars=None):
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
     uiobjs=uipars['uiobjects']
-  uiobjs['augmentfld'].active = [] if not dict['withaugmentation'] else [0]
+
+  setDefaultTransforms = []
+  for transform in dict['transform']:
+    setDefaultTransforms.append(uiTransform[transform].value)
+  uiobjs['augmentfld'].active = setDefaultTransforms
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   return uipars
@@ -124,6 +136,17 @@ def chunkfldCB(sizefld,attr,old,new):
   if sizefld == None:
     return
   sizefld.text = getSizeStr( info[dgbkeys.estimatedsizedictstr]/new )
+
+def getUiTransforms(advkerasgrp):
+  transforms = []
+  selectedkeys = advkerasgrp['augmentfld'].active
+  for key in selectedkeys:
+    transforms.append(uiTransform(key).name)
+  return transforms
+
+def getUiScaler(selectedOption):
+  scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
+  return scalers[selectedOption]
 
 def getUiParams( keraspars, advkeraspars ):
   kerasgrp = keraspars['uiobjects']
@@ -135,7 +158,8 @@ def getUiParams( keraspars, advkeraspars ):
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
              not isSelected( kerasgrp['rundevicefld'] )
-  withaugmentation = True if len(advkerasgrp['augmentfld'].active)!=0 else False
+  scale = getUiScaler(advkerasgrp['scalingfld'].active)
+  transform = getUiTransforms(advkerasgrp)
   withtensorboard = True if len(advkerasgrp['tensorboardfld'].active)!=0 else False
   return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \
                              nbchunk=kerasgrp['chunkfld'].value, \
@@ -145,7 +169,7 @@ def getUiParams( keraspars, advkeraspars ):
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
                              nntype=kerasgrp['modeltypfld'].value, \
-                             prefercpu=runoncpu, withaugmentation=withaugmentation, \
+                             prefercpu=runoncpu, scale=scale, transform=transform, \
                              withtensorboard=withtensorboard)
 
 def isSelected( fldwidget, index=0 ):
@@ -160,3 +184,8 @@ def decimateCB( widgetactivelist,chunkfld,sizefld ):
   if decimate:
     size /= chunkfld.value
   sizefld.text = getSizeStr( size )
+
+class uiTransform(Enum):
+  RandomFlip = 0
+  RandomGaussianNoise = 1
+  RandomRotation = 2
