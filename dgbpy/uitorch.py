@@ -94,7 +94,7 @@ def getAdvancedUiPars(uipars=None):
     if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
       'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
-      'scalingfld': RadioGroup(labels=['Global Normalization', 'Local Standardization', 'Local Normalization', 'MinMax Scaling'],
+      'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
                                active=0, margin = [5, 5, 5, 25]),
       'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
       'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
