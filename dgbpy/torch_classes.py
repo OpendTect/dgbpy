@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
@@ -127,6 +127,8 @@ class Trainer:
         self.learning_rate = []
         self.training_accuracy = []
         self.validation_accuracy = []
+        self.training_f1 = []
+        self.validation_f1 = []
         self.F1_old = float('-inf')
         self.RMSE = 100 ** 10000
 
@@ -156,6 +158,7 @@ class Trainer:
         self.model.train()
         train_losses = [] 
         train_accs = []
+        train_f1 = []
         classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.training_DataLoader:
             if classification: target = target.type(torch.LongTensor)
@@ -167,11 +170,13 @@ class Trainer:
                 out = torch.argmax(out, axis=1)
                 pred = out.detach().cpu().numpy()
                 acc = accuracy_score(pred.flatten(), target.cpu().flatten())
+                f1 = f1_score(pred.flatten(), target.cpu().flatten(), average='weighted')
             elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                 loss = self.criterion(out, target.squeeze(1))
                 out = torch.argmax(out, axis=1)
                 pred = out.detach().cpu().numpy()
                 acc = accuracy_score(pred, target.cpu())
+                f1 = f1_score(pred, target.cpu(), average='weighted')
             elif not classification:
                 loss = self.criterion(out, target)
                 from sklearn.metrics import mean_squared_error
@@ -182,12 +187,15 @@ class Trainer:
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
+            train_f1.append(f1)
         self.training_loss.append(np.mean(train_losses))
         self.training_accuracy.append(np.mean(train_accs))
+        self.training_f1.append(np.mean(train_f1))
         self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
         odcommon.log_msg(f'Train loss: {np.round(np.mean(train_losses), 4)}')
         if classification:
             odcommon.log_msg(f'Train Accuracy: {np.round(np.mean(train_accs), 4)}')
+            odcommon.log_msg(f'Train F1: {np.round(np.mean(train_f1), 4)}')
         else:
             odcommon.log_msg(f'Train MSE: {np.round(np.mean(train_accs), 4)}')
 
@@ -195,6 +203,7 @@ class Trainer:
         self.model.eval() 
         valid_losses = []  
         valid_accs = []
+        valid_f1 = []
         classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         for input, target in self.validation_DataLoader:
             if classification: target = target.type(torch.LongTensor)
@@ -206,11 +215,13 @@ class Trainer:
                     out = torch.argmax(out, axis=1)
                     val_pred = out.detach().cpu().numpy()
                     acc = accuracy_score(val_pred.flatten(), target.cpu().flatten())
+                    f1 = f1_score(val_pred.flatten(), target.cpu().flatten(), average='weighted')
                 elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
                     loss = self.criterion(out, target.squeeze(1))
                     out = torch.argmax(out, axis=1)
                     val_pred = out.detach().cpu().numpy()
                     acc = accuracy_score(val_pred, target.cpu())
+                    f1 = f1_score(val_pred, target.cpu(), average='weighted')
                 elif not classification:
                     loss = self.criterion(out, target)
                     from sklearn.metrics import mean_squared_error
@@ -219,14 +230,18 @@ class Trainer:
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
+                valid_f1.append(f1)
         mean_valid_accs = np.mean(valid_accs)
+        mean_valid_f1 = np.mean(valid_f1)
         mean_valid_losses = np.mean(valid_losses)
         self.validation_loss.append(mean_valid_losses)
         self.validation_accuracy.append(mean_valid_accs)
+        self.validation_f1.append(mean_valid_f1)
         odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
         
         if classification:
             odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
+            odcommon.log_msg(f'Validation F1: {np.round(mean_valid_f1, 4)}')
         else:
             odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
         if self.F1_old < mean_valid_accs and classification:
