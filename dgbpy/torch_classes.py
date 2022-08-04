@@ -728,199 +728,11 @@ class UNet(nn.Module):
         d = {self.__class__.__name__: attributes}
         return f'{d}'
 
-class RandomFlip():
-    def __init__(self, p=0.3):
-        self.p = p
-
-    def transformLabel(self, info):
-        return dgbhdf5.isImg2Img(info)
-
-    def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
-            if not isinstance(label, np.ndarray):
-                return self.transform(image), label
-            return self.transform(image), self.transform(label)
-        return image, label
-
-    def transform_pars(self, inp_shape):
-        if len(inp_shape) == 3:
-            self.aug_dims = (1, 2)
-            self.aug_count = 2
-            cubesz = inp_shape[1:3]
-            if cubesz[0] == cubesz[1]:
-                self.aug_count= np.random.randint(low=0, high=4)
-
-    def transform(self, arr):
-        arr_shape = arr.shape[1:]
-        self.transform_pars(arr_shape)
-        flip2d = len(arr_shape) == 2
-        if flip2d:
-            return np.fliplr(arr)
-        else:
-            return np.rot90(arr,self.aug_count,self.aug_dims).copy()
-
-class RandomGaussianNoise():
-    def __init__(self, p=0.3, std=0.1):
-        self.p = p
-        self.std = std
-
-    def transformLabel(self, info):
-        return False
-        
-    def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
-            self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
-            return self.transform(image), label
-        return image, label
-
-    def transform(self, arr):
-        arr = self.noise + arr
-        return arr
-
-def hasOpenCV():
-  try:
-    import cv2
-  except ModuleNotFoundError:
-    return False
-  return True
-
-class RandomRotation():
-    def __init__(self, p=0.3, angle=15):
-        self.p = p
-        self.angle = angle
-        import cv2
-        self.cv2 = cv2
-
-    def transformLabel(self, info):
-        return dgbhdf5.isImg2Img(info)
-   
-    def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
-            self.ndims = ndims
-            angle = np.random.choice(range(-self.angle, self.angle))
-            if not isinstance(label, np.ndarray):
-                return self.transform(image, angle), label
-            return self.transform(image, angle), self.transform(label, angle)
-        return image, label
-
-    def transform(self, arr, angle):
-        if self.ndims == 2:
-            return self.transform_2d(arr, angle)
-        return self.transform_3d(arr, angle)
-    
-    def transform_2d(self, arr, angle):
-        center = ( (arr.shape[-1])//2, (arr.shape[-2])//2 )
-        dst_image = (arr.shape[-1], arr.shape[-2])
-        M = self.cv2.getRotationMatrix2D(center, angle, 1)
-        _arr = arr.copy()
-        for attrib in range(_arr.shape[0]):
-            rotated_arr = self.cv2.warpAffine( np.squeeze(_arr[attrib]), M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
-            _arr[attrib,:] = rotated_arr[np.newaxis, :]
-        return _arr.copy()
-
-    def transform_3d(self, arr, angle):
-        center = ( (arr.shape[-2])//2, (arr.shape[-3])//2 )
-        dst_image = (arr.shape[-2], arr.shape[-3])
-        M = self.cv2.getRotationMatrix2D(center, angle, 1)
-        _arr = arr.copy()
-        for attrib in range(_arr.shape[0]):
-            _arr[attrib,:] = self.cv2.warpAffine( _arr[attrib], M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
-        return _arr.copy()
-
-class ScaleTransform():
-    def __init__(self):
-        from dgbpy.dgbscikit import scale
-        self.scale = scale
-
-    def transformLabel(self, info):
-        return dgbhdf5.doOutputScaling(info)       
-
-    def __call__(self, image=None, label=None, ndims=None):
-        if not isinstance(label, np.ndarray):
-            return self.transform(image), label
-        return self.transform(image), self.transform(label)
-        
-class Normalization(ScaleTransform):
-    def __init__(self):
-        super().__init__()
-        from dgbpy.dgbscikit import getNewMinMaxScaler
-        self.getNewMinMaxScaler = getNewMinMaxScaler
-
-    def transform(self, arr):
-        self.scaler = self.getNewMinMaxScaler(arr)
-        return self.scale(arr, self.scaler)
-
-class StandardScaler(ScaleTransform):
-    def __init__(self):
-        super().__init__()
-        from dgbpy.dgbscikit import getScaler
-        self.getScaler = getScaler
-
-    def transform(self, arr):
-        self.scaler = self.getScaler(arr, False)
-        return self.scale(arr, self.scaler)
-
-class MinMaxScaler(ScaleTransform):
-    def __init__(self):
-        super().__init__()
-        from dgbpy.dgbscikit import getNewMinMaxScaler
-        self.getNewMinMaxScaler = getNewMinMaxScaler
- 
-    def transform(self, arr):
-        self.scaler = self.getNewMinMaxScaler(arr, maxout=255)
-        return self.scale(arr, self.scaler)
-
-all_transforms = {
-    'RandomFlip': RandomFlip,
-    'RandomGaussianNoise': RandomGaussianNoise,
-    'RandomRotation': RandomRotation,
-    dgbkeys.localstdtypestr: StandardScaler,
-    dgbkeys.normalizetypestr: Normalization,
-    dgbkeys.minmaxtypestr: MinMaxScaler
-}
-
-class TransformComposefromList():
-    """
-        Applies all the transform from a list to the data.
-    """
-    def __init__(self, transforms, info, ndims):
-        if not isinstance(transforms, (list, tuple)):
-            transforms = [transforms]
-        self.info = info
-        self.ndims = ndims
-        self.transforms = self._readTransforms(transforms)
-        self.do_label = self.transformLabel()
-
-    def passModuleCheck(self, transform_i):
-        if isinstance(transform_i, RandomRotation) and not hasOpenCV():
-            return False
-        return True
-
-    def _readTransforms(self, transforms):
-        for tr, transform_i in enumerate(transforms):
-            if transform_i in all_transforms:
-                transforms[tr] = all_transforms[transform_i]()
-            if not self.passModuleCheck(transform_i):
-                transforms.pop(tr)
-        return transforms
-
-    def transformLabel(self):
-        doLabelTransform = tuple()
-        for transform in self.transforms:
-            doLabelTransform += transform.transformLabel(self.info),
-        return doLabelTransform
-
-    def __call__(self, image, label):
-        for tr_label, transform_i in enumerate(self.transforms):
-            if self.do_label[tr_label]:
-                image, label = transform_i(image=image, label=label, ndims=self.ndims)
-            else:
-                image, _ = transform_i(image=image, label=None, ndims=self.ndims)
-        return image, label
 
 class SeismicTrainDataset:
-    def __init__(self, imgdp, scaler, transform=list()):
+    def __init__(self, imgdp, scale, transform=list()):
         from dgbpy import dgbtorch
+        from dgbpy import transforms as T
         X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, False)
         self.im_ch = im_ch
         self.ndims = ndims
@@ -928,10 +740,10 @@ class SeismicTrainDataset:
         self.X = X.astype('float32')
         self.y = y.astype('float32')
 
-        if isinstance(transform, (list, *all_transforms.values())):
-            if scaler and isinstance(scaler, (StandardScaler, Normalization, MinMaxScaler)):
-                transform.append(scaler)
-            self.transform = TransformComposefromList(transform, info, ndims)
+        if isinstance(transform, (list, *T.all_transforms.values())):
+            if scale and isinstance(scale, (*T.scale_transforms.values(),)):
+                transform.append(scale)
+            self.transform = T.TransformComposefromList(transform, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
@@ -1000,9 +812,10 @@ class SeismicTrainDataset:
         return data, label
 
 class SeismicTestDataset:
-    def __init__(self, imgdp, scaler):
+    def __init__(self, imgdp, scale):
         super().__init__()
         from dgbpy import dgbtorch
+        from dgbpy import transforms as T
         X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, True)
         self.im_ch = im_ch
         self.ndims = ndims
@@ -1010,8 +823,8 @@ class SeismicTestDataset:
         self.X = X.astype('float32')
         self.y = y.astype('float32')
         self.transform = []
-        if scaler and isinstance(scaler, (list, StandardScaler, Normalization, MinMaxScaler)):
-            self.transform = TransformComposefromList(scaler, info, ndims)
+        if scale and isinstance(scale, (list, *T.scale_transforms.values())):
+            self.transform = T.TransformComposefromList(scale, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
@@ -1073,27 +886,28 @@ class SeismicTestDataset:
         return self.transformer(data, label)
 
 class DatasetApply(Dataset):
-    def __init__(self, X, info, scaler, isclassification, im_ch, ndims):
+    def __init__(self, X, info, scale, isclassification, im_ch, ndims):
+        from dgbpy import transforms as T
         super().__init__()
         self.im_ch = im_ch
         self.ndims = ndims
         self.X = X.astype('float32')
         self.isclassification = isclassification
-        if scaler and isinstance(scaler, (list, StandardScaler, Normalization, MinMaxScaler)):
-            self.transform = TransformComposefromList(scaler, info)
+        if scale and isinstance(scale, (list, *T.scale_transforms.values())):
+            self.transform = T.TransformComposefromList(scale, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
     
     def __getitem__(self,index):
-        if self.transform:
-            self.X[index],_ = self.transform(self.X[index], None)
+        if self.transform: X, _ = self.transform(self.X[index], None)
+        else: X  = self.X[index]
         if self.ndims == 3:
-            return self.X[index, :, :, :, :]
+            return X[:, :, :, :]
         elif self.ndims == 2:
-            return self.X[index, :, 0, :, :]
+            return X[:, 0, :, :]
         elif self.ndims == 1:
-            return self.X[index, :, 0, 0, :]
+            return X[:, 0, 0, :]
 
 import importlib
 import pkgutil
