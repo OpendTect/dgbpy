@@ -18,7 +18,7 @@ from dgbpy import hdf5 as dgbhdf5
 
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
-               with_augmentation=True,tempnm=None):
+               scale=None,transform=list(),transform_copy=True,tempnm=None):
       from dgbpy import dgbkeras
       self._trainbatch = trainbatch
       self._forvalid = forvalidation
@@ -28,10 +28,13 @@ class TrainingSequence(Sequence):
       self._tempnm = tempnm
       self._lastsaved = datetime.now()
       self._batch_size = batch_size
-      self._augmentation = with_augmentation
       self._channels_format = dgbkeras.get_data_format(model)
       self._infos = self._trainbatch[dgbkeys.infodictstr]
       self._data_IDs = []
+      self.ndims = self._getDims(dgbkeras, self._infos)
+      self.transform = []
+      self.transform_multiplier = 0
+      self.transform_copy = transform_copy
       if exfilenm == None:
         self._exfilenm = self._infos[dgbkeys.filedictstr]
       else:
@@ -41,6 +44,23 @@ class TrainingSequence(Sequence):
         self._nrclasses = dgbhdf5.getNrClasses( self._infos )
         if dgbhdf5.isImg2Img(self._infos) and self._nrclasses <= 2:
           self._nrclasses = 0
+      self.transform_init(scale, transform, transform_copy=transform_copy)
+
+  def transform_init(self,scale,transform,transform_copy=True):
+      from dgbpy import transforms as T
+      if isinstance(transform, (list, *T.all_transforms.values())):
+        if scale and isinstance(scale, (*T.scale_transforms.values(),)):
+          if self._forvalid: transform = [scale]
+          else: transform.append(scale)
+        self.transform = T.TransformComposefromList(transform, self._infos, self.ndims, mixed=transform_copy)
+        if transform_copy:
+          self.transform_multiplier = self.transform.multiplier
+
+  def _getDims(self, dgbkeras, info):
+      attribs = dgbhdf5.getNrAttribs(info)
+      model_shape = dgbkeras.get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
+      ndims = dgbkeras.getModelDims(model_shape, True)
+      return ndims
 
   def __len__(self):
       return int(np.floor(len(self._data_IDs)/float(self._batch_size)))
@@ -49,7 +69,6 @@ class TrainingSequence(Sequence):
     self._doshuffle = yn
 
   def set_chunk(self,ichunk):
-      from dgbpy import dgbkeras
       infos = self._infos
       nbchunks = len(infos[dgbkeys.trainseldicstr])
       if nbchunks > 1:
@@ -64,46 +83,15 @@ class TrainingSequence(Sequence):
           if not dgbkeys.xvaliddictstr in trainbatch or \
              not dgbkeys.yvaliddictstr in trainbatch:
               return False
-          x_data = trainbatch[dgbkeys.xvaliddictstr]
-          y_data = trainbatch[dgbkeys.yvaliddictstr]
+          self._x_data = trainbatch[dgbkeys.xvaliddictstr]
+          self._y_data = trainbatch[dgbkeys.yvaliddictstr]
       else:
           if not dgbkeys.xtraindictstr in trainbatch or \
              not dgbkeys.ytraindictstr in trainbatch:
               return False
-          x_data = trainbatch[dgbkeys.xtraindictstr]
-          y_data = trainbatch[dgbkeys.ytraindictstr]
-      model = self._model
-      dictinpshape = infos[dgbkeys.inpshapedictstr]
-      dictinpshape = tuple( dictinpshape ) if not isinstance(dictinpshape, int) else (dictinpshape,)
-      self._x_data = dgbkeras.adaptToModel( model, x_data, dictinpshape )
-      if len(y_data.shape) > 2:
-          self._y_data = dgbkeras.adaptToModel( model, y_data, dictinpshape )
-      else:
-          self._y_data = y_data
-      inp_shape = self._x_data.shape[1:]
-      if self._augmentation and len(inp_shape) == 4:
-          if self._channels_format == 'channels_first':
-              self._rotdims = (2,3)
-              cubesz = self._x_data.shape[2:4]
-          else:
-              self._rotdims = (1,2)
-              cubesz = self._x_data.shape[1:3]
-          if cubesz[0] == cubesz[1]:
-              self._rot = range(4)
-              self._rotidx = self._rot
-          else:
-              self._rot = range(2)
-              self._rotidx = range(0,4,2)
-      elif self._augmentation and len(inp_shape) == 3:
-          self._rot = range(2)
-          self._rotidx = range(0,4,2)
-          if self._channels_format == 'channels_first':
-              self._rotdims = 2
-          else:
-              self._rotdims = 1
-      else:
-          self._rot = range(1)
-      self._data_IDs = range(len(self._x_data)*len(self._rot))
+          self._x_data = trainbatch[dgbkeys.xtraindictstr]
+          self._y_data = trainbatch[dgbkeys.ytraindictstr]
+      self._data_IDs = range((len(self._x_data)*(self.transform_multiplier+1)))
       self.on_epoch_end()
       return True
 
@@ -116,7 +104,7 @@ class TrainingSequence(Sequence):
               dgbkeras.save( self._model, self._tempnm )
               self._lastsaved = now
       self._indexes = np.arange(len(self._data_IDs))
-      if self._doshuffle:
+      if self._doshuffle and not self._forvalid:
         np.random.shuffle(self._indexes)
 
   def __getitem__(self, index):
@@ -130,6 +118,7 @@ class TrainingSequence(Sequence):
       return self.__data_generation(data_IDs_temp)
 
   def __data_generation(self, data_IDs_temp):
+      from dgbpy import dgbkeras
       x_data = self._x_data
       y_data = self._y_data
       inp_shape = x_data.shape[1:]
@@ -137,38 +126,17 @@ class TrainingSequence(Sequence):
       nrpts = len(data_IDs_temp)
       X = np.empty( (nrpts,*inp_shape), dtype=x_data.dtype )
       Y = np.empty( (nrpts,*out_shape), dtype=y_data.dtype )
-      nrrot = len(self._rot)
-      if nrrot == 1:
-          X = x_data[data_IDs_temp]
-          Y = y_data[data_IDs_temp]
-      else:
-          iindex,frem = np.divmod(data_IDs_temp,nrrot)
-          n = 0
-          rotdims = self._rotdims
-          flip2d = not isinstance( rotdims, tuple )
-          for j,k in zip(self._rot,self._rotidx):
-              rotidx = iindex[frem==j]
-              m = len(rotidx)
-              if m > 0:
-                  wrrg = range(n,n+m)
-                  if flip2d:
-                      if k == 0:
-                          X[wrrg] = x_data[rotidx]
-                      else:
-                          X[wrrg] = np.fliplr(x_data[rotidx])
-                  else:
-                      X[wrrg] = np.rot90(x_data[rotidx],k,rotdims)
-                  if len(y_data.shape) > 2:
-                      if flip2d:
-                          if k == 0:
-                              Y[wrrg] = y_data[rotidx]
-                          else:
-                              Y[wrrg] = np.fliplr(y_data[rotidx])
-                      else:
-                          Y[wrrg] = np.rot90(y_data[rotidx],k,rotdims)
-                  else:
-                      Y[wrrg] = y_data[rotidx]
-                  n = wrrg.stop
+      idx, rem = np.divmod(data_IDs_temp, self.transform_multiplier+1)
+      for i, ID in enumerate(idx):
+        if self.transform:
+            X[i,], Y[i,] = self.transform(x_data[ID], y_data[ID], mixed_val=rem[i])
+        else:
+            X[i,], Y[i,] = x_data[ID], y_data[ID]
+      dictinpshape = self._infos[dgbkeys.inpshapedictstr]
+      dictinpshape = tuple( dictinpshape ) if not isinstance(dictinpshape, int) else (dictinpshape,)
+      X = dgbkeras.adaptToModel( self._model, X, dictinpshape )
+      if len(Y.shape) > 2:
+          Y = dgbkeras.adaptToModel( self._model, Y, dictinpshape )
       if self._nrclasses > 0:
           Y = to_categorical(Y,self._nrclasses)
       return (X, Y)
