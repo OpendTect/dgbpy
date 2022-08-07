@@ -127,8 +127,6 @@ class Trainer:
         self.learning_rate = []
         self.training_accuracy = []
         self.validation_accuracy = []
-        self.training_f1 = []
-        self.validation_f1 = []
         self.F1_old = float('-inf')
         self.RMSE = 100 ** 10000
 
@@ -187,10 +185,9 @@ class Trainer:
             loss_value = loss.item()
             train_losses.append(loss_value)
             train_accs.append(acc)
-            train_f1.append(f1)
+            if classification: train_f1.append(f1)
         self.training_loss.append(np.mean(train_losses))
         self.training_accuracy.append(np.mean(train_accs))
-        self.training_f1.append(np.mean(train_f1))
         self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
         odcommon.log_msg(f'Train loss: {np.round(np.mean(train_losses), 4)}')
         if classification:
@@ -230,18 +227,16 @@ class Trainer:
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
                 valid_accs.append(acc)
-                valid_f1.append(f1)
+                if classification: valid_f1.append(f1)
         mean_valid_accs = np.mean(valid_accs)
-        mean_valid_f1 = np.mean(valid_f1)
         mean_valid_losses = np.mean(valid_losses)
         self.validation_loss.append(mean_valid_losses)
         self.validation_accuracy.append(mean_valid_accs)
-        self.validation_f1.append(mean_valid_f1)
         odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
         
         if classification:
             odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
-            odcommon.log_msg(f'Validation F1: {np.round(mean_valid_f1, 4)}')
+            odcommon.log_msg(f'Validation F1: {np.round(np.mean(valid_f1), 4)}')
         else:
             odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
         if self.F1_old < mean_valid_accs and classification:
