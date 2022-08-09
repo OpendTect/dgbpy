@@ -881,28 +881,24 @@ class SeismicTestDataset:
         return self.transformer(data, label)
 
 class DatasetApply(Dataset):
-    def __init__(self, X, info, scale, isclassification, im_ch, ndims):
+    def __init__(self, X, info, isclassification, im_ch, ndims):
         from dgbpy import transforms as T
         super().__init__()
         self.im_ch = im_ch
         self.ndims = ndims
         self.X = X.astype('float32')
         self.isclassification = isclassification
-        if scale and isinstance(scale, (list, *T.scale_transforms.values())):
-            self.transform = T.TransformComposefromList(scale, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]
     
     def __getitem__(self,index):
-        if self.transform: X, _ = self.transform(self.X[index], None)
-        else: X  = self.X[index]
         if self.ndims == 3:
-            return X[:, :, :, :]
+            return self.X[index, :, :, :, :]
         elif self.ndims == 2:
-            return X[:, 0, :, :]
+            return self.X[index, :, 0, :, :]
         elif self.ndims == 1:
-            return X[:, 0, 0, :]
+            return self.X[index, :, 0, 0, :]
 
 import importlib
 import pkgutil
