@@ -247,7 +247,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
-  sampleDataset = DatasetApply(samples, info, scaler, isclassification, 1, ndims=ndims)
+  sampleDataset = DatasetApply(samples, info, isclassification, 1, ndims=ndims)
   ret = {}
   res = None
   try:
