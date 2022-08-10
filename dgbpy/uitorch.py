@@ -87,6 +87,8 @@ def getUiPars(uipars=None):
   return uipars
 
 def getAdvancedUiPars(uipars=None):
+  if dgbhdf5.isLogOutput(info):
+    return {'grp':None, 'uiobjects':None}
   dict = torch_dict
   uiobjs={}
   if not uipars:
@@ -104,10 +106,11 @@ def getAdvancedUiPars(uipars=None):
   else:
     uiobjs = uipars['uiobjects']
 
-  setDefaultTransforms = []
-  for transform in dict['transform']:
-    setDefaultTransforms.append(uiTransform[transform].value)
-  uiobjs['augmentfld'].active = setDefaultTransforms
+  if uiobjs:
+    setDefaultTransforms = []
+    for transform in dict['transform']:
+      setDefaultTransforms.append(uiTransform[transform].value)
+    uiobjs['augmentfld'].active = setDefaultTransforms
   return uipars     
 
 def enableAugmentationCB(args, widget=None):
@@ -115,13 +118,18 @@ def enableAugmentationCB(args, widget=None):
 
 def getUiTransforms(advtorchgrp):
   transforms = []
+  if not advtorchgrp:
+    return transforms
   selectedkeys = advtorchgrp['augmentfld'].active
   for key in selectedkeys:
     transforms.append(uiTransform(key).name)
   return transforms
 
-def getUiScaler(selectedOption):
+def getUiScaler(advtorchgrp):
   scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
+  if not advtorchgrp:
+    return scalers[0]
+  selectedOption = advtorchgrp['scalingfld'].active
   return scalers[selectedOption]
 
 def getUiParams( torchpars, advtorchpars ):
@@ -132,7 +140,7 @@ def getUiParams( torchpars, advtorchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
-  scale = getUiScaler(advtorchgrp['scalingfld'].active)
+  scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
