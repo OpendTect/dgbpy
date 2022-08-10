@@ -108,26 +108,33 @@ def getAdvancedUiPars(uipars=None):
   dict = keras_dict
   uiobjs={}
   if not uipars:
-    aug_labels = ['Random Flip', 'Random Gaussian Noise']
-    if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
-      'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
-      'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
-                               active=0, margin = [5, 5, 5, 25]),
-      'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
-      'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
       'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
       'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
+
+    if not dgbhdf5.isLogOutput(info):
+      aug_labels = ['Random Flip', 'Random Gaussian Noise']
+      if hasOpenCV(): aug_labels.append('Random Rotation')
+      transformUi = {
+        'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
+        'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
+                                active=0, margin = [5, 5, 5, 25]),
+        'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
+        'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
+        }
+      uiobjs = {**transformUi, **uiobjs}
+
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
     uiobjs=uipars['uiobjects']
 
-  setDefaultTransforms = []
-  for transform in dict['transform']:
-    setDefaultTransforms.append(uiTransform[transform].value)
-  uiobjs['augmentfld'].active = setDefaultTransforms
+  if 'augmentfld' in uiobjs:
+    setDefaultTransforms = []
+    for transform in dict['transform']:
+      setDefaultTransforms.append(uiTransform[transform].value)
+    uiobjs['augmentfld'].active = setDefaultTransforms
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   return uipars
@@ -139,13 +146,18 @@ def chunkfldCB(sizefld,attr,old,new):
 
 def getUiTransforms(advkerasgrp):
   transforms = []
+  if 'augmentfld' not in advkerasgrp:
+    return transforms
   selectedkeys = advkerasgrp['augmentfld'].active
   for key in selectedkeys:
     transforms.append(uiTransform(key).name)
   return transforms
 
-def getUiScaler(selectedOption):
+def getUiScaler(advkerasgrp):
   scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
+  if 'scalinfld' not in advkerasgrp:
+    return scalers[0]
+  selectedOption = advkerasgrp['scalingfld'].active
   return scalers[selectedOption]
 
 def getUiParams( keraspars, advkeraspars ):
@@ -158,7 +170,7 @@ def getUiParams( keraspars, advkeraspars ):
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
              not isSelected( kerasgrp['rundevicefld'] )
-  scale = getUiScaler(advkerasgrp['scalingfld'].active)
+  scale = getUiScaler(advkerasgrp)
   transform = getUiTransforms(advkerasgrp)
   withtensorboard = True if len(advkerasgrp['tensorboardfld'].active)!=0 else False
   return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \

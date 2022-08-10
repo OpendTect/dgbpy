@@ -20,6 +20,7 @@ from bokeh.models import CheckboxGroup
 from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)
 import dgbpy.keystr as dgbkeys
+import dgbpy.hdf5 as dgbhdf5
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uisklearn, uitorch, uikeras
 from dgbpy import mlio as dgbmlio
@@ -182,7 +183,7 @@ def training_app(doc):
     advparsgroups = (kerasadvpars, torchadvpars, None)
     keraspars['uiobjects']['dodecimatefld'].active = []
     keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
-    if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
+    if new==uikeras.getPlatformNm(True)[0] or (new==uitorch.getPlatformNm(True)[0] and not dgbhdf5.isLogOutput(uitorch.info)):
       adparameterspanel.disabled = False
     else:
       adparameterspanel.disabled = True
