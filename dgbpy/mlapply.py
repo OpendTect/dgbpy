@@ -319,7 +319,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scale=True, force=False,
                                         nbchunks=params['nbchunk'],
                                         split=validation_split )
-    logdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
+    tblogdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
     if type == TrainType.New:
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
@@ -336,7 +336,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     print('--Training Started--', flush=True)
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, logdir=logdir,
+                              trainfile=examplefilenm, logdir=tblogdir,
                               withaugmentation=dgbkeras.withaugmentation,
                               tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:

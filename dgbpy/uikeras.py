@@ -70,13 +70,14 @@ def getUiPars(uipars=None):
       'patiencefld': Slider(start=1,end=100, title='Patience'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
       'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1),
-      'sizefld': None,
+      'sizefld': Div( text='Size: Unknown' ),
       'dodecimatefld': CheckboxGroup( labels=['Decimate input']),
       'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
+      
     uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
     try:
       uiobjs['chunkfld'].on_change('value_throttled',partial(chunkfldCB, uiobjs['sizefld']))
@@ -103,9 +104,9 @@ def getUiPars(uipars=None):
   return uipars
 
 def chunkfldCB(sizefld,attr,old,new):
-  if sizefld == None:
-    return
-  sizefld.text = getSizeStr( info[dgbkeys.estimatedsizedictstr]/new )
+  size = info[dgbkeys.estimatedsizedictstr]
+  if sizefld and size:
+    sizefld.text = getSizeStr( size/new )
 
 def getUiParams( keraspars ):
   kerasgrp = keraspars['uiobjects']
@@ -132,9 +133,8 @@ def isSelected( fldwidget, index=0 ):
 def decimateCB( widgetactivelist,chunkfld,sizefld ):
   decimate = uibokeh.integerListContains( widgetactivelist, 0 )
   chunkfld.visible = decimate
-  if sizefld == None:
-    return
   size = info[dgbkeys.estimatedsizedictstr]
-  if decimate:
-    size /= chunkfld.value
-  sizefld.text = getSizeStr( size )
+  if sizefld and size:
+    if decimate:
+      size /= chunkfld.value
+    sizefld.text = getSizeStr( size )
