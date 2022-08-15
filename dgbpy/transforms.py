@@ -114,6 +114,38 @@ class RandomRotation():
             _arr[attrib,:] = self.cv2.warpAffine( _arr[attrib], M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
         return _arr.copy()
 
+class RandomTranslation():
+    def __init__(self, p = 0.15, percent = 20):
+        self.p = p
+        self.percent = percent / 100
+        self.multiplier = 1
+        from scipy.ndimage import shift
+        self.shift = shift
+        self.ndims = None
+    
+    def transformLabel(self, info):
+        return dgbhdf5.isImg2Img(info)
+
+    def __call__(self, image=None, label=None, ndims=None):
+        if self.p > np.random.uniform(0,1):
+            self.ndims = ndims
+            if not isinstance(label, np.ndarray):
+                return self.transform(image), label
+            return self.transform(image), self.transform(label)
+        return image, label
+
+    def transform(self, arr):
+        if self.ndims == 2:
+            ax = arr.shape[2:]
+            ax = map(lambda x: int(x*self.percent), ax)
+            transform_axes = (0, 0, *ax)
+        elif self.ndims == 3:
+            ax = arr.shape[1:]
+            ax = map(lambda x: int(x*self.percent), ax)
+            transform_axes = (0, *ax)
+        return self.shift(arr, transform_axes)
+        
+
 class ScaleTransform():
     def __init__(self):
         from dgbpy.dgbscikit import scale
@@ -158,6 +190,9 @@ class MinMaxScaler(ScaleTransform):
         self.scaler = self.getNewMinMaxScaler(arr, maxout=255)
         return self.scale(arr, self.scaler)
 
+
+
+
 scale_transforms = {
     dgbkeys.localstdtypestr: StandardScaler,
     dgbkeys.normalizetypestr: Normalization,
@@ -167,6 +202,7 @@ all_transforms = {
     'RandomFlip': RandomFlip,
     'RandomGaussianNoise': RandomGaussianNoise,
     'RandomRotation': RandomRotation,
+    'RandomTranslation': RandomTranslation,
 }
 all_transforms.update(scale_transforms)
 
