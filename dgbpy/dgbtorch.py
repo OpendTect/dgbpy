@@ -22,7 +22,6 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 transform_list = [
     'RandomFlip',
-    'RandomGaussianNoise' 
 ]
 
 torch_dict = {
