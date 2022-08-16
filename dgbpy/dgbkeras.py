@@ -48,6 +48,7 @@ def getUIMLPlatform():
 prefercpustr = 'prefercpu'
 defbatchstr = 'defaultbatchsz'
 
+transform_list = ['RandomFlip']
 keras_dict = {
   dgbkeys.decimkeystr: False,
   'nbchunk': 10,
@@ -58,7 +59,7 @@ keras_dict = {
   'epochdrop': 5,
   'type': None,
   'prefercpu': None,
-  'transform': [],
+  'transform': transform_list,
   'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard
 }
