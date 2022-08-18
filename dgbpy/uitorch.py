@@ -92,7 +92,7 @@ def getAdvancedUiPars(uipars=None):
   dict = torch_dict
   uiobjs={}
   if not uipars:
-    aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation']
+    aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation', 'Random Polarity Flip']
     if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
       'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
@@ -156,5 +156,6 @@ def isSelected( fldwidget, index=0 ):
 class uiTransform(Enum):
   RandomFlip = 0
   RandomGaussianNoise = 1
-  RandonTranslation = 2
-  RandomRotation = 3
+  RandomTranslation = 2
+  RandomPolarityFlip = 3
+  RandomRotation = 4
