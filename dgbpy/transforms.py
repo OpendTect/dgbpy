@@ -144,7 +144,25 @@ class RandomTranslation():
             ax = map(lambda x: int(x*self.percent), ax)
             transform_axes = (0, *ax)
         return self.shift(arr, transform_axes)
-        
+
+class RandomPolarityFlip():
+    def __init__(self, p = 0.25):
+        self.p = p
+        self.multiplier = 1
+
+    def transformLabel(self, info):
+        return dgbhdf5.isRegression(info)
+
+    def __call__(self, image=None, label=None, ndims=None):
+        if self.p > np.random.uniform(0,1):
+            if not isinstance(label, np.ndarray):
+                return self.transform(image), label
+            return self.transform(image), self.transform(label)
+        return image, label
+
+    def transform(self, arr):
+        transfomed_arr = arr * -1.0
+        return transfomed_arr
 
 class ScaleTransform():
     def __init__(self):
@@ -203,6 +221,7 @@ all_transforms = {
     'RandomGaussianNoise': RandomGaussianNoise,
     'RandomRotation': RandomRotation,
     'RandomTranslation': RandomTranslation,
+    'RandomPolarityFlip': RandomPolarityFlip,
 }
 all_transforms.update(scale_transforms)
 
