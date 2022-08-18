@@ -114,7 +114,7 @@ def getAdvancedUiPars(uipars=None):
     }
 
     if not dgbhdf5.isLogOutput(info):
-      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation']
+      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation', 'Random Polarity Flip']
       if hasOpenCV(): aug_labels.append('Random Rotation')
       transformUi = {
         'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
@@ -200,4 +200,5 @@ class uiTransform(Enum):
   RandomFlip = 0
   RandomGaussianNoise = 1
   RandomTranslation = 2
-  RandomRotation = 3
+  RandomPolarityFlip = 3
+  RandomRotation = 4
