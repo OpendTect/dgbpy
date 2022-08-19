@@ -725,7 +725,7 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset:
-    def __init__(self, imgdp, scale, transform=list()):
+    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
         from dgbpy import dgbtorch
         from dgbpy import transforms as T
         X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, False)
@@ -735,20 +735,27 @@ class SeismicTrainDataset:
         self.X = X.astype('float32')
         self.y = y.astype('float32')
 
+        self._data_IDs = []
+        self.transform_multiplier = 0
+
         if isinstance(transform, (list, *T.all_transforms.values())):
             if scale and isinstance(scale, (*T.scale_transforms.values(),)):
                 transform.append(scale)
-            self.transform = T.TransformComposefromList(transform, info, ndims)
+            self.transform = T.TransformComposefromList(transform, info, ndims, mixed = transform_copy)
+            self.transform_multiplier = self.transform.multiplier
+
+        self._data_IDs = range(len(self.X)*(self.transform_multiplier+1))       
 
     def __len__(self):
-        return self.X.shape[0]
+        return len(self._data_IDs)
 
     def __getitem__(self, idx):
+        idx, rem = np.divmod(idx, self.transform_multiplier+1)
         if self.ndims < 2:
             X, Y = self._adaptShape(self.X[idx], self.y[idx])
             return X, Y
         if self.transform:
-            X, Y = self.transform(self.X[idx], self.y[idx])
+            X, Y = self.transform(self.X[idx], self.y[idx], mixed_val = rem)
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
