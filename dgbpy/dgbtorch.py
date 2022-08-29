@@ -18,6 +18,7 @@ import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
 import dgbpy.torch_classes as tc
 
+device = torch.device('cpu')
 
 transform_list = [
     'RandomFlip',
@@ -50,10 +51,11 @@ def can_use_gpu():
     return True
   return False
 
-def get_device(prefercpu):
+def set_compute_device(prefercpu):
+  global device
   if not prefercpu:
     prefercpu = not can_use_gpu()
-  return torch.device('cpu' if prefercpu else 'cuda:0')
+  device = torch.device('cuda:0' if not prefercpu else 'cpu')
 
 def getParams( 
     nntype=torch_dict['type'], 
@@ -239,9 +241,10 @@ def train(model, imgdp, params):
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
+    set_compute_device(params['prefercpu'])
     trainer = Trainer(
         model=model,
-        device=get_device(params['prefercpu']),
+        device=device,
         criterion=criterion,
         optimizer=optimizer,
         training_DataLoader=trainloader,
@@ -304,11 +307,12 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
 
   predictions = []
   predictions_prob = []
+  dfdm.to(device)
   dfdm.eval()
   for input in dataloader:
       with torch.no_grad():
         out = dfdm(input)
-        pred = out.detach().numpy()
+        pred = out.detach().cpu().numpy()
         pred_prob = pred.copy()
         if isclassification:
           pred = np.argmax(pred, axis=1)
