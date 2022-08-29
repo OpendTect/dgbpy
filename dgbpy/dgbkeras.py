@@ -45,7 +45,6 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-prefercpustr = 'prefercpu'
 defbatchstr = 'defaultbatchsz'
 
 transform_list = ['RandomFlip']
@@ -75,7 +74,7 @@ def get_cpu_preference():
 def get_keras_infos():
   ret = {
     'haskerasgpu': can_use_gpu(),
-    prefercpustr: get_cpu_preference(),
+    dgbkeys.prefercpustr: get_cpu_preference(),
     'batchsizes': cudacores,
     defbatchstr: keras_dict['batch']
    }

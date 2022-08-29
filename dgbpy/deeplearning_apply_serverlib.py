@@ -22,7 +22,7 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbscikit, dgbkeras
+from dgbpy import dgbscikit, dgbkeras, dgbtorch
 
 class ExitCommand(Exception):
     pass
@@ -59,10 +59,14 @@ class ModelApplier:
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
         self.scaler_ = self.getScaler( outputs )
-        if dgbkeras.prefercpustr in outputs:
-            dgbkeras.set_compute_device( outputs[dgbkeras.prefercpustr] )
-        if dgbkeras.defbatchstr in outputs:
-            self.batchsize_ = outputs[dgbkeras.defbatchstr]
+        if self.info_[dgbkeys.plfdictstr] == dgbkeys.kerasplfnm:
+            if dgbkeys.prefercpustr in outputs:
+                dgbkeras.set_compute_device( outputs[dgbkeys.prefercpustr] )
+            if dgbkeras.defbatchstr in outputs:
+                self.batchsize_ = outputs[dgbkeras.defbatchstr]
+        elif self.info_[dgbkeys.plfdictstr] == dgbkeys.torchplfnm:
+            if dgbkeys.prefercpustr in outputs:
+                dgbtorch.set_compute_device( outputs[dgbkeys.prefercpustr] )
         if self.fakeapply_:
             return None
         modelfnm = self.info_[dgbkeys.filedictstr]
