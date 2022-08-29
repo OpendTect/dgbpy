@@ -616,7 +616,7 @@ class UNet(nn.Module):
     def __init__(self,
                  in_channels: int = 1,
                  out_channels: int = 2,
-                 n_blocks: int = 2,
+                 n_blocks: int = 1,
                  start_filters: int = 32,
                  activation: str = 'relu',
                  normalization: str = 'batch',
@@ -741,7 +741,7 @@ class SeismicTrainDataset:
         if isinstance(transform, (list, *T.all_transforms.values())):
             if scale and isinstance(scale, (*T.scale_transforms.values(),)):
                 transform.append(scale)
-            self.transform = T.TransformComposefromList(transform, info, ndims, mixed = transform_copy)
+            self.transform = T.TransformCompose(transform, info, ndims, mixed = transform_copy)
             self.transform_multiplier = self.transform.multiplier
 
         self._data_IDs = range(len(self.X)*(self.transform_multiplier+1))       
@@ -826,7 +826,7 @@ class SeismicTestDataset:
         self.y = y.astype('float32')
         self.transform = []
         if scale and isinstance(scale, (list, *T.scale_transforms.values())):
-            self.transform = T.TransformComposefromList(scale, info, ndims)
+            self.transform = T.TransformCompose(scale, info, ndims)
 
     def __len__(self):
         return self.X.shape[0]

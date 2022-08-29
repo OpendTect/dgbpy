@@ -281,9 +281,9 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       from dgbpy.torch_classes import UNet
       if isclassification:
-        dfdm = UNet(out_channels=nroutputs, n_blocks=2, dim=ndims)
+        dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
       else:
-        dfdm = UNet(out_channels=1,  n_blocks=2, dim=ndims)
+        dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
       dfdm.load_state_dict(model)
   elif model.__class__.__name__ == 'OnnxModel':
     dfdm = model
