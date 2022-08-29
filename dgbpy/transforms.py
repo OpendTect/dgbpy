@@ -225,7 +225,7 @@ all_transforms = {
 }
 all_transforms.update(scale_transforms)
 
-class TransformComposefromList():
+class TransformCompose():
     """
         Applies all the transform from a list to the data.
     """

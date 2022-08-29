@@ -52,7 +52,7 @@ class TrainingSequence(Sequence):
         if scale and isinstance(scale, (*T.scale_transforms.values(),)):
           if self._forvalid: transform = [scale]
           else: transform.append(scale)
-        self.transform = T.TransformComposefromList(transform, self._infos, self.ndims, mixed=transform_copy)
+        self.transform = T.TransformCompose(transform, self._infos, self.ndims, mixed=transform_copy)
         if transform_copy:
           self.transform_multiplier = self.transform.multiplier
 
