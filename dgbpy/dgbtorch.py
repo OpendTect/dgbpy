@@ -18,7 +18,6 @@ import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
 import dgbpy.torch_classes as tc
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 transform_list = [
     'RandomFlip',
@@ -31,6 +30,7 @@ torch_dict = {
     'batch_size': 8,
     'learnrate': 0.0001,
     'type': None,
+    'prefercpu': None,
     'scale': dgbkeys.globalstdtypestr,
     'transform':transform_list
 }
@@ -45,12 +45,23 @@ cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '1
 def getMLPlatform():
   return platform[0]
 
+def can_use_gpu():
+  if torch.cuda.is_available():
+    return True
+  return False
+
+def get_device(prefercpu):
+  if not prefercpu:
+    prefercpu = not can_use_gpu()
+  return torch.device('cpu' if prefercpu else 'cuda:0')
+
 def getParams( 
     nntype=torch_dict['type'], 
     learnrate=torch_dict['learnrate'],
     epochs=torch_dict['epochs'],
     epochdrop=torch_dict['epochdrop'],
     batch=torch_dict['batch_size'],
+    prefercpu = torch_dict['prefercpu'],
     scale=torch_dict['scale'],
     transform=torch_dict['transform']):
   ret = {
@@ -62,6 +73,9 @@ def getParams(
     'scale': scale,
     'transform': transform
   }
+  if prefercpu == None:
+    prefercpu = not can_use_gpu()
+  ret.update({'prefercpu': prefercpu})
   return ret
 
 def getDefaultModel(setup,type=torch_dict['type']):
@@ -227,7 +241,7 @@ def train(model, imgdp, params):
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
     trainer = Trainer(
         model=model,
-        device=device,
+        device=get_device(params['prefercpu']),
         criterion=criterion,
         optimizer=optimizer,
         training_DataLoader=trainloader,

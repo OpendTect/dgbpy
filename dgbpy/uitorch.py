@@ -69,6 +69,7 @@ def getUiPars(uipars=None):
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
+      'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
@@ -82,6 +83,7 @@ def getUiPars(uipars=None):
   uiobjs['epochfld'].value = dict['epochs']
   uiobjs['lrfld'].value = np.log10(dict['learnrate'])
   uiobjs['epochdrop'].value = dict['epochdrop']
+  uiobjs['rundevicefld'].active = [0]
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   return uipars
@@ -140,6 +142,8 @@ def getUiParams( torchpars, advtorchpars ):
   epochdrop = int(nrepochs*epochdroprate)
   if epochdrop < 1:
     epochdrop = 1
+  runoncpu = not torchgrp['rundevicefld'].visible or \
+             not isSelected( torchgrp['rundevicefld'] )
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
   return getParams( epochs=torchgrp['epochfld'].value, \
@@ -147,6 +151,7 @@ def getUiParams( torchpars, advtorchpars ):
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
+                             prefercpu = runoncpu,
                              scale = scale,
                              transform=transform)
 
