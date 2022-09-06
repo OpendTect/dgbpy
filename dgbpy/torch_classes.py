@@ -221,8 +221,8 @@ class Trainer:
                     out = torch.argmax(out, axis=1)
                     target = target.cpu().numpy()
                     val_pred = out.detach().cpu().numpy()
-                    acc = accuracy_score(val_pred, target.cpu())
-                    f1 = f1_score(val_pred, target.cpu(), average='weighted')
+                    acc = accuracy_score(val_pred, target)
+                    f1 = f1_score(val_pred, target, average='weighted')
                 elif not classification:
                     loss = self.criterion(out, target)
                     from sklearn.metrics import mean_squared_error
