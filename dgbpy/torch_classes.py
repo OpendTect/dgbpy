@@ -226,7 +226,7 @@ class Trainer:
                 elif not classification:
                     loss = self.criterion(out, target)
                     from sklearn.metrics import mean_squared_error
-                    val_pred = out.detach().cpu().numpu().flatten()
+                    val_pred = out.detach().cpu().numpy().flatten()
                     acc = mean_squared_error(val_pred, target.cpu().numpy().flatten())
                 loss_value = loss.item()
                 valid_losses.append(loss_value)
