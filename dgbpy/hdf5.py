@@ -599,6 +599,11 @@ modeloutstr = 'Model.Output.'
 def modelIdxStr( idx ):
   return modeloutstr + str(idx) + '.Name'
 
+def odsetBoolValue(value):
+  if value:
+    return 'Yes'
+  return 'No'
+
 def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
   h5filein = odhdf5.openFile( inpfile, 'r' )
   h5fileout = odhdf5.openFile( filenm, 'r+' )
@@ -635,7 +640,7 @@ def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
       keyvali = keyval+str(i)+'.Stats'
       odhdf5.setArray( dsinfoout, keyvali, [scale.mean_[i], scale.scale_[i]] )
   odhdf5.setAttr(dsinfoout, 'Input.Scaling.Type', infos[inpscalingdictstr])
-  odhdf5.setAttr(dsinfoout, 'Output.Unscale', infos[outputunscaledictstr])
+  odhdf5.setAttr(dsinfoout, 'Output.Unscale', odsetBoolValue(infos[outputunscaledictstr]))
   h5fileout.close()
 
 def getClassIndices( info, filternms=None ):
