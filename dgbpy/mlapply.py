@@ -368,7 +368,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbscikit.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
+                                        scaler=dgbhdf5.Scaler.GlobalScaler,
                                         force=False,
                                         split=validation_split )
     if type == TrainType.New:
