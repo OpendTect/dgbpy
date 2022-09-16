@@ -310,7 +310,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     import tempfile
     if params == None:
       params = dgbkeras.getParams()
-    dgbkeras.set_compute_device( params[dgbkeras.prefercpustr] )
+    dgbkeras.set_compute_device( params[dgbkeys.prefercpustr] )
 
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
