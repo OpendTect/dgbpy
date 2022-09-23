@@ -130,3 +130,10 @@ def getDefaultAugmentation():
     return not ( os.environ['ML_WITH_AUGMENTATION'] == False or \
                  os.environ['ML_WITH_AUGMENTATION'] == 'No' )
   return False
+
+def getDefaultTensorBoard():
+  import os
+  if 'ML_WITH_TENSORBOARD' in os.environ:
+    return not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
+                 os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
+  return True
