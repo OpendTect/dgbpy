@@ -100,6 +100,7 @@ class Trainer:
                  criterion: torch.nn.Module,
                  optimizer: torch.optim.Optimizer,
                  training_DataLoader: torch.utils.data.Dataset,
+                 tensorboard = None,
                  validation_DataLoader: torch.utils.data.Dataset = None,
                  lr_scheduler: torch.optim.lr_scheduler = None,
                  epochs: int = 100,
@@ -113,6 +114,7 @@ class Trainer:
         self.criterion = criterion
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
+        self.tensorboard = tensorboard
         self.training_DataLoader = training_DataLoader
         self.validation_DataLoader = validation_DataLoader
         self.device = device
@@ -142,6 +144,18 @@ class Trainer:
             """Validation block"""
             if self.validation_DataLoader is not None:
                 self._validate()
+            """TensorBoard Logging"""
+            if self.tensorboard:
+                self.tensorboard.add_scalars("Loss", 
+                {   "training":self.training_loss[i], 
+                    "validation":self.validation_loss[i] if self.validation_DataLoader else np.nan
+                }, self.epoch) 
+                self.tensorboard.add_scalars("Accuracy",
+                {   "training":self.training_accuracy[i],
+                    "validation":self.validation_accuracy[i] if self.validation_DataLoader else np.nan
+                }, self.epoch)
+                self.tensorboard.close()
+
             """Learning rate scheduler block"""
             if self.lr_scheduler is not None:
                 if self.validation_DataLoader is not None and self.lr_scheduler.__class__.__name__ == 'ReduceLROnPlateau':

@@ -237,6 +237,7 @@ def training_app(doc):
     elif platformfld.value == uisklearn.getPlatformNm():
       return uisklearn.getUiParams( sklearnpars )
     elif platformfld.value == uitorch.getPlatformNm():
+      odcommon.log_msg(uitorch.getUiParams(torchpars,torchadvpars))
       return uitorch.getUiParams( torchpars, torchadvpars )
     return {}
 

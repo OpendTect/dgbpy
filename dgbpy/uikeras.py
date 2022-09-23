@@ -146,18 +146,17 @@ def chunkfldCB(sizefld,attr,old,new):
 
 def getUiTransforms(advkerasgrp):
   transforms = []
-  if 'augmentfld' not in advkerasgrp:
-    return transforms
-  selectedkeys = advkerasgrp['augmentfld'].active
-  for key in selectedkeys:
-    transforms.append(uiTransform(key).name)
+  if 'augmentfld' in advkerasgrp:
+    selectedkeys = advkerasgrp['augmentfld'].active
+    for key in selectedkeys:
+      transforms.append(uiTransform(key).name)
   return transforms
 
 def getUiScaler(advkerasgrp):
   scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
-  if 'scalinfld' not in advkerasgrp:
-    return scalers[0]
-  selectedOption = advkerasgrp['scalingfld'].active
+  selectedOption = 0
+  if 'scalinfld' in advkerasgrp:
+    selectedOption = advkerasgrp['scalingfld'].active
   return scalers[selectedOption]
 
 def getUiParams( keraspars, advkeraspars ):

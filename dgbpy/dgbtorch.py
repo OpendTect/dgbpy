@@ -19,7 +19,7 @@ import odpy.hdf5 as odhdf5
 import dgbpy.torch_classes as tc
 
 device = torch.device('cpu')
-
+withtensorboard = dgbkeys.getDefaultTensorBoard()
 transform_list = [
     'RandomFlip',
 ]
@@ -33,7 +33,8 @@ torch_dict = {
     'type': None,
     'prefercpu': None,
     'scale': dgbkeys.globalstdtypestr,
-    'transform':transform_list
+    'transform':transform_list,
+    'withtensorboard': withtensorboard
 }
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
@@ -65,7 +66,8 @@ def getParams(
     batch=torch_dict['batch_size'],
     prefercpu = torch_dict['prefercpu'],
     scale=torch_dict['scale'],
-    transform=torch_dict['transform']):
+    transform=torch_dict['transform'],
+    withtensorboard=torch_dict['withtensorboard']):
   ret = {
     'type': nntype,
     'learnrate': learnrate,
@@ -73,7 +75,8 @@ def getParams(
     'epochdrop': epochdrop,
     'batch': batch,
     'scale': scale,
-    'transform': transform
+    'transform': transform,
+    'withtensorboard': withtensorboard
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -234,19 +237,24 @@ def save( model, outfnm, infos, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params):
+def train(model, imgdp, params, logdir = None):
     from dgbpy.torch_classes import Trainer
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
+    tensorboard = None
+    if logdir != None and params['withtensorboard']:
+      from torch.utils.tensorboard import SummaryWriter
+      tensorboard = SummaryWriter(log_dir=logdir)
     set_compute_device(params['prefercpu'])
     trainer = Trainer(
         model=model,
         device=device,
         criterion=criterion,
         optimizer=optimizer,
+        tensorboard = tensorboard,
         training_DataLoader=trainloader,
         validation_DataLoader=testloader,
         lr_scheduler=None,
