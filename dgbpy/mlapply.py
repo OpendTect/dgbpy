@@ -319,7 +319,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         split=validation_split )
     tblogdir=None
     if 'withtensorboard' in params and params['withtensorboard']:
-      tblogdir = dgbkeras.getLogDir( examplefilenm, logdir, clearlogs, args )
+      tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
     if type == TrainType.New:
       model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                        type=params['type'],
@@ -351,6 +351,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     import dgbpy.dgbtorch as dgbtorch
     if params == None:
       params = dgbtorch.getParams()
+    if 'withtensorboard' in params and params['withtensorboard']:
+      tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         force=False,
@@ -361,7 +363,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                        )
 
     print('--Training Started--', flush=True)
-    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params)
+    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params, logdir=tblogdir)
 
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit

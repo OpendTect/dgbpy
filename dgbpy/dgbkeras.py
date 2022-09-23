@@ -24,11 +24,8 @@ import dgbpy.keras_classes as kc
 from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-withtensorboard = True
-if 'KERAS_WITH_TENSORBOARD' in os.environ:
-  withtensorboard = not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
-                          os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
 
+withtensorboard = dgbkeys.getDefaultTensorBoard()
 
 platform = (dgbkeys.kerasplfnm,'Keras (tensorflow)')
 
@@ -146,48 +143,6 @@ def getCubeletShape( model ):
   elif data_format == 'channels_last':
     cubeszs = model.input_shape[1:-1]
   return cubeszs
-
-def rm_tree(pth):
-    pth = Path(pth)
-    for child in pth.glob('*'):
-        if child.is_file():
-            child.unlink()
-        else:
-            try:
-              rm_tree(child)
-            except OSError:
-              pass
-    try:
-      pth.rmdir()
-    except OSError:
-      pass
-
-def getLogDir( examplenm, basedir, clearlogs, args ):
-  if not withtensorboard or basedir == None or not Path(basedir).exists():
-    return None
-  logdir = Path(basedir) / Path(examplenm).stem
-  if logdir.exists():
-      if clearlogs:
-         for child in logdir.glob('*'):
-            rm_tree(child)
-  else:
-      try:
-         logdir.mkdir()
-      except:
-         return None
-
-  if dgbkeys.surveydictstr in args:
-    jobnm = args[dgbkeys.surveydictstr][0] + '_run'
-  else:
-    jobnm = 'run'
-
-  nrsavedruns = 0
-  with os.scandir(logdir) as it:
-    for entry in logdir.iterdir():
-      if entry.name.startswith(jobnm) and entry.is_dir():
-        nrsavedruns += 1
-  logdir = logdir / Path(jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ))
-  return logdir
 
 def get_model_shape( shape, nrattribs, attribfirst=True ):
   ret = ()

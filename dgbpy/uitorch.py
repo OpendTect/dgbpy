@@ -89,30 +89,38 @@ def getUiPars(uipars=None):
   return uipars
 
 def getAdvancedUiPars(uipars=None):
-  if dgbhdf5.isLogOutput(info):
-    return {'grp':None, 'uiobjects':None}
   dict = torch_dict
   uiobjs={}
   if not uipars:
-    aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation', 'Random Polarity Flip']
-    if hasOpenCV(): aug_labels.append('Random Rotation')
     uiobjs = {
-      'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
-      'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
-                               active=0, margin = [5, 5, 5, 25]),
-      'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
-      'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
+      'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
+      'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
+    
+    if not dgbhdf5.isLogInput(info):
+      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation', 'Random Polarity Flip']
+      if hasOpenCV(): aug_labels.append('Random Rotation')
+      transformUi = {
+        'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
+        'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
+                                active=0, margin = [5, 5, 5, 25]),
+        'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
+        'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
+      }
+      uiobjs = {**transformUi, **uiobjs}
+
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
     uiobjs = uipars['uiobjects']
 
-  if uiobjs:
+  if 'augmentfld' in uiobjs:
     setDefaultTransforms = []
     for transform in dict['transform']:
       setDefaultTransforms.append(uiTransform[transform].value)
     uiobjs['augmentfld'].active = setDefaultTransforms
+  uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
+  uiobjs['cleartensorboardfld'].active = []
   return uipars     
 
 def enableAugmentationCB(args, widget=None):
@@ -120,18 +128,17 @@ def enableAugmentationCB(args, widget=None):
 
 def getUiTransforms(advtorchgrp):
   transforms = []
-  if not advtorchgrp:
-    return transforms
-  selectedkeys = advtorchgrp['augmentfld'].active
-  for key in selectedkeys:
-    transforms.append(uiTransform(key).name)
+  if 'augmentfld' in advtorchgrp:
+    selectedkeys = advtorchgrp['augmentfld'].active
+    for key in selectedkeys:
+      transforms.append(uiTransform(key).name)
   return transforms
 
 def getUiScaler(advtorchgrp):
   scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
-  if not advtorchgrp:
-    return scalers[0]
-  selectedOption = advtorchgrp['scalingfld'].active
+  selectedOption = 0
+  if 'scalingfld' in advtorchgrp:
+    selectedOption = advtorchgrp['scalingfld'].active
   return scalers[selectedOption]
 
 def getUiParams( torchpars, advtorchpars ):
@@ -146,6 +153,7 @@ def getUiParams( torchpars, advtorchpars ):
              not isSelected( torchgrp['rundevicefld'] )
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
+  withtensorboard = True if len(advtorchgrp['tensorboardfld'].active)!=0 else False
   return getParams( epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
@@ -153,7 +161,8 @@ def getUiParams( torchpars, advtorchpars ):
                              epochdrop=torchgrp['epochdrop'].value, \
                              prefercpu = runoncpu,
                              scale = scale,
-                             transform=transform)
+                             transform=transform,
+                             withtensorboard = withtensorboard)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
