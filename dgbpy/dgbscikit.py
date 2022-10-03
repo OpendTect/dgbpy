@@ -657,6 +657,8 @@ def save( model, outfnm, save_type=defsavetype ):
                         XGBRFClassifier, XGBRFRegressor
     if isinstance( model, XGBClassifier ) or isinstance( model, XGBRegressor ) or \
        isinstance( model, XGBRFClassifier ) or isinstance( model, XGBRFRegressor ):
+      if float(xgboost.__version__[:3]) < 1.0 :
+        raise Exception("Xgboost requires a version > 1.0 to save model")
       import xgboost
       if float(xgboost.__version__[:3]) < 1.0 :
         raise Exception("Xgboost requires a version > 1.0 to save model")
