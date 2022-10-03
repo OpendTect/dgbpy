@@ -287,6 +287,8 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
   """
 
   from odpy.common import log_msg
+  if not outfnm.endswith('.h5'):
+    outfnm += '.h5'
   if os.path.exists(outfnm):
     try:
       os.remove( outfnm )
