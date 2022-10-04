@@ -201,8 +201,8 @@ def rm_tree(pth):
 def getLogDir( withtensorboard, examplenm, platform, basedir, clearlogs, args ):
   if not withtensorboard or basedir == None or not Path(basedir).exists():
     return None
-  examplenm = platform+'_'+examplenm
-  logdir = Path(basedir) / Path(examplenm).stem
+  examplenm = platform+'_'+Path(examplenm).stem
+  logdir = Path(basedir, examplenm)
   if logdir.exists():
       if clearlogs:
          for child in logdir.glob('*'):

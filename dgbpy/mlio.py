@@ -14,6 +14,7 @@ import numpy as np
 import odpy.dbman as oddbman
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
+from odpy.common import restore_stdout, redirect_stdout
 
 nladbdirid = '100060'
 mlinpgrp = 'Deep Learning Example Data'
@@ -459,3 +460,9 @@ def getSaveLoc( outnm, ftype, args ):
     return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,dgbtrl,\
                                        dgbhdf5.hdf5ext,ftype=ftype,args=args)
   return oddbman.getFileLocation( dbkey, args )
+
+def announceShowTensorboard():
+  restore_stdout()
+  print('--ShowTensorboard--', flush=True)
+  redirect_stdout()
+  

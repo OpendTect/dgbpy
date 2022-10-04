@@ -22,6 +22,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
 from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
+from dgbpy.mlio import announceShowTensorboard
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
@@ -244,9 +245,7 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=Non
 
   def epoch0endCB(epoch, logs):
     if epoch==0:
-      restore_stdout()
-      print('--Epoch0End--', flush=True)
-      redirect_stdout()
+      announceShowTensorboard()
 
   epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
 

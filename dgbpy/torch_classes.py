@@ -18,6 +18,7 @@ from sklearn.metrics import accuracy_score, f1_score
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
+from dgbpy.mlio import announceShowTensorboard
 
 import onnxruntime as rt
 def Tensor2Numpy(tensor):
@@ -155,7 +156,8 @@ class Trainer:
                     "validation":self.validation_accuracy[i] if self.validation_DataLoader else np.nan
                 }, self.epoch)
                 self.tensorboard.close()
-
+            if self.epoch==1:
+                announceShowTensorboard()
             """Learning rate scheduler block"""
             if self.lr_scheduler is not None:
                 if self.validation_DataLoader is not None and self.lr_scheduler.__class__.__name__ == 'ReduceLROnPlateau':

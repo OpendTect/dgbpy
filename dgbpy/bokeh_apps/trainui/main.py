@@ -262,7 +262,10 @@ def training_app(doc):
 
     if mldir:
       dict.update({'logdir': mldir[0]})
-      dict.update({'cleanlogdir': len(kerasadvpars['uiobjects']['cleartensorboardfld'].active)!=0})
+      if platfmnm == uikeras.getPlatformNm():
+        dict.update({'cleanlogdir': len(kerasadvpars['uiobjects']['cleartensorboardfld'].active)!=0})
+      elif platfmnm == uitorch.getPlatformNm():
+        dict.update({'cleanlogdir': len(torchadvpars['uiobjects']['cleartensorboardfld'].active)!=0})
 
     dict.update({dgbkeys.learntypedictstr: trainingpars['Training Type'].name})
     return ret
@@ -298,7 +301,7 @@ def training_app(doc):
     cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                             scriptargs['dict'], scriptargs['odargs'] )
 
-    if platformfld.value == uikeras.getPlatformNm() and this_service:
+    if (platformfld.value == uikeras.getPlatformNm() or platformfld.value == uitorch.getPlatformNm())  and this_service:
       this_service.sendObject('bokeh_app_msg', {'start tensorboard': ''})
 
     return execCommand( cmdtorun, background=True )
@@ -357,7 +360,7 @@ def training_app(doc):
     this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
     mh = MsgHandler('--Training Started--', this_service, 'bokeh_app_msg', {'training_started': ''})
-    mh.add('--Epoch0End--', 'bokeh_app_msg', {'show tensorboard': ''})
+    mh.add('--ShowTensorboard--', 'bokeh_app_msg', {'show tensorboard': ''})
     mh.setLevel(logging.DEBUG)
     odcommon.proclog_logger.addHandler(mh)
   else:
