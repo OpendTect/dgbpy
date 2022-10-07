@@ -657,9 +657,9 @@ def save( model, outfnm, save_type=defsavetype ):
                         XGBRFClassifier, XGBRFRegressor
     if isinstance( model, XGBClassifier ) or isinstance( model, XGBRegressor ) or \
        isinstance( model, XGBRFClassifier ) or isinstance( model, XGBRFRegressor ):
+      import xgboost
       if float(xgboost.__version__[:3]) < 1.0 :
         raise Exception("Xgboost requires a version > 1.0 to save model")
-      import xgboost
       odhdf5.setAttr( h5file, 'xgboost_version', xgboost.__version__ )
       save_type = xgboostjson
   odhdf5.setAttr( modelgrp, 'type', save_type )
