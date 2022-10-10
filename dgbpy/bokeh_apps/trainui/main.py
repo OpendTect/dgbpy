@@ -29,7 +29,7 @@ from dgbpy.bokehserver import get_request_id
 
 import odpy.common as odcommon
 
-from trainui import get_default_info, MsgHandler, get_platforms, get_default_platform
+from trainui import get_default_info, MsgHandler, get_platforms, get_default_platform, uinoplfm
 logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
 odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
 odcommon.proclog_logger.setLevel( 'DEBUG' )
@@ -50,6 +50,11 @@ def training_app(doc):
   }
   
   info = get_default_info()
+
+  def set_info():
+    uikeras.info = info
+    uitorch.info = info
+    uisklearn.info = info
 
   def trainingParChgCB( paramobj ):
     nonlocal trainingpars
@@ -83,10 +88,9 @@ def training_app(doc):
         odcommon.log_msg(f'Change input example data to "{val}".')
         if trainingpars['Examples File'] != val:
           trainingpars['Examples File'] = val
-          info = dgbmlio.getInfo( trainingpars['Examples File'], quick=True )
-          uikeras.info = info
-          uitorch.info = info
-          uisklearn.info = info
+          if get_default_platform() != uinoplfm().getPlatformNm(True)[0]:
+            info = dgbmlio.getInfo( trainingpars['Examples File'], quick=True )
+          set_info()
           doc.add_next_tick_callback(partial(updateUI))
       elif key=='ComArgs':
         odcommon.log_msg(f'Change command line args to "{val}".')
@@ -115,7 +119,7 @@ def training_app(doc):
     nonlocal advparsgroups
     nonlocal kerasadvpars
     nonlocal torchadvpars
-    if examplefilenm:
+    if examplefilenm and get_default_platform() != uinoplfm().getPlatformNm(True)[0]:
       info = dgbmlio.getInfo( examplefilenm, quick=True )
 
   trainingcb = None
@@ -138,9 +142,10 @@ def training_app(doc):
   def getParsGrp( platformnm ):
     for platform,parsgroup,advparsgroup in zip(get_platforms(),parsgroups,advparsgroups):
       if platform[0] == platformnm:
-        if advparsgroup:
+        if parsgroup and advparsgroup:
           return parsgroup['grp'], advparsgroup['grp']
-        return parsgroup['grp'], None
+        if parsgroup and not advparsgroup:
+          return parsgroup['grp'], None
     return None,None
 
   def setAdvPanel (advparsgrp):
@@ -151,14 +156,53 @@ def training_app(doc):
 
   def selParsGrp( platformnm ):
     parsgrp,advparsgrp = getParsGrp( platformnm )
-    if not parsgrp or not parsresetbut or not parsbackbut :
+    if not parsresetbut or not parsbackbut :
       return
     doc.clear()
-    parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
-    setAdvPanel(advparsgrp)
+    if not parsgrp:
+      parameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+      adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+      parameterspanel.disabled = True
+      adparameterspanel.disabled = True
+    else:
+      parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
+      setAdvPanel(advparsgrp)
     doc.add_root(mainpanel)
     if this_service:
       this_service.sendObject('bokeh_app_msg', {'platform_change': platformnm})
+
+  def getKerasUiPars():
+    _keraspars, _kerasadvpars=None,None
+    if uikeras.hasKeras():
+      _keraspars = uikeras.getUiPars()
+      _kerasadvpars = uikeras.getAdvancedUiPars()
+    return _keraspars, _kerasadvpars
+  
+  def getTorchUiPars():
+    _torchpars, _torchadvpars=None,None
+    if uitorch.hasTorch():
+      _torchpars = uitorch.getUiPars()
+      _torchadvpars = uitorch.getAdvancedUiPars()
+    return _torchpars, _torchadvpars
+
+  def getSklearnUiPars():
+    _sklearnpars, _sklearnadvpars=None,None
+    if uisklearn.hasScikit():
+      _sklearnpars = uisklearn.getUiPars()
+    return _sklearnpars, _sklearnadvpars
+
+  def setPlatformGrp(*args):
+    """
+      Returns a tuple of parameters for all available platforms
+      -- Parameters should be in the order of keras, torch, sklearn.
+    """
+    grps = ()
+    for arg in args:
+      if arg:
+        grps+=arg,
+    if not bool(grps):
+      return (None,)
+    return grps
 
   def mlchgCB( attrnm, old, new):
     nonlocal info
@@ -171,18 +215,15 @@ def training_app(doc):
     nonlocal torchadvpars
     nonlocal tensorboardfld
     nonlocal adparameterspanel
-    uikeras.info = info
-    uitorch.info = info
-    uisklearn.info = info
-    keraspars = uikeras.getUiPars()
-    torchpars = uitorch.getUiPars()
-    sklearnpars = uisklearn.getUiPars()
-    parsgroups = (keraspars,torchpars,sklearnpars)
-    kerasadvpars = uikeras.getAdvancedUiPars()
-    torchadvpars = uitorch.getAdvancedUiPars()
-    advparsgroups = (kerasadvpars, torchadvpars, None)
-    keraspars['uiobjects']['dodecimatefld'].active = []
-    keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
+    set_info()
+    keraspars, kerasadvpars = getKerasUiPars()
+    torchpars, torchadvpars = getTorchUiPars()
+    sklearnpars, sklearnadvpars = getSklearnUiPars()
+    parsgroups = setPlatformGrp(keraspars,torchpars,sklearnpars)
+    advparsgroups = (kerasadvpars, torchadvpars, sklearnadvpars)
+    if keraspars:
+      keraspars['uiobjects']['dodecimatefld'].active = []
+      keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
     if new==uikeras.getPlatformNm(True)[0] or (new==uitorch.getPlatformNm(True)[0] and not dgbhdf5.isLogOutput(uitorch.info)):
       adparameterspanel.disabled = False
     else:
@@ -290,9 +331,10 @@ def training_app(doc):
   def doTrain( trainedfnm ):
     if len(trainedfnm) < 1:
       return False
-    if platformfld.value==uikeras.getPlatformNm() and 'divfld' in keraspars['uiobjects']:
-      odcommon.log_msg('\nNo Keras models found for this workflow.')
-      return False
+    if platformfld.value==uikeras.getPlatformNm():
+      if 'divfld' in keraspars['uiobjects']:
+        odcommon.log_msg('\nNo Keras models found for this workflow.')
+        return False
 
     modelnm = trainedfnm
 

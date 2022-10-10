@@ -1,5 +1,4 @@
 import logging
-from sklearn.preprocessing import StandardScaler
 from bokeh.io import curdoc
 
 import dgbpy.keystr as dbk
@@ -46,7 +45,7 @@ def get_default_input():
     'Dummy': {
                 'collection': {'Dummy': {'id': 0}},
                 'id': 0,
-                'scale': StandardScaler()
+                'scale': uisklearn.StandardScaler()
               }
   }
   return retinfo
@@ -68,15 +67,34 @@ def get_default_info():
 
 def get_platforms():
   mlplatform = []
-  mlplatform.append( uikeras.getPlatformNm(True) )
-  mlplatform.append( uitorch.getPlatformNm(True) )
-  mlplatform.append( uisklearn.getPlatformNm(True) )
+  if uikeras.hasKeras():
+    mlplatform.append( uikeras.getPlatformNm(True) )
+  if uitorch.hasTorch():
+    mlplatform.append( uitorch.getPlatformNm(True) )
+  if uisklearn.hasScikit():
+    mlplatform.append( uisklearn.getPlatformNm(True) )
+  if not bool(mlplatform):
+    mlplatform.append(uinoplfm().getPlatformNm(True) )
   return mlplatform
 
 def get_default_platform(mllearntype=dbk.loglogtypestr):
     if mllearntype == dbk.loglogtypestr or \
       mllearntype == dbk.logclustertypestr or \
       mllearntype == dbk.seisproptypestr:
+      if uisklearn.hasScikit():
         return uisklearn.getPlatformNm(True)[0]
     else:
-      return uikeras.getPlatformNm(True)[0]
+      if uikeras.hasKeras():
+        return uikeras.getPlatformNm(True)[0]
+      if uitorch.hasTorch():
+        return uitorch.getPlatformNm(True)[0]
+    return uinoplfm().getPlatformNm(True)[0]
+
+class uinoplfm:
+  def __init__(self):
+    self.platform = ('No platform', 'No Available Platform')
+
+  def getPlatformNm(self, full=False ):
+    if full:
+      return self.platform
+    return self.platform[0]

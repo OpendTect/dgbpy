@@ -7,11 +7,10 @@ from bokeh.layouts import column
 from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider, RadioGroup
 
 from odpy.common import log_msg
-from dgbpy.dgbtorch import *
 from dgbpy.transforms import hasOpenCV
 import dgbpy.keystr as dgbkeys
 from dgbpy import uibokeh
-
+from dgbpy.dgbtorch import *
 
 info = None
 
