@@ -7,19 +7,33 @@
 # _________________________________________________________________________
 # various tools machine learning using PyTorch platform
 #
-
-from dgbpy.torch_classes import DatasetApply
-import torch, os, json, pickle, joblib
+import os, json, pickle, joblib
 import numpy as np
-import torch.nn as nn
-from torch.utils.data import DataLoader
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
-import dgbpy.torch_classes as tc
 
-device = torch.device('cpu')
+try:
+  import torch
+  import torch.nn as nn
+  from torch.utils.data import DataLoader
+  import dgbpy.torch_classes as tc
+  device = torch.device('cpu')
+except ModuleNotFoundError:
+  device = None
+  pass
+
+def hasTorch():
+  try:
+    import torch
+  except ModuleNotFoundError:
+    return False
+  return True
+
+platform = (dgbkeys.torchplfnm, 'PyTorch')
+
 withtensorboard = dgbkeys.getDefaultTensorBoard()
+
 transform_list = [
     'RandomFlip',
 ]
@@ -27,7 +41,7 @@ transform_list = [
 torch_dict = {
     'epochs': 15,
     'epochdrop': 5,
-    'criterion': nn.CrossEntropyLoss(),
+    'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
     'batch_size': 8,
     'learnrate': 0.0001,
     'type': None,
@@ -36,7 +50,10 @@ torch_dict = {
     'transform':transform_list,
     'withtensorboard': withtensorboard
 }
-platform = (dgbkeys.torchplfnm, 'PyTorch')
+
+def getMLPlatform():
+  return platform[0]
+
 cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '192', '256', \
               '288',  '384',  '448',  '480',  '512',  '576',  '640',  '768', \
               '896',  '960',  '1024', '1152', '1280', '1344', '1408', '1536', \
@@ -44,8 +61,6 @@ cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '1
               '2560', '2688', '2816', '2880', '2944', '3072', '3584', '3840', \
               '4352', '4608', '4992', '5120' ]
 
-def getMLPlatform():
-  return platform[0]
 
 def can_use_gpu():
   if torch.cuda.is_available():
@@ -271,7 +286,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
-  sampleDataset = DatasetApply(samples, info, isclassification, 1, ndims=ndims)
+  sampleDataset = tc.DatasetApply(samples, info, isclassification, 1, ndims=ndims)
   ret = {}
   res = None
   try:

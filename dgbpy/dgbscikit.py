@@ -14,18 +14,19 @@ import joblib
 import numpy as np
 import pickle
 
-import sklearn
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
-from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.neural_network import MLPClassifier, MLPRegressor
-from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
-from sklearn.multioutput import MultiOutputRegressor
-
-from sklearn.cluster import KMeans, MeanShift, SpectralClustering
-
+try:
+  import sklearn
+  from sklearn.preprocessing import MinMaxScaler, StandardScaler
+  from sklearn.linear_model import LinearRegression, LogisticRegression
+  from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
+  from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+  from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+  from sklearn.neural_network import MLPClassifier, MLPRegressor
+  from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
+  from sklearn.multioutput import MultiOutputRegressor
+  from sklearn.cluster import KMeans, MeanShift, SpectralClustering
+except ModuleNotFoundError:
+  pass
 from odpy.common import log_msg, redirect_stdout, restore_stdout
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
@@ -35,6 +36,13 @@ from multiprocessing import cpu_count
 
 tot_cpu = cpu_count()
 n_cpu = tot_cpu
+
+def hasScikit():
+  try:
+    import sklearn
+  except ModuleNotFoundError:
+    return False 
+  return True
 
 def hasXGBoost():
   try:
@@ -147,8 +155,65 @@ def getDefaultNNKernel( isclass, uiname=True ):
     kernelstr = linkernel
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
-
-scikit_dict = {
+if hasScikit():
+  scikit_dict = {
+    'ensemblepars': {
+      'xgdt': {
+        'lr': 1,
+        'maxdep': 5,
+        'est': 1
+        },
+      'xgrf': {
+        'lr': 1,
+        'maxdep': 5,
+        'est': 1
+        },
+      'rf': {
+        'maxdep': 50, #default: None, but we prefer less
+        'est': RandomForestRegressor().n_estimators
+        },
+      'gb': {
+        'maxdep': GradientBoostingRegressor().max_depth,
+        'est': GradientBoostingRegressor().n_estimators,
+        'lr': GradientBoostingRegressor().learning_rate
+        },
+      'ada': {
+        'est': AdaBoostRegressor().n_estimators,
+        'lr': AdaBoostRegressor().learning_rate
+        },
+      },
+    'nnpars': {
+      'maxitr': MLPRegressor().max_iter,
+      'lr': MLPRegressor().learning_rate_init,
+  #    'laysizes': (50,25,5),
+      'lay1': 50,
+      'lay2': 25,
+      'lay3': 5,
+      'lay4': 3,
+      'lay5': 3,
+      'nb': 3
+      },
+    'svmpars': {
+      'kernel': getDefaultNNKernel(False,uiname=False),
+      'degree': SVC().degree
+      },
+    'clusterpars': {
+      'kmeans': {
+        'n_clusters': KMeans().n_clusters,
+        'n_init': KMeans().n_init,
+        'max_iter': KMeans().max_iter
+        },
+      'meanshift': {
+        'max_iter': MeanShift().max_iter
+        },
+      'spectral': {
+        'n_clusters': SpectralClustering().n_clusters,
+        'n_init': SpectralClustering().n_init
+        }
+      }
+  }
+else:
+  scikit_dict = {
   'ensemblepars': {
     'xgdt': {
       'lr': 1,
@@ -162,21 +227,21 @@ scikit_dict = {
       },
     'rf': {
       'maxdep': 50, #default: None, but we prefer less
-      'est': RandomForestRegressor().n_estimators
+      'est': 1
       },
     'gb': {
-      'maxdep': GradientBoostingRegressor().max_depth,
-      'est': GradientBoostingRegressor().n_estimators,
-      'lr': GradientBoostingRegressor().learning_rate
+      'maxdep': 1,
+      'est': 1,
+      'lr': 1
       },
     'ada': {
-      'est': AdaBoostRegressor().n_estimators,
-      'lr': AdaBoostRegressor().learning_rate
+      'est': 1,
+      'lr': 1
       },
     },
   'nnpars': {
-    'maxitr': MLPRegressor().max_iter,
-    'lr': MLPRegressor().learning_rate_init,
+    'maxitr': 1,
+    'lr': 1,
 #    'laysizes': (50,25,5),
     'lay1': 50,
     'lay2': 25,
@@ -186,24 +251,24 @@ scikit_dict = {
     'nb': 3
     },
   'svmpars': {
-    'kernel': getDefaultNNKernel(False,uiname=False),
-    'degree': SVC().degree
+    'kernel': None,
+    'degree': 1
     },
   'clusterpars': {
     'kmeans': {
-      'n_clusters': KMeans().n_clusters,
-      'n_init': KMeans().n_init,
-      'max_iter': KMeans().max_iter
+      'n_clusters': 1,
+      'n_init': 1,
+      'max_iter': 1
       },
     'meanshift': {
-      'max_iter': MeanShift().max_iter
+      'max_iter': 1
       },
     'spectral': {
-      'n_clusters': SpectralClustering().n_clusters,
-      'n_init': SpectralClustering().n_init
+      'n_clusters': 1,
+      'n_init': 1
       }
     }
-}
+  }
 if hasXGBoost():
   from xgboost import XGBRegressor, XGBRFRegressor
   defdtregressor = XGBRegressor()
