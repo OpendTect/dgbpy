@@ -20,9 +20,19 @@ from odpy.common import log_msg, redirect_stdout, restore_stdout
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
-import dgbpy.keras_classes as kc
-from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
+try:
+  import dgbpy.keras_classes as kc
+  from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
+except ModuleNotFoundError:
+  pass
 from dgbpy.mlio import announceShowTensorboard
+
+def hasKeras():
+  try:
+    import tensorflow,keras
+  except ModuleNotFoundError:
+    return False
+  return True
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
