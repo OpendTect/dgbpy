@@ -114,8 +114,9 @@ def getAdvancedUiPars(uipars=None):
     }
 
     if not dgbhdf5.isLogOutput(info):
-      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Translation', 'Random Polarity Flip']
+      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Polarity Flip']
       if hasOpenCV(): aug_labels.append('Random Rotation')
+      if dgbhdf5.isSeisClass(info): aug_labels.append('Random Translation')
       transformUi = {
         'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
         'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
