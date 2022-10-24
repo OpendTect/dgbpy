@@ -225,6 +225,26 @@ class ProgressBarCallback(Callback):
         self.pb = progress_bar(self.dl, parent=self.mbar)
         self.mbar.update(self.epoch)
 
+class EarlyStoppingCallback(Callback):
+    _order = 3
+    def __init__(self, patience = 5):
+        self.best = 0
+        self.patience = patience
+        self.patience_cnt = 0
+
+    def after_epoch(self):
+        if self.patience_cnt < self.patience:
+            self.patience_cnt += 1
+            if self.avg_stats.valid_stats.avg_stats[1] > self.best:
+                self.best = self.avg_stats.valid_stats.avg_stats[1]
+                self.run.savemodel = self.model
+                self.patience_cnt = 0
+        else: raise CancelTrainException()
+
+    def after_fit(self):
+        if self.best > 0:
+            odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -256,7 +276,7 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback()]
+        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback(), EarlyStoppingCallback()]
         self.add_cbs(DEFAULT_CBS)
         self.add_cbs(cbf() for cbf in listify(cbfn))
 
