@@ -145,6 +145,24 @@ class Callback():
         if fnc and fnc(): return True
         return False
 
+class TrainEvalCallback(Callback):
+    _order = 1
+    def begin_fit(self):
+        self.run.model = self.run.model.to(self.run.device)
+
+    def begin_batch(self):
+        if self.classification: self.run.target = self.target.type(torch.LongTensor)
+        self.run.input = self.run.input.to(self.run.device)
+        self.run.target  = self.run.target.to(self.run.device)
+        
+    def begin_epoch(self):
+        self.model.train()
+        self.run.in_train=True
+
+    def begin_validate(self):
+        self.model.eval()
+        self.run.in_train=False
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -176,7 +194,7 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = []
+        DEFAULT_CBS = [TrainEvalCallback()]
         self.add_cbs(DEFAULT_CBS)
         self.add_cbs(cbf() for cbf in listify(cbfn))
 
