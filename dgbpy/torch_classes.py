@@ -245,6 +245,26 @@ class EarlyStoppingCallback(Callback):
         if self.best > 0:
             odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
 
+class TensorBoardLogCallback(Callback):
+    _order = 10
+    def begin_batch(self):
+        if self.iter == 0:
+            self.run.tensorboard.add_graph(self.model, self.input)
+
+    def after_epoch(self):
+        if self.run.tensorboard:
+            if self.epoch==0: announceShowTensorboard()
+            self.run.tensorboard.add_scalars("Loss", 
+                {   
+                    "training":self.avg_stats.train_stats.avg_stats[0], 
+                    "validation":self.avg_stats.valid_stats.avg_stats[0] if self.train_dl else np.nan
+                }, self.epoch) 
+            self.run.tensorboard.add_scalars(self.avg_stats.train_stats.metrics[0].__name__,
+                { 
+                    "training":self.avg_stats.train_stats.avg_stats[1],
+                    "validation":self.avg_stats.valid_stats.avg_stats[1] if self.valid_dl else np.nan
+                }, self.epoch)
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -276,7 +296,8 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback(), EarlyStoppingCallback()]
+        DEFAULT_CBS = [ TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback(),
+                        EarlyStoppingCallback(), TensorBoardLogCallback()]
         self.add_cbs(DEFAULT_CBS)
         self.add_cbs(cbf() for cbf in listify(cbfn))
 
