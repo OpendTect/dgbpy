@@ -252,7 +252,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, logdir = None):
+def train(model, imgdp, params, cbfn=None, logdir = None):
     from dgbpy.torch_classes import Trainer
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
@@ -266,20 +266,17 @@ def train(model, imgdp, params, logdir = None):
     set_compute_device(params['prefercpu'])
     trainer = Trainer(
         model=model,
-        device=device,
         criterion=criterion,
         optimizer=optimizer,
-        tensorboard = tensorboard,
+        device = device,
         training_DataLoader=trainloader,
         validation_DataLoader=testloader,
-        lr_scheduler=None,
+        tensorboard=tensorboard,
         epochs=params['epochs'],
-        earlystopping=params['epochdrop'],
-        epoch=0,
-        notebook=True,
-        imgdp=imgdp
+        imgdp=imgdp,
+        cbfn=cbfn
     )
-    model, training_losses, validation_losses, training_accs, validation_accs, lr_rates = trainer.run_trainer()
+    model = trainer.fit()
     return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):

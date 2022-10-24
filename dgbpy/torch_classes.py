@@ -8,13 +8,19 @@
 # various tools machine learning using PyTorch platform
 #
 
+import re
+import time
+from typing import *
+from functools import partial
 import torch
 import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
-from sklearn.metrics import accuracy_score, f1_score
+from fastprogress.fastprogress import master_bar, progress_bar
+from fastprogress.fastprogress import format_time
+from sklearn.metrics import accuracy_score, f1_score, mean_squared_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
@@ -94,180 +100,151 @@ class Net(nn.Module):
         x = self.linear_layers(x)
         return x   
 
+def flatten(out, target):
+    out = out.cpu().numpy().flatten()
+    target = target.cpu().numpy().flatten()
+    return out,target
+
+def accuracy(out, target):
+    pred, target = flatten(out.detach(), target)
+    return accuracy_score(pred, target)
+
+def f1(out, target):
+    pred, target = flatten(out.detach(), target)
+    return f1_score(pred, target, average='weighted')
+
+def mse(out, target):
+    pred, target = flatten(out.detach(), target)
+    return mean_squared_error(pred, target)
+
+def reformat_str(name):
+    _camel_re1 = re.compile('(.)([A-Z][a-z]+)')
+    _camel_re2 = re.compile('([a-z0-9])([A-Z])')
+    s1 = re.sub(_camel_re1, r'\1_\2', name)
+    return re.sub(_camel_re2, r'\1_\2', s1).lower()
+
+def listify(o):
+    if o is None: return []
+    if isinstance(o, list): return o
+    if isinstance(o, str): return [o]
+    if isinstance(o, Iterable): return list(o)
+    return [o]
+
+class Callback():
+    _order=0
+    def set_runner(self, run): self.run=run
+    def __getattr__(self, k): return getattr(self.run, k)
+    
+    @property
+    def name(self):
+        name = re.sub(r'Callback$', '', self.__class__.__name__)
+        return reformat_str(name or 'callback')
+    
+    def __call__(self, cb_name):
+        fnc = getattr(self, cb_name, None)
+        if fnc and fnc(): return True
+        return False
+
+class CancelTrainException(Exception): pass
+class CancelEpochException(Exception): pass
+class CancelBatchException(Exception): pass
+
 class Trainer:
     def __init__(self,
                  model: torch.nn.Module,
-                 device: torch.device,
                  criterion: torch.nn.Module,
                  optimizer: torch.optim.Optimizer,
+                 device: torch.device,
                  training_DataLoader: torch.utils.data.Dataset,
-                 tensorboard = None,
                  validation_DataLoader: torch.utils.data.Dataset = None,
-                 lr_scheduler: torch.optim.lr_scheduler = None,
+                 tensorboard = None,
                  epochs: int = 100,
-                 epoch: int = 0,
-                 notebook: bool = False,
-                 earlystopping: int = 5,
-                 imgdp = None
+                 imgdp = None,
+                 cbs = None,
+                 cbfn = None
                  ):
 
-        self.model = model
-        self.criterion = criterion
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
+        self.model, self.criterion, self.optimizer = model, criterion, optimizer
+        self.imgdp, self.train_dl, self.valid_dl = imgdp, training_DataLoader, validation_DataLoader
+        self.epochs, self.device, self.savemodel = epochs, device, None
         self.tensorboard = tensorboard
-        self.training_DataLoader = training_DataLoader
-        self.validation_DataLoader = validation_DataLoader
-        self.device = device
-        self.epochs = epochs
-        self.epoch = epoch
-        self.notebook = notebook,
-        self.earlystopping = earlystopping
-        self.imgdp = imgdp
 
-        self.training_loss = []
-        self.validation_loss = []
-        self.learning_rate = []
-        self.training_accuracy = []
-        self.validation_accuracy = []
-        self.F1_old = float('-inf')
-        self.RMSE = 100 ** 10000
+        self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
+        if self.classification: metrics = [accuracy, f1]
+        else: metrics = [mse]
+            
+        self.in_train, self.logger = False, odcommon.log_msg
 
-    def run_trainer(self):
-        self.model = self.model.to(self.device)
-        odcommon.log_msg(f'Device is: {self.device}')
-        for i in range(self.epochs):
-            """Epoch counter"""
-            odcommon.log_msg(f'----------------- Epoch {i + 1} ------------------')
-            self.epoch += 1
-            """Training block"""
-            self._train()
-            """Validation block"""
-            if self.validation_DataLoader is not None:
-                self._validate()
-            """TensorBoard Logging"""
-            if self.tensorboard:
-                self.tensorboard.add_scalars("Loss", 
-                {   "training":self.training_loss[i], 
-                    "validation":self.validation_loss[i] if self.validation_DataLoader else np.nan
-                }, self.epoch) 
-                self.tensorboard.add_scalars("Accuracy",
-                {   "training":self.training_accuracy[i],
-                    "validation":self.validation_accuracy[i] if self.validation_DataLoader else np.nan
-                }, self.epoch)
-                self.tensorboard.close()
-            if self.epoch==1:
-                announceShowTensorboard()
-            """Learning rate scheduler block"""
-            if self.lr_scheduler is not None:
-                if self.validation_DataLoader is not None and self.lr_scheduler.__class__.__name__ == 'ReduceLROnPlateau':
-                    self.lr_scheduler.batch(self.validation_loss[i])
-                else:
-                    self.lr_scheduler.batch() 
-        odcommon.log_msg(f'Best model with validation accuracy {np.round(self.validation_best, 4)} saved.')
-        return (self.savemodel, self.training_loss, self.validation_loss, self.training_accuracy, 
-                self.validation_accuracy, self.learning_rate)
+        self.cbs = []
+        DEFAULT_CBS = []
+        self.add_cbs(DEFAULT_CBS)
+        self.add_cbs(cbf() for cbf in listify(cbfn))
 
-    def _train(self):
-        self.model.train()
-        train_losses = [] 
-        train_accs = []
-        train_f1 = []
-        classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
-        for input, target in self.training_DataLoader:
-            if classification: target = target.type(torch.LongTensor)
-            input, target = input.to(self.device), target.to(self.device)
+    def add_cbs(self, cbs):
+        for cb in listify(cbs):
+            cb.set_runner(self)
+            setattr(self, cb.name, cb)
+            self.cbs.append(cb)
+
+    def remove_cbs(self, cbs):
+        for cb in listify(cbs): self.cbs.remove(cb)
+
+    def compute_loss_func(self):
+        if self.classification:
+            self.loss = self.criterion(self.out, self.target.squeeze(1))
+            self.out = torch.argmax(self.out, axis=1)
+        else:
+            self.loss = self.criterion(self.out, self.target)
+
+    def one_batch(self, i, input, target):
+        try:
+            self.iter = i
+            self.input, self.target = input, target ;   self('begin_batch')
+            self.out = self.model(self.input) ;         self('after_pred')
+            self.compute_loss_func() ;                  self('after_loss')
+            if not self.in_train: return
+            self.loss.backward() ;                      self('after_backward')
+            self.optimizer.step() ;                     self('after_step')
             self.optimizer.zero_grad()
-            out = self.model(input) 
-            if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:
-                loss = self.criterion(out, target.squeeze(1))
-                out = torch.argmax(out, axis=1)
-                target = target.cpu().numpy().flatten()
-                pred = out.detach().cpu().numpy().flatten()
-                acc = accuracy_score(pred, target)
-                f1 = f1_score(pred.flatten(), target, average='weighted')
-            elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
-                loss = self.criterion(out, target.squeeze(1))
-                out = torch.argmax(out, axis=1)
-                target = target.cpu().numpy()
-                pred = out.detach().cpu().numpy()
-                acc = accuracy_score(pred, target)
-                f1 = f1_score(pred, target, average='weighted')
-            elif not classification:
-                loss = self.criterion(out, target)
-                from sklearn.metrics import mean_squared_error
-                pred = out.detach().cpu().numpy().flatten()
-                acc = mean_squared_error(pred, target.cpu().flatten())
-            loss.backward()
-            self.optimizer.step()
-            loss_value = loss.item()
-            train_losses.append(loss_value)
-            train_accs.append(acc)
-            if classification: train_f1.append(f1)
-        self.training_loss.append(np.mean(train_losses))
-        self.training_accuracy.append(np.mean(train_accs))
-        self.learning_rate.append(self.optimizer.param_groups[0]['lr'])
-        odcommon.log_msg(f'Train loss: {np.round(np.mean(train_losses), 4)}')
-        if classification:
-            odcommon.log_msg(f'Train Accuracy: {np.round(np.mean(train_accs), 4)}')
-            odcommon.log_msg(f'Train F1: {np.round(np.mean(train_f1), 4)}')
-        else:
-            odcommon.log_msg(f'Train MSE: {np.round(np.mean(train_accs), 4)}')
+        except CancelBatchException:                    self('after_cancel_batch')
+        finally:                                        self('after_batch')
 
-    def _validate(self):
-        self.model.eval() 
-        valid_losses = []  
-        valid_accs = []
-        valid_f1 = []
-        classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
-        for input, target in self.validation_DataLoader:
-            if classification: target = target.type(torch.LongTensor)
-            input, target = input.to(self.device), target.to(self.device)
-            with torch.no_grad():
-                out = self.model(input)
-                if len(self.imgdp[dgbkeys.xtraindictstr].shape)==len(self.imgdp[dgbkeys.ytraindictstr].shape) and len(self.imgdp[dgbkeys.xtraindictstr].shape)==5 and classification:  #segmentation
-                    loss = self.criterion(out, target.squeeze(1))
-                    out = torch.argmax(out, axis=1)
-                    target = target.cpu().numpy().flatten()
-                    val_pred = out.detach().cpu().numpy().flatten()
-                    acc = accuracy_score(val_pred, target)
-                    f1 = f1_score(val_pred, target, average='weighted')
-                elif len(self.imgdp[dgbkeys.xtraindictstr].shape)>len(self.imgdp[dgbkeys.ytraindictstr].shape) and classification:
-                    loss = self.criterion(out, target.squeeze(1))
-                    out = torch.argmax(out, axis=1)
-                    target = target.cpu().numpy()
-                    val_pred = out.detach().cpu().numpy()
-                    acc = accuracy_score(val_pred, target)
-                    f1 = f1_score(val_pred, target, average='weighted')
-                elif not classification:
-                    loss = self.criterion(out, target)
-                    from sklearn.metrics import mean_squared_error
-                    val_pred = out.detach().cpu().numpy().flatten()
-                    acc = mean_squared_error(val_pred, target.cpu().numpy().flatten())
-                loss_value = loss.item()
-                valid_losses.append(loss_value)
-                valid_accs.append(acc)
-                if classification: valid_f1.append(f1)
-        mean_valid_accs = np.mean(valid_accs)
-        mean_valid_losses = np.mean(valid_losses)
-        self.validation_loss.append(mean_valid_losses)
-        self.validation_accuracy.append(mean_valid_accs)
-        odcommon.log_msg(f'Validation loss: {np.round(mean_valid_losses, 4)}')
-        
-        if classification:
-            odcommon.log_msg(f'Validation Accuracy: {np.round(mean_valid_accs, 4)}')
-            odcommon.log_msg(f'Validation F1: {np.round(np.mean(valid_f1), 4)}')
-        else:
-            odcommon.log_msg(f'Validation MSE: {np.round(mean_valid_accs, 4)}')
-        if self.F1_old < mean_valid_accs and classification:
-            self.F1_old = mean_valid_accs
-            self.savemodel = self.model
-            self.validation_best = mean_valid_accs
-        elif self.RMSE > mean_valid_accs and not classification:
-            self.F1_old = mean_valid_accs
-            self.RMSE = self.F1_old
-            self.savemodel = self.model
-            self.validation_best = mean_valid_accs
+    def all_batches(self):
+        self.iters = len(self.dl)
+        try:
+            for i, (input, target) in enumerate(self.dl): self.one_batch(i, input, target)
+        except CancelEpochException: self('after_cancel_epoch')
+
+    def do_begin_epoch(self, epoch):
+        self.epoch,self.dl = epoch,self.train_dl
+        return self('begin_epoch')
+
+    def fit(self, cbs=None):
+        self.add_cbs(cbs)
+        try:
+            self('begin_fit')
+            for epoch in range(self.epochs):
+                if not self.do_begin_epoch(epoch): self.all_batches()
+                if self.valid_dl:
+                    with torch.no_grad():
+                        self.dl = self.valid_dl
+                        if not self('begin_validate'): self.all_batches()
+                self('after_epoch')
+        except CancelTrainException: self('after_cancel_train')
+        finally:
+            self('after_fit')
+            self.remove_cbs(cbs)
+            return self.savemodel
+    
+    ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
+                'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
+                'begin_epoch', 'begin_validate', 'after_epoch', 'after_cancel_train', 'after_fit'}
+            
+    def __call__(self, cb_name):
+        res = False
+        assert cb_name in self.ALL_CBS
+        for cb in sorted(self.cbs, key=lambda x: x._order): res = cb(cb_name) and res
+        return res
 
 ########### 3D RESNET 18 ARCHITECTURE START #############
 
