@@ -248,7 +248,7 @@ class EarlyStoppingCallback(Callback):
 class TensorBoardLogCallback(Callback):
     _order = 10
     def begin_batch(self):
-        if self.iter == 0:
+        if self.tensorboard and self.iter == 0:
             self.run.tensorboard.add_graph(self.model, self.input)
 
     def after_epoch(self):
@@ -281,7 +281,6 @@ class Trainer:
                  epochs: int = 100,
                  imgdp = None,
                  cbs = None,
-                 cbfn = None
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -299,7 +298,6 @@ class Trainer:
         DEFAULT_CBS = [ TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback(),
                         EarlyStoppingCallback(), TensorBoardLogCallback()]
         self.add_cbs(DEFAULT_CBS)
-        self.add_cbs(cbf() for cbf in listify(cbfn))
 
     def add_cbs(self, cbs):
         for cb in listify(cbs):

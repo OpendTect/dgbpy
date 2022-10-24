@@ -274,9 +274,8 @@ def train(model, imgdp, params, cbfn=None, logdir = None):
         tensorboard=tensorboard,
         epochs=params['epochs'],
         imgdp=imgdp,
-        cbfn=cbfn
     )
-    model = trainer.fit()
+    model = trainer.fit(cbs = cbfn)
     return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
