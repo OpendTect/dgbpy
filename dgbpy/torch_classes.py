@@ -163,6 +163,53 @@ class TrainEvalCallback(Callback):
         self.model.eval()
         self.run.in_train=False
 
+class AvgStats():
+    def __init__(self, metrics): self.metrics = listify(metrics)
+    
+    def reset(self):
+        self.tot_loss,self.count = 0.,0
+        self.tot_mets = [0.] * len(self.metrics)
+        
+    @property
+    def all_stats(self): return [self.tot_loss.item()] + self.tot_mets
+    @property
+    def avg_stats(self): return [o/self.count for o in self.all_stats]
+
+    def accumulate(self, run):
+        bn = run.input.shape[0]
+        self.tot_loss += run.loss * bn
+        self.count += bn
+        for i,m in enumerate(self.metrics):
+            self.tot_mets[i] += m(run.out, run.target) * bn
+
+class AvgStatsCallback(Callback):
+    _order = 2
+    def __init__(self, metrics):
+        self.train_stats,self.valid_stats = AvgStats(metrics),AvgStats(metrics)
+    
+    def begin_fit(self):
+        met_names = ['loss'] + [m.__name__ for m in self.train_stats.metrics]
+        names = ['epoch']
+        for n in met_names: names += [f'train_{n}'] + [f'valid_{n}'] 
+        names += ['time']
+        self.logger(names)
+    
+    def begin_epoch(self):
+        self.train_stats.reset()
+        self.valid_stats.reset()
+        self.start_time = time.time()
+        
+    def after_loss(self):
+        stats = self.train_stats if self.in_train else self.valid_stats
+        with torch.no_grad(): stats.accumulate(self.run)
+    
+    def after_epoch(self):
+        stats = [str(self.epoch+1)] 
+        for tr,vl in zip(self.train_stats.avg_stats, self.valid_stats.avg_stats):
+            stats += [f'{tr:.4f}', f'{vl:.4f}'] 
+        stats += [format_time(time.time() - self.start_time)]
+        self.logger(stats)
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -194,7 +241,7 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = [TrainEvalCallback()]
+        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics),]
         self.add_cbs(DEFAULT_CBS)
         self.add_cbs(cbf() for cbf in listify(cbfn))
 
