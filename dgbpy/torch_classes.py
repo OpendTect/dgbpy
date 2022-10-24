@@ -210,6 +210,21 @@ class AvgStatsCallback(Callback):
         stats += [format_time(time.time() - self.start_time)]
         self.logger(stats)
 
+class ProgressBarCallback(Callback):
+    _order=-1
+    def begin_fit(self):
+        self.mbar = master_bar(range(self.run.epochs))
+        self.run.logger = partial(self.mbar.write, table=True)
+        
+    def after_fit(self): self.mbar.on_iter_end()
+    def after_batch(self): self.pb.update(self.iter)
+    def begin_epoch   (self): self.set_pb()
+    def begin_validate(self): self.set_pb()
+        
+    def set_pb(self):
+        self.pb = progress_bar(self.dl, parent=self.mbar)
+        self.mbar.update(self.epoch)
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -241,7 +256,7 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics),]
+        DEFAULT_CBS = [TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback()]
         self.add_cbs(DEFAULT_CBS)
         self.add_cbs(cbf() for cbf in listify(cbfn))
 
