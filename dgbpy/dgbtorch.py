@@ -252,7 +252,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, cbfn=None, logdir = None):
+def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
     from dgbpy.torch_classes import Trainer
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
@@ -274,6 +274,7 @@ def train(model, imgdp, params, cbfn=None, logdir = None):
         tensorboard=tensorboard,
         epochs=params['epochs'],
         imgdp=imgdp,
+        silent = silent
     )
     model = trainer.fit(cbs = cbfn)
     return model

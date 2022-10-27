@@ -18,8 +18,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
-from fastprogress.fastprogress import master_bar, progress_bar
-from fastprogress.fastprogress import format_time
+from fastprogress.fastprogress import format_time, master_bar, progress_bar
 from sklearn.metrics import accuracy_score, f1_score, mean_squared_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -189,12 +188,12 @@ class AvgStatsCallback(Callback):
     
     def begin_fit(self):
         met_names = ['loss'] + [m.__name__ for m in self.train_stats.metrics]
-        names = ['epoch']
-        for n in met_names: names += [f'train_{n}'] + [f'valid_{n}'] 
-        names += ['time']
-        self.logger(names)
+        self.names = ['Epoch']
+        for n in met_names: self.names += [f'Train_{n}'] + [f'Valid_{n}'] 
+        self.names += ['time']
+        if not self.silent: self.logger(self.names)
     
-    def begin_epoch(self):
+    def begin_epoch(self):  
         self.train_stats.reset()
         self.valid_stats.reset()
         self.start_time = time.time()
@@ -208,7 +207,9 @@ class AvgStatsCallback(Callback):
         for tr,vl in zip(self.train_stats.avg_stats, self.valid_stats.avg_stats):
             stats += [f'{tr:.4f}', f'{vl:.4f}'] 
         stats += [format_time(time.time() - self.start_time)]
-        self.logger(stats)
+        if self.silent:
+            for name,stat in zip(self.names,stats): self.logger(f'{name}: {stat}')
+        else: self.logger(stats)
 
 class ProgressBarCallback(Callback):
     _order=-1
@@ -281,12 +282,13 @@ class Trainer:
                  epochs: int = 100,
                  imgdp = None,
                  cbs = None,
+                 silent = None
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
         self.imgdp, self.train_dl, self.valid_dl = imgdp, training_DataLoader, validation_DataLoader
         self.epochs, self.device, self.savemodel = epochs, device, None
-        self.tensorboard = tensorboard
+        self.tensorboard, self.silent = tensorboard, silent
 
         self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         if self.classification: metrics = [accuracy, f1]
@@ -295,9 +297,10 @@ class Trainer:
         self.in_train, self.logger = False, odcommon.log_msg
 
         self.cbs = []
-        DEFAULT_CBS = [ TrainEvalCallback(), AvgStatsCallback(metrics), ProgressBarCallback(),
+        defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
                         EarlyStoppingCallback(), TensorBoardLogCallback()]
-        self.add_cbs(DEFAULT_CBS)
+        if not silent: defaultCBS.append(ProgressBarCallback())
+        self.add_cbs(defaultCBS)
 
     def add_cbs(self, cbs):
         for cb in listify(cbs):
