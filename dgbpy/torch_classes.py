@@ -208,7 +208,9 @@ class AvgStatsCallback(Callback):
             stats += [f'{tr:.4f}', f'{vl:.4f}'] 
         stats += [format_time(time.time() - self.start_time)]
         if self.silent:
-            for name,stat in zip(self.names,stats): self.logger(f'{name}: {stat}')
+            for n,(name,stat) in enumerate(zip(self.names,stats)):
+                if n == 0: self.logger(f'----------------- Epoch {stat} ------------------')
+                else: self.logger(f'{name}: {stat}')
         else: self.logger(stats)
 
 class ProgressBarCallback(Callback):
