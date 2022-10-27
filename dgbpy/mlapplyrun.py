@@ -76,6 +76,7 @@ if __name__ == '__main__':
                                   clearlogs=clearlogs,
                                   modelin=model,
                                   outnm=dict['output'],
+                                  bokeh = True,
                                   args=args )
   except Exception as e:
     exc_type, exc_obj, exc_tb = sys.exc_info()

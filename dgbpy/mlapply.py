@@ -273,7 +273,7 @@ def transform(x_train,scaler):
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
              params=None, outnm=dgbkeys.modelnm, logdir=None, clearlogs=False, modelin=None,
-             args=None ):
+             bokeh=None, args=None):
   """ Method to perform a training job using any platform and for any workflow
       (trained model is also saved)
 
@@ -363,7 +363,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                        )
 
     print('--Training Started--', flush=True)
-    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params, logdir=tblogdir)
+    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params, logdir=tblogdir, silent=bokeh)
 
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
