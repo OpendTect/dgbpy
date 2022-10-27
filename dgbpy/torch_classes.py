@@ -18,7 +18,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
-from fastprogress.fastprogress import format_time, master_bar, progress_bar
 from sklearn.metrics import accuracy_score, f1_score, mean_squared_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -31,6 +30,16 @@ def Tensor2Numpy(tensor):
 
 def Numpy2tensor(nparray):
     return torch.from_numpy(nparray)
+
+def hasFastprogress():
+    try:
+        import fastprogress
+    except ModuleNotFoundError:
+        return False
+    return True
+
+if hasFastprogress():
+    from fastprogress.fastprogress import master_bar, progress_bar
 
 class OnnxModel():
     def __init__(self, filepath : str):
@@ -121,6 +130,13 @@ def reformat_str(name):
     _camel_re2 = re.compile('([a-z0-9])([A-Z])')
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
+
+def format_time(t):
+    "Format `t` (in seconds) to (h):mm:ss"
+    t = int(t)
+    h,m,s = t//3600, (t//60)%60, t%60
+    if h!= 0: return f'{h}:{m:02d}:{s:02d}'
+    else:     return f'{m:02d}:{s:02d}'
 
 def listify(o):
     if o is None: return []
@@ -215,6 +231,7 @@ class AvgStatsCallback(Callback):
 
 class ProgressBarCallback(Callback):
     _order=-1
+
     def begin_fit(self):
         self.mbar = master_bar(range(self.run.epochs))
         self.run.logger = partial(self.mbar.write, table=True)
@@ -301,6 +318,7 @@ class Trainer:
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
                         EarlyStoppingCallback(), TensorBoardLogCallback()]
+        if not hasFastprogress(): self.silent = True
         if not silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
 
