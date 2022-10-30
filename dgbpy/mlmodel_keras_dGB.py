@@ -25,7 +25,7 @@ def root_mean_squared_error(y_true, y_pred):
 def getAdamOpt( learning_rate=1e-4 ):
   try:
     from keras.optimizers import Adam
-    return Adam( lr=learning_rate )
+    return Adam( learning_rate=learning_rate )
   except ImportError:
     import tensorflow as tf
     return tf.keras.optimizers.Adam(learning_rate=learning_rate)
