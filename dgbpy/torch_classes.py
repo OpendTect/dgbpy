@@ -319,7 +319,7 @@ class Trainer:
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
                         EarlyStoppingCallback(), TensorBoardLogCallback()]
         if not hasFastprogress(): self.silent = True
-        if not silent: defaultCBS.append(ProgressBarCallback())
+        if not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
 
     def add_cbs(self, cbs):
@@ -372,11 +372,11 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
+            return self.savemodel
         except CancelTrainException: self('after_cancel_train')
         finally:
             self('after_fit')
             self.remove_cbs(cbs)
-            return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
