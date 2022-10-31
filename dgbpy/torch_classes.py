@@ -65,7 +65,7 @@ class Net(nn.Module):
         if output_classes==1:
             self.activation = ReLU()
         else:
-            self.activation = Softmax()
+            self.activation = Softmax(dim=1)
         if dim==3:
             BatchNorm = BatchNorm3d
             Conv = Conv3d
