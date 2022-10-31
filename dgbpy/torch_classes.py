@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
-from sklearn.metrics import accuracy_score, f1_score, mean_squared_error
+from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
@@ -121,9 +121,9 @@ def f1(out, target):
     pred, target = flatten(out.detach(), target)
     return f1_score(pred, target, average='weighted')
 
-def mse(out, target):
+def mae(out, target):
     pred, target = flatten(out.detach(), target)
-    return mean_squared_error(pred, target)
+    return mean_absolute_error(pred, target)
 
 def reformat_str(name):
     _camel_re1 = re.compile('(.)([A-Z][a-z]+)')
@@ -311,7 +311,7 @@ class Trainer:
 
         self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         if self.classification: metrics = [accuracy, f1]
-        else: metrics = [mse]
+        else: metrics = [mae]
             
         self.in_train, self.logger = False, odcommon.log_msg
 
