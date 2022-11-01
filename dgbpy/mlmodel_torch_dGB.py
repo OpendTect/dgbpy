@@ -21,7 +21,7 @@ class dGB_UnetSeg(TorchUserModel):
     model = UNet(in_channels=nrattribs, n_blocks=1, out_channels=nroutputs, dim=ndim)
     return model
 
-from dgbpy.torch_classes import Net, create_resnet_block, UNet
+from dgbpy.torch_classes import Net, create_resnet_block, UNet, dGBLeNet
 import torch.nn as nn
 
 class dGB_Simple_Net_Classifier(TorchUserModel):
@@ -114,3 +114,29 @@ class dGB_Simple_Net_Regressor(TorchUserModel):
       ndim = getModelDims(model_shape, 'channels_first')
       model = Net(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattribs)
       return model
+
+class dGB_LeNet_Regressor(TorchUserModel):
+  uiname = 'dGB LeNet Regressor'
+  uidescription = 'dGBs LeNet Regressor Model in TorchUserModel form'
+  predtype = DataPredType.Continuous
+  outtype = OutputType.Pixel
+  dimtype = DimType.Any
+
+  def _make_model(self, model_shape, nroutputs, nrattributes):
+    from dgbpy.dgbtorch import getModelDims
+    ndim = getModelDims(model_shape, 'channels_first')
+    model = dGBLeNet(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattributes, predtype=self.predtype)
+    return model
+
+class dGB_LeNet_Clasifier(TorchUserModel):
+  uiname = 'dGB LeNet Classifier'
+  uidescription = 'dGBs LeNet Classifier Model in TorchUserModel form'
+  predtype = DataPredType.Classification
+  outtype = OutputType.Pixel
+  dimtype = DimType.Any
+
+  def _make_model(self, model_shape, nroutputs, nrattributes):
+    from dgbpy.dgbtorch import getModelDims
+    ndim = getModelDims(model_shape, 'channels_first')
+    model = dGBLeNet(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattributes, predtype=self.predtype)
+    return model

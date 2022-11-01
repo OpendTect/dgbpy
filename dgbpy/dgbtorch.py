@@ -204,7 +204,9 @@ def onnx_from_torch(model, infos):
   dims = getModelDims(model_shape, True)
   if isclassification:
     nroutputs = len(infos[dgbkeys.classesdictstr])
+    predtype = tc.DataPredType.Classification
   else:
+    predtype = tc.DataPredType.Continuous
     nroutputs = dgbhdf5.getNrOutputs( infos )
   if model.__class__.__name__ == 'Sequential':
     from dgbpy.mlmodel_torch_dGB import ResNet18
@@ -212,6 +214,9 @@ def onnx_from_torch(model, infos):
   elif model.__class__.__name__ == 'Net':
     from dgbpy.torch_classes import Net
     model_instance = Net(nroutputs, dims, attribs)
+  elif model.__class__.__name__ == "dGBLeNet":
+    from dgbpy.torch_classes import dGBLeNet
+    model_instance = dGBLeNet(nroutputs, dims, attribs, predtype)
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
@@ -301,20 +306,23 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   dataloader = getDataLoader(sampleDataset, batch_size=batch_size, drop_last=drop_last)
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
+    predtype = tc.DataPredType.Classification
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
+    predtype = tc.DataPredType.Continuous
   
   if model.__class__.__name__ == "OrderedDict":
     from dgbpy.mlmodel_torch_dGB import ResNet18
-    dfdm = ResNet18(nroutputs, dim=ndims, nrattribs=attribs)
+    from dgbpy.torch_classes import dGBLeNet, Net
+    seis_log_arch = [ResNet18, dGBLeNet, Net]
     if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
       info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr or info[dgbkeys.learntypedictstr] == dgbkeys.seisproptypestr:
-      try:
-        dfdm.load_state_dict(model)
-      except RuntimeError:
-        from dgbpy.torch_classes import Net
-        dfdm = Net(output_classes=nroutputs, dim=ndims, nrattribs=attribs)
-        dfdm.load_state_dict(model)
+      for arch in seis_log_arch:
+        try:
+          if arch.__name__ == 'dGBLeNet': dfdm = arch(nroutputs, dim=ndims, nrattribs=attribs, predtype=predtype)
+          else: dfdm = arch(nroutputs, dim=ndims, nrattribs=attribs)
+          dfdm.load_state_dict(model)
+        except RuntimeError: pass
     elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       from dgbpy.torch_classes import UNet
       if isclassification:
