@@ -16,7 +16,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
-from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d
+from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d, Dropout, Dropout2d, Dropout3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
 from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
 import dgbpy.keystr as dgbkeys
@@ -106,6 +106,99 @@ class Net(nn.Module):
         x = self.cnn_layers(x)
         x = x.view(x.size(0), -1)
         x = self.linear_layers(x)
+        return x   
+
+class dGBLeNet(nn.Module):   
+    def __init__(self, model_shape, output_classes, dim, nrattribs, predtype):        
+        super(dGBLeNet, self).__init__()
+        
+        self.output_classes = output_classes
+        self.dim, self.nrattribs = dim, nrattribs
+        self.model_shape, self.pool_padding = model_shape, 1
+
+        if output_classes==1: self.activation = ReLU()
+        else: self.activation = Softmax(dim=1)
+
+        if dim==3:
+            BatchNorm = BatchNorm3d
+            DropOut = Dropout3d
+            Conv = Conv3d
+        elif dim==2:
+            BatchNorm = BatchNorm2d
+            DropOut = Dropout2d
+            Conv = Conv2d
+        elif dim==1 or dim == 0:
+            BatchNorm = BatchNorm1d
+            DropOut = Dropout
+            Conv = Conv1d
+
+        filtersz = 50
+        densesz = 10  
+        kernel_sz1, kernel_sz2 = 5, 3
+        stride_sz1, stride_sz2 = 4, 2
+        dropout = 0.2
+
+        self.cnn_1 = Sequential(
+          Conv(nrattribs, filtersz, kernel_size=kernel_sz1, stride=stride_sz1, padding=1),
+          BatchNorm(filtersz),
+          ReLU(inplace=True))
+
+        self.cnn_2 = Sequential(
+          Conv(filtersz, filtersz, kernel_size=kernel_sz2, stride=stride_sz2, padding=1),
+          DropOut(p=dropout, inplace=True),
+          BatchNorm(filtersz),
+          ReLU(inplace=True))
+
+        self.cnn_3 = Sequential(
+          Conv(filtersz, filtersz, kernel_size=kernel_sz2, stride=stride_sz2, padding=1),
+          DropOut(p=dropout, inplace=True),
+          BatchNorm(filtersz),
+          ReLU(inplace=True))
+
+        self.cnn_4 = Sequential(
+          Conv(filtersz, filtersz, kernel_size=kernel_sz2, stride=stride_sz2, padding=1),
+          DropOut(p=dropout, inplace=True),
+          BatchNorm(filtersz),
+          ReLU(inplace=True))
+        
+        self.cnn_5 = Conv(filtersz, filtersz, kernel_size=kernel_sz2, stride=stride_sz2, padding=1)
+        
+        self.after_cnn_size = self.after_cnn(torch.randn(self.model_shape).unsqueeze(0))
+        self.linear = Sequential(
+          Linear(self.after_cnn_size, filtersz),
+          BatchNorm(filtersz),
+          ReLU(inplace=True),
+          Linear(filtersz, densesz),
+          BatchNorm(densesz),
+          ReLU(inplace=True))
+
+        self.final = None
+        if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
+          self.final = Linear(densesz, self.output_classes)
+        else:
+          self.final = Sequential(
+            Linear(densesz, self.output_classes),
+            BatchNorm(self.output_classes),
+            Softmax(dim=1)
+          )
+
+    def after_cnn(self, x):
+        x = self.cnn_1[0](x)
+        x = self.cnn_2[0](x)
+        x = self.cnn_3[0](x)
+        x = self.cnn_4[0](x)
+        x = self.cnn_5(x)
+        return int(np.prod(x.size()[1:]))
+
+    def forward(self, x):
+        x = self.cnn_1(x)
+        x = self.cnn_2(x)
+        x = self.cnn_3(x)
+        x = self.cnn_4(x)
+        x = self.cnn_5(x)
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
+        x = self.final(x)
         return x   
 
 def flatten(out, target):
