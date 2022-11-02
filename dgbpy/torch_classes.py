@@ -340,7 +340,7 @@ class ProgressBarCallback(Callback):
 
 class EarlyStoppingCallback(Callback):
     _order = 3
-    def __init__(self, patience = 5):
+    def __init__(self, patience):
         self.best = 0
         self.patience = patience
         self.patience_cnt = 0
@@ -392,6 +392,7 @@ class Trainer:
                  validation_DataLoader: torch.utils.data.Dataset = None,
                  tensorboard = None,
                  epochs: int = 100,
+                 earlystopping: int = 5,
                  imgdp = None,
                  cbs = None,
                  silent = None
@@ -410,7 +411,7 @@ class Trainer:
 
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
-                        EarlyStoppingCallback(), TensorBoardLogCallback()]
+                        EarlyStoppingCallback(earlystopping), TensorBoardLogCallback()]
         if not hasFastprogress(): self.silent = True
         if not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
