@@ -278,6 +278,7 @@ def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
         validation_DataLoader=testloader,
         tensorboard=tensorboard,
         epochs=params['epochs'],
+        earlystopping = params['epochdrop'],
         imgdp=imgdp,
         silent = silent
     )
