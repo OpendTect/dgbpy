@@ -55,7 +55,7 @@ def getUiPars(uipars=None):
               }
             }
 
-  defbatchsz = torch_dict['batch_size']
+  defbatchsz = torch_dict['batch']
   defmodel = modeltypes[0]
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
   if tc.TorchUserModel.isImg2Img( defmodel ):

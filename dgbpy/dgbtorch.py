@@ -42,7 +42,7 @@ torch_dict = {
     'epochs': 15,
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
-    'batch_size': 8,
+    'batch': 8,
     'learnrate': 0.0001,
     'type': None,
     'prefercpu': None,
@@ -78,7 +78,7 @@ def getParams(
     learnrate=torch_dict['learnrate'],
     epochs=torch_dict['epochs'],
     epochdrop=torch_dict['epochdrop'],
-    batch=torch_dict['batch_size'],
+    batch=torch_dict['batch'],
     prefercpu = torch_dict['prefercpu'],
     scale=torch_dict['scale'],
     transform=torch_dict['transform'],
@@ -221,7 +221,7 @@ def onnx_from_torch(model, infos):
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
   model_instance.load_state_dict(model.state_dict())
-  input_size = torch_dict['batch_size']
+  input_size = torch_dict['batch']
   if model.__class__.__name__ == 'UNet':
     input_size = 1
   if dims  == 3:
@@ -302,7 +302,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       drop_last = True
   else:
     drop_last = False
-  batch_size = torch_dict['batch_size']
+  batch_size = torch_dict['batch']
   dataloader = getDataLoader(sampleDataset, batch_size=batch_size, drop_last=drop_last)
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
@@ -407,16 +407,16 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
         ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)  
   return ret
 
-def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch_size']):
+def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch']):
     trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=True)
     testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
     return trainloader, testloader
 
-def getDataLoader(dataset, batch_size=torch_dict['batch_size'], drop_last=False):
+def getDataLoader(dataset, batch_size=torch_dict['batch'], drop_last=False):
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False, drop_last=drop_last)
     return dataloader
 
-def getDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch_size']):
+def getDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch']):
     trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=True)
     testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
     return trainloader, testloader
