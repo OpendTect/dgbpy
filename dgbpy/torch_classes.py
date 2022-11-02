@@ -341,14 +341,27 @@ class ProgressBarCallback(Callback):
 class EarlyStoppingCallback(Callback):
     _order = 3
     def __init__(self, patience):
-        self.best = 0
         self.patience = patience
         self.patience_cnt = 0
 
+    def le_gr(self):
+        """
+        Return the right ( > ) or ( < ) operator.  
+        """
+        if self.run.classification:
+            return lambda x,y:x>y
+        return lambda x,y:x<y
+
+    def begin_fit(self):
+        self.earlystop_operator = self.le_gr()
+
     def after_epoch(self):
+        if self.epoch == 0:
+            self.best = self.avg_stats.valid_stats.avg_stats[1]
+            return 
         if self.patience_cnt < self.patience:
             self.patience_cnt += 1
-            if self.avg_stats.valid_stats.avg_stats[1] > self.best:
+            if self.earlystop_operator(self.avg_stats.valid_stats.avg_stats[1], self.best):
                 self.best = self.avg_stats.valid_stats.avg_stats[1]
                 self.run.savemodel = self.model
                 self.patience_cnt = 0
