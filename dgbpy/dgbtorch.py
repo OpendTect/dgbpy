@@ -216,7 +216,7 @@ def onnx_from_torch(model, infos):
     model_instance = Net(nroutputs, dims, attribs)
   elif model.__class__.__name__ == "dGBLeNet":
     from dgbpy.torch_classes import dGBLeNet
-    model_instance = dGBLeNet(nroutputs, dims, attribs, predtype)
+    model_instance = dGBLeNet(model_shape, nroutputs, dims, attribs, predtype)
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
