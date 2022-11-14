@@ -373,7 +373,7 @@ class EarlyStoppingCallback(Callback):
 class TensorBoardLogCallback(Callback):
     _order = 10
     def begin_batch(self):
-        if self.run.tensorboard and self.epoch==self.epochs and self.iter == 0:
+        if self.run.tensorboard and self.epoch+1==self.epochs and self.iter==0:
             self.run.tensorboard.add_graph(self.model, self.input)
 
     def after_epoch(self):
