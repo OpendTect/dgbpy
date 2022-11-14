@@ -139,7 +139,7 @@ class dGBLeNet(nn.Module):
         dropout = 0.2
 
         self.cnn_1 = Sequential(
-          Conv(nrattribs, filtersz, kernel_size=kernel_sz1, stride=stride_sz1, padding=1),
+          Conv(nrattribs, filtersz, kernel_size=3, stride=stride_sz1, padding=1),
           BatchNorm(filtersz),
           ReLU(inplace=True))
 
@@ -166,10 +166,10 @@ class dGBLeNet(nn.Module):
         self.after_cnn_size = self.after_cnn(torch.randn(self.model_shape).unsqueeze(0))
         self.linear = Sequential(
           Linear(self.after_cnn_size, filtersz),
-          BatchNorm(filtersz),
+          BatchNorm1d(filtersz),
           ReLU(inplace=True),
           Linear(filtersz, densesz),
-          BatchNorm(densesz),
+          BatchNorm1d(densesz),
           ReLU(inplace=True))
 
         self.final = None
@@ -178,7 +178,7 @@ class dGBLeNet(nn.Module):
         else:
           self.final = Sequential(
             Linear(densesz, self.output_classes),
-            BatchNorm(self.output_classes),
+            BatchNorm1d(self.output_classes),
             Softmax(dim=1)
           )
 
@@ -368,13 +368,12 @@ class EarlyStoppingCallback(Callback):
         else: raise CancelTrainException()
 
     def after_fit(self):
-        if self.best > 0:
-            odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
+        odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
 
 class TensorBoardLogCallback(Callback):
     _order = 10
     def begin_batch(self):
-        if self.tensorboard and self.iter == 0:
+        if self.run.tensorboard and self.epoch==self.epochs and self.iter == 0:
             self.run.tensorboard.add_graph(self.model, self.input)
 
     def after_epoch(self):
@@ -424,8 +423,9 @@ class Trainer:
 
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
-                        EarlyStoppingCallback(earlystopping), TensorBoardLogCallback()]
+                        EarlyStoppingCallback(earlystopping) ]
         if not hasFastprogress(): self.silent = True
+        if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
 
@@ -479,11 +479,11 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
-            return self.savemodel
         except CancelTrainException: self('after_cancel_train')
         finally:
             self('after_fit')
             self.remove_cbs(cbs)
+            if self.savemodel: return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
