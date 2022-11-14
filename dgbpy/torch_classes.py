@@ -1283,8 +1283,11 @@ class TorchUserModel(ABC):
   @staticmethod
   def getNamesByType(pred_type, out_type, dim_type):
       models = TorchUserModel.getModelsByType(pred_type, out_type, dim_type)
-      return [model.uiname for model in models]
-  
+      model_names = []
+      for model in models:
+        if model.uiname not in model_names: model_names.append(model.uiname)
+      return model_names
+
   @staticmethod
   def isPredType( modelnm, pred_type ):
       models = TorchUserModel.getModelsByType( pred_type, OutputType.Any, DimType.Any )
