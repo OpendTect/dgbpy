@@ -128,7 +128,7 @@ class dGB_LeNet_Regressor(TorchUserModel):
     model = dGBLeNet(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattributes, predtype=self.predtype)
     return model
 
-class dGB_LeNet_Clasifier(TorchUserModel):
+class dGB_LeNet_Classifier(TorchUserModel):
   uiname = 'dGB LeNet Classifier'
   uidescription = 'dGBs LeNet Classifier Model in TorchUserModel form'
   predtype = DataPredType.Classification
