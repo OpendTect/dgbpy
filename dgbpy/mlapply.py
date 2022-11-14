@@ -351,6 +351,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     import dgbpy.dgbtorch as dgbtorch
     if params == None:
       params = dgbtorch.getParams()
+    tblogdir = None
     if 'withtensorboard' in params and params['withtensorboard']:
       tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
