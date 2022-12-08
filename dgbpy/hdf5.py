@@ -439,9 +439,14 @@ def getInfo( filenm, quick ):
   examples = {}
   while idx < ex_sz:
     exidxstr  = extxt+str(idx)+'.'
+    targetnmstr = exidxstr+'Size'
     example_sz = odhdf5.getIntValue( info, exidxstr+'Size' )
+    if odhdf5.hasAttr(info, modeloutstr + 'Size') and odhdf5.getIArray( info, modeloutstr+'Size' ) > 1:
+      targetnms = odhdf5.getText( info, targetnmstr)
+    else:
+      targetnms = odhdf5.getAttr( info, targetnmstr)
     exxobj = {
-      targetdictstr: odhdf5.getText( info, exidxstr+'Target' ),
+      targetdictstr: targetnms,
       iddictstr: idx
     }
     exsurv = odhdf5.getText(info, exidxstr+'Survey' )
@@ -492,7 +497,7 @@ def getInfo( filenm, quick ):
     means = list()
     while idy < input_sz:
       inpidystr = inpidxstr+str(idy)+'.'
-      collnm = odhdf5.getText(info, inpidystr+'Name' )
+      collnm = odhdf5.getAttr(info, inpidystr+'Name' )
       inpxyobj = {
         iddictstr: idy
       }
