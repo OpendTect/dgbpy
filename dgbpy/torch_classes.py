@@ -412,7 +412,7 @@ class Trainer:
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
         self.imgdp, self.train_dl, self.valid_dl = imgdp, training_DataLoader, validation_DataLoader
-        self.epochs, self.device, self.savemodel = epochs, device, None
+        self.epochs, self.device, self.savemodel = epochs, device, model
         self.tensorboard, self.silent = tensorboard, silent
 
         self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
@@ -479,11 +479,13 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
-        except CancelTrainException: self('after_cancel_train')
+            return self.savemodel
+        except CancelTrainException:
+            self('after_cancel_train')
+            return self.savemodel
         finally:
             self('after_fit')
             self.remove_cbs(cbs)
-            if self.savemodel: return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
