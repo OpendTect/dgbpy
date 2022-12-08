@@ -34,9 +34,7 @@ platform = (dgbkeys.torchplfnm, 'PyTorch')
 
 withtensorboard = dgbkeys.getDefaultTensorBoard()
 
-transform_list = [
-    'RandomFlip',
-]
+default_transforms = []
 
 torch_dict = {
     'epochs': 15,
@@ -47,7 +45,7 @@ torch_dict = {
     'type': None,
     'prefercpu': None,
     'scale': dgbkeys.globalstdtypestr,
-    'transform':transform_list,
+    'transform':default_transforms,
     'withtensorboard': withtensorboard
 }
 
