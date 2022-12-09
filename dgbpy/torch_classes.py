@@ -338,6 +338,36 @@ class ProgressBarCallback(Callback):
         self.pb = progress_bar(self.dl, parent=self.mbar)
         self.mbar.update(self.epoch)
 
+class BokehProgressCallback(Callback):
+    """Send progress message to bokeh"""
+    _order = -1
+    def begin_batch(self):
+        if self.iter==0:
+            odcommon.restore_stdout()
+            print('--Iter '+str(self.iter)+' of '+str(self.iters)+' --', flush=True)
+            odcommon.restore_stdout()
+
+    def begin_epoch(self):
+        if self.epoch==0:
+            odcommon.restore_stdout()
+            print('--Epoch '+str(self.epoch)+' of '+str(self.epochs)+' --', flush=True)
+            odcommon.restore_stdout()
+
+    def after_batch(self):
+        odcommon.restore_stdout()
+        print('--Iter '+str(self.iter+1)+' of '+str(self.iters)+' --', flush=True)
+        odcommon.restore_stdout()
+
+    def after_epoch(self):
+        odcommon.restore_stdout()
+        print('--Epoch '+str(self.epoch+1)+' of '+str(self.epochs)+' --', flush=True)
+        odcommon.restore_stdout()
+
+    def after_fit(self):
+        odcommon.restore_stdout()
+        print('--Training Ended--', flush=True)
+        odcommon.restore_stdout()
+
 class EarlyStoppingCallback(Callback):
     _order = 3
     def __init__(self, patience):
@@ -368,7 +398,10 @@ class EarlyStoppingCallback(Callback):
         else: raise CancelTrainException()
 
     def after_fit(self):
-        odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
+        try:
+            odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
+        except: 
+            pass
 
 class TensorBoardLogCallback(Callback):
     _order = 10
@@ -424,9 +457,8 @@ class Trainer:
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
                         EarlyStoppingCallback(earlystopping) ]
-        if not hasFastprogress(): self.silent = True
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
-        if not self.silent: defaultCBS.append(ProgressBarCallback())
+        if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
 
     def add_cbs(self, cbs):

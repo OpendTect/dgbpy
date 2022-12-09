@@ -5,29 +5,40 @@ import dgbpy.keystr as dbk
 from dgbpy import uisklearn, uitorch, uikeras
 
 class MsgHandler(logging.StreamHandler):
-  def __init__(self, msgstr, servmgr, msgkey, msgjson):
+  def __init__(self):
     logging.StreamHandler.__init__(self)
     self.msginfo = {}
-    self.add(msgstr, msgkey, msgjson)
+    self.servmgr = None
+
+  def add_servmgr(self, servmgr):
     self.servmgr = servmgr
 
   def add(self, msgstr, msgkey, msgjson):
     self.msginfo[msgstr] = {'msgkey': msgkey, 'jsonobj': msgjson}
 
+  def add_callback(self, msgstr, callback):
+    self.msginfo[msgstr] = {'callback': callback}
+
   def emit(self, record):
     try:
       logmsg = self.format(record)
-      for msgstr in self.msginfo.keys():
+      for msgstr, value in self.msginfo.items():
         if msgstr in logmsg:
-          self.sendmsg(msgstr)
+          if 'callback' in value:
+            self.docallback(logmsg, msgstr)
+          else:
+            self.sendmsg(msgstr)
     except (KeyboardInterrupt, SystemExit):
       raise
     except:
       self.handleError(record)
 
   def sendmsg(self, msgnm):
-    self.servmgr.sendObject(self.msginfo[msgnm]['msgkey'], self.msginfo[msgnm]['jsonobj'])
+    if self.servmgr:
+      self.servmgr.sendObject(self.msginfo[msgnm]['msgkey'], self.msginfo[msgnm]['jsonobj'])
 
+  def docallback(self, logmsg, msgstr):
+    self.msginfo[msgstr]['callback'](logmsg)
 
 def get_default_examples():
   retinfo = {
