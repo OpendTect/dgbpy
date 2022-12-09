@@ -364,7 +364,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                        )
 
     print('--Training Started--', flush=True)
-    model = dgbtorch.train(model=model, imgdp=trainingdp, params=params, logdir=tblogdir, silent=bokeh)
+    cbfn = None
+    if bokeh: cbfn = dgbtorch.tc.BokehProgressCallback()
+    model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
 
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
