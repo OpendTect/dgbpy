@@ -23,6 +23,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uisklearn, uitorch, uikeras
+from uibokeh import ProgState
 from dgbpy import mlio as dgbmlio
 from dgbpy.servicemgr import ServiceMgr
 from dgbpy.bokehserver import get_request_id
@@ -48,6 +49,12 @@ def training_app(doc):
     'Proc Log File': None,
     'ComArgs': None
   }
+  
+  progress = {
+      'epoch': 0, 'n_epochs': 0,
+      'iter': 0, 'n_iters': 0, 'after_iter':False,
+      'state': ProgState.Ready, 'Ended': False,
+      }
   
   info = get_default_info()
 
@@ -386,9 +393,51 @@ def training_app(doc):
       return (False,rectrainingcb)
     return (True,rectrainingcb)
 
+  def setEpochProgress(msgstr):
+    progress['epoch'], progress['n_epochs'] = uibokeh.getProgMsg(msgstr)
+
+  def setIterProgress(msgstr):
+    progress['iter'], progress['n_iters'] = uibokeh.getProgMsg(msgstr)
+    if progress['state'] == ProgState.Ready:
+      progress['state'] = ProgState.Started
+    if progress['iter'] == 0 and progress['state'] == ProgState.Running:
+      progress['after_iter'] = True
+
+  def setProgressComplete(msgstr):
+    progress['Ended'] = True
+
+  def resetProgressDict():
+    progress['iter'], progress['n_iters'] = 0,0
+    progress['epoch'], progress['n_epochs'] = 0,0
+    progress['state'], progress['Ended'] = ProgState.Ready, False
+    progress['after_iter'] = False
+
+  def progressMonitorCB(master, child):
+    if progress['after_iter']:
+      child.reset()
+      progress['after_iter'] = False
+      return
+    if progress['state']==ProgState.Started:
+      master.first_init(uibokeh.setProgValue(type=uibokeh.master_bar, total=progress['n_epochs']))
+      child.first_init(uibokeh.setProgValue(type=uibokeh.child_bar, total=progress['n_iters']))
+      master.visible(True)
+      child.visible(True)
+      progress['state'] = ProgState.Running
+      return
+    if progress['epoch'] > master.current_step_:
+      master.set(progress['epoch'], progress['n_epochs'])
+    if progress['iter'] > child.current_step_:
+      child.set(progress['iter'], progress['n_iters'])
+    if progress['Ended']:
+      resetProgressDict()
+      child.visible(False)
+      child.reset()
+      return
+
   platformfld.on_change('value',mlchgCB)
-  buttonsgrp = uibokeh.getRunButtonsBar( doRun, doAbort, doPause, doResume, trainMonitorCB )
-  trainpanel.child = column( platformfld, buttonsgrp )
+  progressgrp, progressfld = uibokeh.getPbar()
+  buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB )
+  trainpanel.child = column( platformfld, buttonsgrp, progressfld)
 
   def initWin():
     nonlocal info
@@ -401,15 +450,23 @@ def training_app(doc):
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
-    mh = MsgHandler('--Training Started--', this_service, 'bokeh_app_msg', {'training_started': ''})
+    mh = MsgHandler()
+    mh.add_servmgr(this_service)
+    mh.add('--Training Started--', 'bokeh_app_msg', {'training_started': ''})
     mh.add('--ShowTensorboard--', 'bokeh_app_msg', {'show tensorboard': ''})
+    mh.add_callback('--Iter ', setIterProgress)
+    mh.add_callback('--Epoch ', setEpochProgress)
+    mh.add_callback('--Training Ended--', setProgressComplete) 
     mh.setLevel(logging.DEBUG)
     odcommon.proclog_logger.addHandler(mh)
   else:
     if len(sys.argv)>1:
       data = json.loads(sys.argv[1])
       trainingParChgCB(data)
-
+    mh = MsgHandler()
+    mh.add_callback('--Iter ', setIterProgress)
+    mh.add_callback('--Epoch ', setEpochProgress)
+    mh.add_callback('--Training Ended--', setProgressComplete) 
   initWin()
 
 training_app(curdoc())
