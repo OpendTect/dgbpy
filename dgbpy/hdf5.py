@@ -371,7 +371,7 @@ def getInfo( filenm, quick ):
   examples = {}
   while idx < ex_sz:
     exidxstr  = extxt+str(idx)+'.'
-    targetnmstr = exidxstr+'Size'
+    targetnmstr = exidxstr+'Target'
     example_sz = odhdf5.getIntValue( info, exidxstr+'Size' )
     if odhdf5.hasAttr(info, modeloutstr + 'Size') and odhdf5.getIArray( info, modeloutstr+'Size' ) > 1:
         targetnms = odhdf5.getText( info, targetnmstr )
