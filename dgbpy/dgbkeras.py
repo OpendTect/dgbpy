@@ -15,6 +15,8 @@ from datetime import datetime
 import numpy as np
 import math
 from pathlib import Path
+from functools import partial
+import time
 
 from odpy.common import log_msg, redirect_stdout, restore_stdout
 import odpy.hdf5 as odhdf5
@@ -23,6 +25,7 @@ import dgbpy.hdf5 as dgbhdf5
 try:
   import dgbpy.keras_classes as kc
   from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
+  from keras.callbacks import Callback
 except ModuleNotFoundError:
   pass
 from dgbpy.mlio import announceShowTensorboard
@@ -235,8 +238,70 @@ def getDefaultModel(setup,type=keras_dict['type'],
                                              data_format=data_format)
   return None
 
+def hasFastprogress():
+    try:
+        import fastprogress
+    except ModuleNotFoundError:
+        return False
+    return True
 
-def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=None):
+if hasFastprogress():
+    from fastprogress.fastprogress import master_bar, progress_bar
+class ProgressBarCallback(Callback):
+  def __init__(self, train_dl, valid_dl):
+    self.train_dl = train_dl
+    self.valid_dl = valid_dl
+
+  def on_train_begin(self, logs=None):
+    epochs = self.params['epochs']
+    self.mbar = master_bar(range(epochs))
+    self.logger = partial(self.mbar.write, table=True)  
+
+  def on_epoch_begin (self, epoch, logs=None): 
+    self.epoch = epoch
+    self.pb = progress_bar(self.train_dl, parent=self.mbar)
+    self.mbar.update(epoch)
+    self.start_time = time.time()
+
+  def on_epoch_end(self, epoch, logs=None):
+    if not epoch:
+      names = [i.name for i in self.model.metrics] 
+      results = ['Epochs']
+      for name in names: results += [f'Train {name}']
+      for name in names: results += [f'Valid {name}']
+      results+=['Time']
+      self.logger(results) 
+    stats = [f'{stat:.4f}' for stat in logs.values()]
+    stats += [dgbkeys.format_time(time.time() - self.start_time)]
+    self.logger([epoch+1]+stats)
+
+  def on_test_begin(self, logs=None):
+    self.pb = progress_bar(self.valid_dl, parent=self.mbar)
+    self.mbar.update(self.epoch)
+
+  def on_train_batch_end(self, batch, logs=None): 
+    self.pb.update(batch)
+
+  def on_test_batch_end(self, batch, logs=None): 
+    self.pb.update(batch)
+
+  def on_train_end(self, logs=None):
+   self.mbar.on_iter_end()
+
+class ProgressNoBarCallback(Callback):
+  def on_train_begin(self, logs=None):
+    self.logger = log_msg
+
+  def on_epoch_begin(self, epoch, logs=None):
+    self.start_time = time.time()
+
+  def on_epoch_end(self, epoch, logs=None):
+    logs.update({'Time': dgbkeys.format_time(time.time() - self.start_time)})
+    self.logger(f'----------------- Epoch {epoch+1} ------------------')
+    for key,val in logs.items():
+      self.logger(f'{key}: {val}')
+
+def train(model,training,params=keras_dict,trainfile=None,silent=False,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from keras.callbacks import EarlyStopping, LambdaCallback
@@ -271,6 +336,13 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=Non
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
+
+  if hasFastprogress() and not silent:
+    prog = ProgressBarCallback(train_datagen,validate_datagen)
+  else:
+    prog = ProgressNoBarCallback()
+  callbacks = [prog]+callbacks
+
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
     try:
@@ -302,8 +374,8 @@ def train(model,training,params=keras_dict,trainfile=None,logdir=None,tempnm=Non
                             get_validation_data( validate_datagen )
 
     try:
-      model.fit(x=train_datagen,epochs=params['epochs'],verbose=1,
-                validation_data=validate_datagen,callbacks=callbacks)
+      model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
+                validation_data=validate_datagen,validation_steps=len(validate_datagen),callbacks=callbacks)
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')

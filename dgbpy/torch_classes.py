@@ -224,13 +224,6 @@ def reformat_str(name):
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
 
-def format_time(t):
-    "Format `t` (in seconds) to (h):mm:ss"
-    t = int(t)
-    h,m,s = t//3600, (t//60)%60, t%60
-    if h!= 0: return f'{h}:{m:02d}:{s:02d}'
-    else:     return f'{m:02d}:{s:02d}'
-
 def listify(o):
     if o is None: return []
     if isinstance(o, list): return o
@@ -315,7 +308,7 @@ class AvgStatsCallback(Callback):
         stats = [str(self.epoch+1)] 
         for tr,vl in zip(self.train_stats.avg_stats, self.valid_stats.avg_stats):
             stats += [f'{tr:.4f}', f'{vl:.4f}'] 
-        stats += [format_time(time.time() - self.start_time)]
+        stats += [dgbkeys.format_time(time.time() - self.start_time)]
         if self.silent:
             for n,(name,stat) in enumerate(zip(self.names,stats)):
                 if n == 0: self.logger(f'----------------- Epoch {stat} ------------------')
