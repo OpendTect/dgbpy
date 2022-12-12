@@ -336,7 +336,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     print('--Training Started--', flush=True)
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, logdir=tblogdir,tempnm=tempmodelnm )
+                              trainfile=examplefilenm, silent=True, logdir=tblogdir,tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:
       if tempmodelnm != None and os.path.exists(tempmodelnm):
         model = dgbmlio.getModel( tempmodelnm, True )

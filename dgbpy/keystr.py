@@ -137,3 +137,10 @@ def getDefaultTensorBoard():
     return not ( os.environ['KERAS_WITH_TENSORBOARD'] == False or \
                  os.environ['KERAS_WITH_TENSORBOARD'] == 'No' )
   return True
+
+def format_time(t):
+    "Format `t` (in seconds) to (h):mm:ss"
+    t = int(t)
+    h,m,s = t//3600, (t//60)%60, t%60
+    if h!= 0: return f'{h}:{m:02d}:{s:02d}'
+    else:     return f'{m:02d}:{s:02d}'
