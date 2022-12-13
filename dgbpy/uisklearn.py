@@ -477,9 +477,9 @@ def ensembleChgCB( attrnm, old, new, cb, ensemblegrp ):
 
 
 def getUiClusterPars( uipars=None ):
-  learntype = info[dgbkeys.learntypedictstr]
   isclassification = info[dgbkeys.classdictstr]
-  models = getUiModelTypes(learntype,isclassification, None)
+  issegmentation = dgbhdf5.isSegmentation(info)
+  models = getUiModelTypes(isclassification, None, issegmentation)
 
   if len(models)==0:
     divfld = Div(text="""No scikit-learn models found for this workflow.""")
@@ -512,7 +512,7 @@ def getUiPars(uipars=None):
 
   isclassification = info[dgbkeys.classdictstr]
   ismultiregression = dgbhdf5.isMultiLabelRegression(info)
-  models = getUiModelTypes(learntype,isclassification, ismultiregression)
+  models = getUiModelTypes(isclassification,ismultiregression,None)
   if len(models)==0:
       divfld = Div(text="""No scikit-learn models found for this workflow.""")
       parsgrp = column(divfld)
