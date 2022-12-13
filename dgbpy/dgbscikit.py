@@ -106,8 +106,8 @@ def getMLPlatform():
 def getUIMLPlatform():
   return platform[1]
 
-def getUiModelTypes(learntype,isclassification,ismultiregression):
-  if dgbhdf5.isSegmentation(learntype):
+def getUiModelTypes(isclassification,ismultiregression, issegmentation):
+  if issegmentation:
     return getUiClusterTypes()
   if isclassification:
     return dgbkeys.getNames( classmltypes )
