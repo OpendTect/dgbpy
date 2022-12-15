@@ -334,9 +334,11 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       tempmodelnm = tempmodelfnm.name + '.h5'
       tempmodelfnm = None
     print('--Training Started--', flush=True)
+    cbfn = None
+    if bokeh: cbfn = dgbkeras.BokehProgressCallback()
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, silent=True, logdir=tblogdir,tempnm=tempmodelnm )
+                              trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
     except (TypeError,MemoryError) as e:
       if tempmodelnm != None and os.path.exists(tempmodelnm):
         model = dgbmlio.getModel( tempmodelnm, True )

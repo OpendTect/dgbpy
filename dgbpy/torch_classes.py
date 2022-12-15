@@ -10,7 +10,6 @@
 
 import re
 import time
-from typing import *
 from functools import partial
 import torch
 import numpy as np
@@ -224,13 +223,6 @@ def reformat_str(name):
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
 
-def listify(o):
-    if o is None: return []
-    if isinstance(o, list): return o
-    if isinstance(o, str): return [o]
-    if isinstance(o, Iterable): return list(o)
-    return [o]
-
 class Callback():
     _order=0
     def set_runner(self, run): self.run=run
@@ -265,7 +257,7 @@ class TrainEvalCallback(Callback):
         self.run.in_train=False
 
 class AvgStats():
-    def __init__(self, metrics): self.metrics = listify(metrics)
+    def __init__(self, metrics): self.metrics = dgbkeys.listify(metrics)
     
     def reset(self):
         self.tot_loss,self.count = 0.,0
@@ -455,13 +447,13 @@ class Trainer:
         self.add_cbs(defaultCBS)
 
     def add_cbs(self, cbs):
-        for cb in listify(cbs):
+        for cb in dgbkeys.listify(cbs):
             cb.set_runner(self)
             setattr(self, cb.name, cb)
             self.cbs.append(cb)
 
     def remove_cbs(self, cbs):
-        for cb in listify(cbs): self.cbs.remove(cb)
+        for cb in dgbkeys.listify(cbs): self.cbs.remove(cb)
 
     def compute_loss_func(self):
         if self.classification:

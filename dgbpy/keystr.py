@@ -144,3 +144,11 @@ def format_time(t):
     h,m,s = t//3600, (t//60)%60, t%60
     if h!= 0: return f'{h}:{m:02d}:{s:02d}'
     else:     return f'{m:02d}:{s:02d}'
+
+from typing import *
+def listify(o):
+    if o is None: return []
+    if isinstance(o, list): return o
+    if isinstance(o, str): return [o]
+    if isinstance(o, Iterable): return list(o)
+    return [o]

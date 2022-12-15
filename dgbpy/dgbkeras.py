@@ -248,7 +248,8 @@ def hasFastprogress():
 if hasFastprogress():
     from fastprogress.fastprogress import master_bar, progress_bar
 class ProgressBarCallback(Callback):
-  def __init__(self, train_dl, valid_dl):
+  def set_dl(self, train_dl, valid_dl):
+    """This method is called before training begins """
     self.train_dl = train_dl
     self.valid_dl = valid_dl
 
@@ -301,7 +302,53 @@ class ProgressNoBarCallback(Callback):
     for key,val in logs.items():
       self.logger(f'{key}: {val}')
 
-def train(model,training,params=keras_dict,trainfile=None,silent=False,logdir=None,tempnm=None):
+class BokehProgressCallback(Callback):
+    """Send progress message to bokeh"""
+    def set_dl(self, train_dl, valid_dl):
+      self.train_dl = train_dl
+      self.valid_dl = valid_dl
+
+    def on_epoch_begin(self, epoch, logs=None):
+      self.ntrain_steps = len(self.train_dl)
+      self.nvalid_steps = len(self.valid_dl)
+      if epoch==0:
+        restore_stdout()
+        print('--Epoch '+str(epoch)+' of '+str(self.params['epochs'])+' --', flush=True)
+        restore_stdout()
+
+    def on_epoch_end(self, epoch, logs=None):
+      restore_stdout()
+      print('--Epoch '+str(epoch+1)+' of '+str(self.params['epochs'])+' --', flush=True)
+      restore_stdout()
+      if epoch+1 == self.params['epochs']:
+        restore_stdout()
+        print('--Training Ended--', flush=True)
+        restore_stdout()
+
+    def on_train_batch_begin(self, batch, logs=None):
+      if batch == 0:
+        restore_stdout()
+        print('--Iter '+str(batch)+' of '+str(self.ntrain_steps)+' --', flush=True)
+        restore_stdout()
+
+    def on_test_batch_begin(self, batch, logs=None):
+      if batch == 0:
+        restore_stdout()
+        print('--Iter '+str(batch)+' of '+str(self.nvalid_steps)+' --', flush=True)
+        restore_stdout()
+
+    def on_train_batch_end(self, batch, logs=None):
+      restore_stdout()
+      print('--Iter '+str(batch+1)+' of '+str(self.ntrain_steps)+' --', flush=True)
+      restore_stdout()
+
+    def on_test_batch_end(self, batch, logs=None):
+      restore_stdout()
+      print('--Iter '+str(batch+1)+' of '+str(self.nvalid_steps)+' --', flush=True)
+      restore_stdout()
+      
+
+def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from keras.callbacks import EarlyStopping, LambdaCallback
@@ -338,10 +385,14 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,logdir=No
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
 
   if hasFastprogress() and not silent:
-    prog = ProgressBarCallback(train_datagen,validate_datagen)
+    prog_cb = [ProgressBarCallback()]
   else:
-    prog = ProgressNoBarCallback()
-  callbacks = [prog]+callbacks
+    prog_cb = [ProgressNoBarCallback()]
+
+  for cb in dgbkeys.listify(cbfn)+prog_cb:
+    if hasattr(cb, 'set_dl'):
+      cb.set_dl(train_datagen,validate_datagen)
+    callbacks = [cb] + callbacks
 
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
