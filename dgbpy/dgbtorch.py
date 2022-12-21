@@ -406,21 +406,27 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
         ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)  
   return ret
 
-def getTrainTestDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch']):
-    trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=True)
-    testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
-    return trainloader, testloader
-
 def getDataLoader(dataset, batch_size=torch_dict['batch'], drop_last=False):
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False, drop_last=drop_last)
     return dataloader
 
+class ChunkedDataLoader(DataLoader):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def set_chunk(self, ichunk):
+        return self.dataset.set_chunk(ichunk)
+
+    def __iter__(self):
+        for batch in super().__iter__():
+            yield batch
+
 def getDataLoaders(traindataset, testdataset, batchsize=torch_dict['batch']):
-    trainloader = DataLoader(dataset=traindataset, batch_size=batchsize, shuffle=True, drop_last=True)
-    testloader= DataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
+    trainloader = ChunkedDataLoader(dataset=traindataset, batch_size=batchsize, shuffle=False, drop_last=True)
+    testloader= ChunkedDataLoader(dataset=testdataset, batch_size=batchsize, shuffle=False, drop_last=True)
     return trainloader, testloader
 
-def getSeismicDatasetPars(imgdp, _forvalid):
+def getDatasetPars(imgdp, _forvalid):
     info = imgdp[dgbkeys.infodictstr]
     if _forvalid:
       x_data = imgdp[dgbkeys.xvaliddictstr]
