@@ -485,8 +485,7 @@ class Trainer:
         self.epoch,self.dl = epoch,self.train_dl
         return self('begin_epoch')
 
-    def fit(self, cbs=None):
-        self.add_cbs(cbs)
+    def fit_one_chunk(self):
         try:
             self('begin_fit')
             for epoch in range(self.epochs):
@@ -502,6 +501,30 @@ class Trainer:
             return self.savemodel
         finally:
             self('after_fit')
+
+    def fit(self, cbs=None):
+        nbchunks = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr])
+        for ichunk in range(nbchunks):
+            odcommon.log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
+            try:
+                if not self.train_dl.set_chunk(ichunk) or not self.valid_dl.set_chunk(ichunk):
+                    continue
+            except Exception as e:
+                odcommon.log_msg('')
+                odcommon.log_msg('Data loading failed because of insufficient memory')
+                odcommon.log_msg('Try to lower the batch size and restart the training')
+                odcommon.log_msg('')
+                raise e
+
+            if  len(self.train_dl.dataset) < 1 or len(self.valid_dl.dataset) < 1:
+                odcommon.llog_msg('')
+                odcommon.llog_msg('There is not enough data to train on')
+                odcommon.llog_msg('Extract more data and restart')
+                odcommon.llog_msg('')
+                raise 
+            
+            self.add_cbs(cbs)
+            self.fit_one_chunk()
             self.remove_cbs(cbs)
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
@@ -989,44 +1012,59 @@ class UNet(nn.Module):
         return f'{d}'
 
 
-class SeismicTrainDataset:
+class SeismicTrainDataset(Dataset):
     def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
-        from dgbpy import dgbtorch
         from dgbpy import transforms as T
-        X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, False)
-        self.im_ch = im_ch
-        self.ndims = ndims
-        self.info = info
-        self.X = X.astype('float32')
-        self.y = y.astype('float32')
-
+        self.imgdp = imgdp
         self._data_IDs = []
-        self.transform_multiplier = 0
-
-        if isinstance(transform, (list, *T.all_transforms.values())):
-            if scale and isinstance(scale, (*T.scale_transforms.values(),)):
-                transform.append(scale)
-            self.transform = T.TransformCompose(transform, info, ndims, mixed = transform_copy)
-            self.transform_multiplier = self.transform.multiplier
-
-        self._data_IDs = range(len(self.X)*(self.transform_multiplier+1))       
+        self.scale = scale
+        self.transform = transform
+        self.trfm_copy = transform_copy
+        self.trfm_multiplier = 0
 
     def __len__(self):
         return len(self._data_IDs)
 
     def __getitem__(self, idx):
-        idx, rem = np.divmod(idx, self.transform_multiplier+1)
+        idx, rem = np.divmod(idx, self.trfm_multiplier+1)
         if self.ndims < 2:
             X, Y = self._adaptShape(self.X[idx], self.y[idx])
             return X, Y
-        if self.transform:
-            X, Y = self.transform(self.X[idx], self.y[idx], mixed_val = rem)
+        if self.transformer:
+            X, Y = self.transformer(self.X[idx], self.y[idx], mixed_val = rem)
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
             X, Y = self.X[idx], self.y[idx]
             X, Y = self._adaptShape(X, Y)
             return X, Y
+
+    def set_chunk(self, ichunk):
+        from dgbpy import dgbtorch
+        from dgbpy import transforms as T
+        info = self.imgdp[dgbkeys.infodictstr]
+        nbchunks = len(info[dgbkeys.trainseldicstr])
+        if nbchunks > 1:
+            from dgbpy import mlapply as dgbmlapply
+            trainchunk  = dgbmlapply.getScaledTrainingDataByInfo( info,
+                                                    flatten=False,
+                                                    scale=True, ichunk=ichunk)
+            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(trainchunk, False)
+        else:
+            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(self.imgdp, False)
+
+        self.X = X.astype('float32')
+        self.y = y.astype('float32')
+
+        if ichunk == 0:
+            if isinstance(self.transform, (list, *T.all_transforms.values())):
+                if self.scale and isinstance(self.scale, (*T.scale_transforms.values(),)):
+                    self.transform.append(self.scale)
+                self.transformer = T.TransformCompose(self.transform, info, self.ndims, mixed = self.trfm_copy)
+                self.trfm_multiplier = self.transformer.multiplier
+
+        self._data_IDs = range(len(self.X)*(self.trfm_multiplier+1))
+        return True
 
     def _adaptShape(self, X, Y):
         classification = self.info[dgbkeys.classdictstr]
@@ -1078,21 +1116,11 @@ class SeismicTrainDataset:
             return X[:, 0, 0, :], Y[:]
         return data, label
 
-class SeismicTestDataset:
+class SeismicTestDataset(Dataset):
     def __init__(self, imgdp, scale):
-        super().__init__()
-        from dgbpy import dgbtorch
-        from dgbpy import transforms as T
-        X, y, info, im_ch, ndims = dgbtorch.getSeismicDatasetPars(imgdp, True)
-        self.im_ch = im_ch
-        self.ndims = ndims
-        self.info = info
-        self.X = X.astype('float32')
-        self.y = y.astype('float32')
+        self.imgdp = imgdp
+        self.scale=scale
         self.transform = []
-        if scale and isinstance(scale, (list, *T.scale_transforms.values())):
-            self.transform = T.TransformCompose(scale, info, ndims)
-
     def __len__(self):
         return self.X.shape[0]
 
@@ -1100,6 +1128,28 @@ class SeismicTestDataset:
         if self.transform:
             return self.transform(image, label)
         return image, label
+
+    def set_chunk(self, ichunk):
+        from dgbpy import dgbtorch
+        from dgbpy import transforms as T
+        info = self.imgdp[dgbkeys.infodictstr]
+        nbchunks = len(info[dgbkeys.trainseldicstr])
+        if nbchunks > 1:
+            from dgbpy import mlapply as dgbmlapply
+            validchunk  = dgbmlapply.getScaledTrainingDataByInfo( info,
+                                                    flatten=False,
+                                                    scale=True, ichunk=ichunk)
+            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(validchunk, True)
+        else:
+            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(self.imgdp, True)
+
+        self.X = X.astype('float32')
+        self.y = y.astype('float32')
+
+        if ichunk == 0:
+            if self.scale and isinstance(self.scale, (list, *T.scale_transforms.values())):
+                self.transform = T.TransformCompose(self.scale, self.info, self.ndims)
+        return True
 
     def __getitem__(self,index):
         classification = self.info[dgbkeys.classdictstr]
