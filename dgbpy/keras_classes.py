@@ -19,7 +19,7 @@ from dgbpy import hdf5 as dgbhdf5
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
                scale=None,transform=list(),transform_copy=True,tempnm=None):
-      from dgbpy import dgbkeras
+      from dgbpy.dgbkeras import get_data_format
       self._trainbatch = trainbatch
       self._forvalid = forvalidation
       self._model = model
@@ -28,10 +28,10 @@ class TrainingSequence(Sequence):
       self._tempnm = tempnm
       self._lastsaved = datetime.now()
       self._batch_size = batch_size
-      self._channels_format = dgbkeras.get_data_format(model)
+      self._channels_format = get_data_format(model)
       self._infos = self._trainbatch[dgbkeys.infodictstr]
       self._data_IDs = []
-      self.ndims = self._getDims(dgbkeras, self._infos)
+      self.ndims = self._getDims(self._infos)
       self.transform = []
       self.transform_multiplier = 0
       self.transform_copy = transform_copy
@@ -56,10 +56,11 @@ class TrainingSequence(Sequence):
         if transform_copy:
           self.transform_multiplier = self.transform.multiplier
 
-  def _getDims(self, dgbkeras, info):
+  def _getDims(self, info):
+      from dgbpy.dgbkeras import get_model_shape, getModelDims
       attribs = dgbhdf5.getNrAttribs(info)
-      model_shape = dgbkeras.get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
-      ndims = dgbkeras.getModelDims(model_shape, True)
+      model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
+      ndims = getModelDims(model_shape, True)
       return ndims
 
   def __len__(self):
