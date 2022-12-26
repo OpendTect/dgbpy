@@ -28,6 +28,19 @@ def getSizeStr( sizeinbytes ):
     ret += str(int(sizeinbytes)) + ' bytes'
   return ret
 
+def chunkfldCB(sizefld,attr,old,new):
+  size = info[dgbkeys.estimatedsizedictstr]
+  if sizefld and size:
+    sizefld.text = getSizeStr( size/new )
+
+def decimateCB( widgetactivelist,chunkfld,sizefld ):
+  decimate = uibokeh.integerListContains( widgetactivelist, 0 )
+  chunkfld.visible = decimate
+  size = info[dgbkeys.estimatedsizedictstr]
+  if sizefld and size:
+    if decimate:
+      size /= chunkfld.value
+  sizefld.text = getSizeStr( size )
 
 def getUiModelTypes( learntype, classification, ndim ):
   ret = ()
@@ -64,14 +77,23 @@ def getUiPars(uipars=None):
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
-      'batchfld': Select(title='Batch Size',options=cudacores),
-      'epochfld': Slider(start=1,end=1000, title='Epochs'),
+      'batchfld': Select(title='Batch Size', options=cudacores),
+      'epochfld': Slider(start=1, end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
+      'sizefld': Div( text='Size: Unknown' ),
+      'dodecimatefld': CheckboxGroup( labels=['Decimate input'] ),
+      'chunkfld': Slider( start=1, end=100, title='Number of Chunks' ),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
+    uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
+    try:
+      uiobjs['chunkfld'].on_change('value_throttled', partial(chunkfldCB, uiobjs['sizefld']))
+    except AttributeError:
+      log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
+      pass
     parsgrp = column(*list(uiobjs.values()))
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
@@ -82,9 +104,12 @@ def getUiPars(uipars=None):
   uiobjs['epochfld'].value = dict['epochs']
   uiobjs['lrfld'].value = np.log10(dict['learnrate'])
   uiobjs['epochdrop'].value = dict['epochdrop']
-  uiobjs['rundevicefld'].active = [0]
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  uiobjs['dodecimatefld'].active = []
+  uiobjs['chunkfld'].value = dict['nbchunk']
+  uiobjs['rundevicefld'].active = [0]
+  decimateCB( uiobjs['dodecimatefld'].active, uiobjs['chunkfld'], uiobjs['sizefld'] )
   return uipars
 
 def getAdvancedUiPars(uipars=None):
@@ -154,7 +179,9 @@ def getUiParams( torchpars, advtorchpars ):
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
   withtensorboard = True if len(advtorchgrp['tensorboardfld'].active)!=0 else False
-  return getParams( epochs=torchgrp['epochfld'].value, \
+  return getParams( dodec=isSelected(torchgrp['dodecimatefld']), \
+                             nbchunk = torchgrp['chunkfld'].value, \
+                             epochs=torchgrp['epochfld'].value, \
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
