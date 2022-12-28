@@ -365,6 +365,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if type == TrainType.New:
       model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
                                        )
+    elif type == TrainType.Transfer:
+      model = dgbtorch.transfer( model )
 
     print('--Training Started--', flush=True)
     cbfn = None

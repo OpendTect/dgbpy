@@ -291,6 +291,24 @@ def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
     model = trainer.fit(cbs = cbfn)
     return model
 
+def transfer(model):
+  for param in model.parameters():
+    param.requires_grad = False
+
+  for name, child in model.named_children():
+    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
+        break
+    for param in child.parameters():
+        param.requires_grad = True
+
+  for name, child in reversed(list(model.named_children())):
+      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
+          break
+      for param in child.parameters():
+          param.requires_grad = True
+  
+  return model
+
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
