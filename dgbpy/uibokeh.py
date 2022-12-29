@@ -119,6 +119,8 @@ def endBarUpdateCB(ret):
   if 'cb' in ret:
     cb = ret.pop('cb')
     curdoc().remove_periodic_callback(cb)
+  ret[child_bar].visible(False)
+  ret[child_bar].reset()
   ret[master_bar].visible(False)
   ret[master_bar].reset()
 
