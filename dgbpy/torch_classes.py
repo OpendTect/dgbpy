@@ -524,8 +524,9 @@ class Trainer:
                 raise 
             
             self.add_cbs(cbs)
-            self.fit_one_chunk()
+            self.savemodel = self.fit_one_chunk()
             self.remove_cbs(cbs)
+        return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
