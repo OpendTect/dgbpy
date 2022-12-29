@@ -228,9 +228,6 @@ def training_app(doc):
     sklearnpars, sklearnadvpars = getSklearnUiPars()
     parsgroups = setPlatformGrp(keraspars,torchpars,sklearnpars)
     advparsgroups = (kerasadvpars, torchadvpars, sklearnadvpars)
-    if keraspars:
-      keraspars['uiobjects']['dodecimatefld'].active = []
-      keraspars['uiobjects']['sizefld'].text = uikeras.getSizeStr(info[dgbkeys.estimatedsizedictstr])
     if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
       adparameterspanel.disabled = False
     else:

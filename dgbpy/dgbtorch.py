@@ -37,6 +37,8 @@ withtensorboard = dgbkeys.getDefaultTensorBoard()
 default_transforms = []
 
 torch_dict = {
+    dgbkeys.decimkeystr: False,
+    'nbchunk': 10,
     'epochs': 15,
     'epochdrop': 5,
     'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
@@ -72,7 +74,9 @@ def set_compute_device(prefercpu):
   device = torch.device('cuda:0' if not prefercpu else 'cpu')
 
 def getParams( 
-    nntype=torch_dict['type'], 
+    nntype=torch_dict['type'],
+    dodec = torch_dict[dgbkeys.decimkeystr],
+    nbchunk = torch_dict['nbchunk'],
     learnrate=torch_dict['learnrate'],
     epochs=torch_dict['epochs'],
     epochdrop=torch_dict['epochdrop'],
@@ -82,7 +86,9 @@ def getParams(
     transform=torch_dict['transform'],
     withtensorboard=torch_dict['withtensorboard']):
   ret = {
+    dgbkeys.decimkeystr: dodec,
     'type': nntype,
+    'nbchunk': nbchunk,
     'learnrate': learnrate,
     'epochs': epochs,
     'epochdrop': epochdrop,
@@ -94,6 +100,8 @@ def getParams(
   if prefercpu == None:
     prefercpu = not can_use_gpu()
   ret.update({'prefercpu': prefercpu})
+  if not dodec:
+    ret['nbchunk'] = 1
   return ret
 
 def getDefaultModel(setup,type=torch_dict['type']):
@@ -282,6 +290,24 @@ def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
     )
     model = trainer.fit(cbs = cbfn)
     return model
+
+def transfer(model):
+  for param in model.parameters():
+    param.requires_grad = False
+
+  for name, child in model.named_children():
+    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
+        break
+    for param in child.parameters():
+        param.requires_grad = True
+
+  for name, child in reversed(list(model.named_children())):
+      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
+          break
+      for param in child.parameters():
+          param.requires_grad = True
+  
+  return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   attribs = dgbhdf5.getNrAttribs(info)

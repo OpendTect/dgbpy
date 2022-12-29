@@ -358,12 +358,15 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
+                                        nbchunks=params['nbchunk'],
                                         force=False,
                                         split=validation_split )
 
     if type == TrainType.New:
       model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
                                        )
+    elif type == TrainType.Transfer:
+      model = dgbtorch.transfer( model )
 
     print('--Training Started--', flush=True)
     cbfn = None
