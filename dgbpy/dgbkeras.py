@@ -290,7 +290,18 @@ class ProgressBarCallback(Callback):
    self.mbar.on_iter_end()
 
 class ProgressNoBarCallback(Callback):
-  pass
+  def on_train_begin(self, logs=None):
+    self.logger = log_msg
+
+  def on_epoch_begin(self, epoch, logs=None):
+    self.start_time = time.time()
+
+  def on_epoch_end(self, epoch, logs=None):
+    _logs = logs.copy()
+    _logs.update({'Time': dgbkeys.format_time(time.time() - self.start_time)})
+    self.logger(f'----------------- Epoch {epoch+1} ------------------')
+    for key,val in _logs.items():
+      self.logger(f'{key}: {val}')
 
 class BokehProgressCallback(Callback):
     """Send progress message to bokeh"""
@@ -376,10 +387,8 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
 
   if hasFastprogress() and not silent:
     prog_cb = [ProgressBarCallback()]
-    verbose = 0
   else:
     prog_cb = [ProgressNoBarCallback()]
-    verbose = 2
 
   for cb in dgbkeys.listify(cbfn)+prog_cb:
     if hasattr(cb, 'set_dl'):
@@ -417,7 +426,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
                             get_validation_data( validate_datagen )
 
     try:
-      model.fit(x=train_datagen,epochs=params['epochs'],verbose=verbose,
+      model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
                 validation_data=validate_datagen,callbacks=callbacks)
     except Exception as e:
       log_msg('')
