@@ -335,7 +335,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       tempmodelfnm = None
     print('--Training Started--', flush=True)
     cbfn = None
-    if bokeh: cbfn = dgbkeras.BokehProgressCallback()
+    if bokeh: cbfn = [dgbkeras.BokehProgressCallback()]
     try:
       model = dgbkeras.train( model, trainingdp, params=params,
                               trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
@@ -370,7 +370,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
 
     print('--Training Started--', flush=True)
     cbfn = None
-    if bokeh: cbfn = dgbtorch.tc.BokehProgressCallback()
+    if bokeh: cbfn = [dgbtorch.tc.BokehProgressCallback()]
     model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
 
   elif platform == dgbkeys.scikitplfnm:

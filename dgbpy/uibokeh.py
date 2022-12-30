@@ -42,12 +42,15 @@ def getPauseResumeButton(callback_fn=None):
   return getButton(pause_lbl,type=enums.ButtonType.primary,callback_fn=callback_fn)
 
 def getPbar():
+  chunk = Div(text = "Chunk 0 of 0")
   master = ProgBar(setProgValue(type=master_bar))
   child = ProgBar(setProgValue(type=child_bar), master=master)
+  chunk.visible = False
   master.visible(False)
   child.visible(False)
-  progressfld = column(master.panel(), child.panel())
+  progressfld = column(chunk, master.panel(), child.panel())
   ret = {
+    'chunk': chunk,
     master_bar: master,
     child_bar : child,  
     }
@@ -66,7 +69,7 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
     'progress': progress,
     timerkey: None
   }
-  progressact = partial(progressact, progress[master_bar], progress[child_bar])
+  progressact = partial(progressact, progress['chunk'], progress[master_bar], progress[child_bar])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
                               timer_fn=timercb) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
@@ -119,6 +122,7 @@ def endBarUpdateCB(ret):
   if 'cb' in ret:
     cb = ret.pop('cb')
     curdoc().remove_periodic_callback(cb)
+  ret['chunk'].visible = False
   ret[child_bar].visible(False)
   ret[child_bar].reset()
   ret[master_bar].visible(False)
@@ -253,7 +257,7 @@ def setProgValue(type=None, current=0, total=0):
   if type==child_bar:
     text = f"<b>Iteration {current}/{total}</b>"
     return text
-  return
+  return f"<b>{type} {current}/{total}</b>"
 
 def percentage(current, total):
   """ Find percentage between current and total"""

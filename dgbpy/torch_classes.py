@@ -353,6 +353,11 @@ class BokehProgressCallback(Callback):
         print('--Training Ended--', flush=True)
         odcommon.restore_stdout()
 
+    def before_fit_chunk(self):
+        odcommon.restore_stdout()
+        print('--Chunk_Number '+str(self.ichunk+1)+' of '+str(self.nbchunks)+' --', flush=True)
+        odcommon.restore_stdout()
+
 class EarlyStoppingCallback(Callback):
     _order = 3
     def __init__(self, patience):
@@ -503,10 +508,13 @@ class Trainer:
             self('after_fit')
 
     def fit(self, cbs=None):
-        nbchunks = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr])
-        for ichunk in range(nbchunks):
-            odcommon.log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
+        self.nbchunks = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr])
+        for ichunk in range(self.nbchunks):
+            self.add_cbs(cbs)
+            self.ichunk = ichunk
+            odcommon.log_msg('Starting training iteration',str(ichunk+1)+'/'+str(self.nbchunks))
             try:
+                self('before_fit_chunk')
                 if not self.train_dl.set_chunk(ichunk) or not self.valid_dl.set_chunk(ichunk):
                     continue
             except Exception as e:
@@ -517,20 +525,19 @@ class Trainer:
                 raise e
 
             if  len(self.train_dl.dataset) < 1 or len(self.valid_dl.dataset) < 1:
-                odcommon.llog_msg('')
-                odcommon.llog_msg('There is not enough data to train on')
-                odcommon.llog_msg('Extract more data and restart')
-                odcommon.llog_msg('')
+                odcommon.log_msg('')
+                odcommon.log_msg('There is not enough data to train on')
+                odcommon.log_msg('Extract more data and restart')
+                odcommon.log_msg('')
                 raise 
             
-            self.add_cbs(cbs)
             self.savemodel = self.fit_one_chunk()
             self.remove_cbs(cbs)
         return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
-                'begin_epoch', 'begin_validate', 'after_epoch', 'after_cancel_train', 'after_fit'}
+                'begin_epoch', 'begin_validate', 'after_epoch', 'after_cancel_train', 'after_fit', 'before_fit_chunk'}
             
     def __call__(self, cb_name):
         res = False
