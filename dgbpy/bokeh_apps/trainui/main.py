@@ -51,6 +51,7 @@ def training_app(doc):
   }
   
   progress = {
+      'ichunk': 0, 'n_chunks': 0, '_chunkTemp': 0,
       'epoch': 0, 'n_epochs': 0,
       'iter': 0, 'n_iters': 0, 'after_iter':False,
       'state': ProgState.Ready, 'Ended': False,
@@ -390,6 +391,9 @@ def training_app(doc):
       return (False,rectrainingcb)
     return (True,rectrainingcb)
 
+  def setChunkProgress(msgstr):
+    progress['ichunk'], progress['n_chunks'] = uibokeh.getProgMsg(msgstr)
+
   def setEpochProgress(msgstr):
     progress['epoch'], progress['n_epochs'] = uibokeh.getProgMsg(msgstr)
 
@@ -405,31 +409,53 @@ def training_app(doc):
 
   def resetProgressDict():
     progress['iter'], progress['n_iters'] = 0,0
-    progress['epoch'], progress['n_epochs'] = 0,0
+    progress['epoch'] = 0
     progress['state'], progress['Ended'] = ProgState.Ready, False
     progress['after_iter'] = False
+    if progress['_chunkTemp'] == progress['n_chunks']:
+      progress['ichunk'], progress['_chunkTemp'], progress['n_chunks'] = 0, 0, 0
+      progress['n_epochs'] = 0
+    else:
+      progress['state'] = ProgState.Running
 
-  def progressMonitorCB(master, child):
+  def progressMonitorCB(chunk, master, child):
+    # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
       progress['after_iter'] = False
       return
+
+    # initialise starting values  
     if progress['state']==ProgState.Started:
       master.first_init(uibokeh.setProgValue(type=uibokeh.master_bar, total=progress['n_epochs']))
       child.first_init(uibokeh.setProgValue(type=uibokeh.child_bar, total=progress['n_iters']))
       master.visible(True)
       child.visible(True)
+      chunk.visible = True
+      progress['_chunkTemp'] = progress['ichunk']
+      chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['_chunkTemp'],total=progress['n_chunks'])
       progress['state'] = ProgState.Running
       return
+
+    # update progress widget after each chunk, epoch and iteration
+    if progress['ichunk'] > progress['_chunkTemp']:
+      chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['ichunk'],total=progress['n_chunks'])
     if progress['epoch'] > master.current_step_:
       master.set(progress['epoch'], progress['n_epochs'])
     if progress['iter'] > child.current_step_:
       child.set(progress['iter'], progress['n_iters'])
+
+    # reset progress widget and progress dict after each chunk
     if progress['Ended']:
-      resetProgressDict()
-      child.visible(False)
       child.reset()
-      return
+      if progress['_chunkTemp'] < progress['n_chunks']:
+        master.reset()
+        master.set(0, progress['n_epochs'])
+      else:
+        child.visible(False)
+      resetProgressDict()
+    progress['_chunkTemp'] = progress['ichunk']
+
 
   platformfld.on_change('value',mlchgCB)
   progressgrp, progressfld = uibokeh.getPbar()
@@ -444,6 +470,8 @@ def training_app(doc):
     doc.title = 'Machine Learning'
 
   args = curdoc().session_context.server_context.application_context.application.metadata
+  service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
+                        '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete}
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
@@ -451,9 +479,7 @@ def training_app(doc):
     mh.add_servmgr(this_service)
     mh.add('--Training Started--', 'bokeh_app_msg', {'training_started': ''})
     mh.add('--ShowTensorboard--', 'bokeh_app_msg', {'show tensorboard': ''})
-    mh.add_callback('--Iter ', setIterProgress)
-    mh.add_callback('--Epoch ', setEpochProgress)
-    mh.add_callback('--Training Ended--', setProgressComplete) 
+    mh.add_callback(service_callbacks)
     mh.setLevel(logging.DEBUG)
     odcommon.proclog_logger.addHandler(mh)
   else:
@@ -461,9 +487,7 @@ def training_app(doc):
       data = json.loads(sys.argv[1])
       trainingParChgCB(data)
     mh = MsgHandler()
-    mh.add_callback('--Iter ', setIterProgress)
-    mh.add_callback('--Epoch ', setEpochProgress)
-    mh.add_callback('--Training Ended--', setProgressComplete) 
+    mh.add_callback(service_callbacks)
   initWin()
 
 training_app(curdoc())

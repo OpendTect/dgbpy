@@ -347,7 +347,12 @@ class BokehProgressCallback(Callback):
       restore_stdout()
       print('--Iter '+str(batch+1)+' of '+str(self.nvalid_steps)+' --', flush=True)
       restore_stdout()
-      
+    
+    def before_fit_chunk(self, ichunk, nbchunks):
+      restore_stdout()
+      print('--Chunk_Number '+str(ichunk+1)+' of '+str(nbchunks)+' --', flush=True)
+      restore_stdout()
+        
 
 def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
@@ -390,13 +395,16 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
   else:
     prog_cb = [ProgressNoBarCallback()]
 
-  for cb in dgbkeys.listify(cbfn)+prog_cb:
+  cbfn = dgbkeys.listify(cbfn)
+  for cb in cbfn+prog_cb:
     if hasattr(cb, 'set_dl'):
       cb.set_dl(train_datagen,validate_datagen)
     callbacks = [cb] + callbacks
 
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
+    if len(cbfn)==1 and isinstance(cbfn[0], BokehProgressCallback):
+      cbfn[0].before_fit_chunk(ichunk, nbchunks)
     try:
       if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
         continue
