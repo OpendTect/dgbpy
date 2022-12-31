@@ -16,8 +16,9 @@ class MsgHandler(logging.StreamHandler):
   def add(self, msgstr, msgkey, msgjson):
     self.msginfo[msgstr] = {'msgkey': msgkey, 'jsonobj': msgjson}
 
-  def add_callback(self, msgstr, callback):
-    self.msginfo[msgstr] = {'callback': callback}
+  def add_callback(self, callbacks):
+    for cb in callbacks:
+      self.msginfo[cb] = {'callback': callbacks[cb]}
 
   def emit(self, record):
     try:
