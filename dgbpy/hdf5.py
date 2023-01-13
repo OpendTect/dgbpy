@@ -70,6 +70,16 @@ def getNrAttribs( info ):
   collection = input[next(iter(input))][collectdictstr]
   return len(collection)
 
+def getNrGroupInputs( info ):
+  inps = []
+  examples = info[exampledictstr]
+  for groupnm in examples:
+    if collectdictstr in examples[groupnm]:
+      collection = examples[groupnm][collectdictstr]
+      for inp in collection:
+        inps.append(inp)
+  return len(inps)
+
 def getNrOutputs( info ):
   return len( getMainOutputs(info) )
 
@@ -120,6 +130,15 @@ def isImg2Img( info ):
   if isinstance(info,dict):
     return info[learntypedictstr] == seisimgtoimgtypestr
   return info == seisimgtoimgtypestr
+
+def isCrossValidation( info ):
+  if isLogInput(info):
+    if trainseldicstr in info:
+      found_fold = any(foldstr in chunk for chunk in info[trainseldicstr][0])
+      return found_fold
+    if exampledictstr in info:
+      return getNrGroupInputs(info) > 1
+  return False
 
 def unscaleOutput( info ):
   if isinstance(info,dict) and outputunscaledictstr in info:

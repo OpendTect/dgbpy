@@ -61,12 +61,14 @@ def getUiPars(uipars=None):
   defmodel = modeltypes[0]
   defbatchsz = keras_dict['batch']
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  isCrossVal = dgbhdf5.isCrossValidation(info)
   if kc.UserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
+      'validfld' : Slider(start=1,end=1000, title='Number of input for validation', visible = False),
       'batchfld': Select(title='Batch Size',options=cudacores),
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'patiencefld': Slider(start=1,end=100, title='Patience'),
@@ -77,6 +79,9 @@ def getUiPars(uipars=None):
       'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
+    if isCrossVal:
+      uiobjs['validfld'].visible = True
+      uiobjs['validfld'].end = dgbhdf5.getNrGroupInputs(info)
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
     uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
@@ -98,6 +103,9 @@ def getUiPars(uipars=None):
   uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  if isCrossVal:
+    uiobjs['validfld'].visible = True
+    uiobjs['validfld'].value = 1
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -166,6 +174,9 @@ def getUiParams( keraspars, advkeraspars ):
   nrepochs = kerasgrp['epochfld'].value
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
+  validation_split = 1
+  if 'validfld' in kerasgrp:
+    validation_split = kerasgrp['validfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
@@ -180,6 +191,7 @@ def getUiParams( keraspars, advkeraspars ):
                              patience=kerasgrp['patiencefld'].value, \
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
+                             validation_split = validation_split, \
                              nntype=kerasgrp['modeltypfld'].value, \
                              prefercpu=runoncpu, scale=scale, transform=transform, \
                              withtensorboard=withtensorboard)

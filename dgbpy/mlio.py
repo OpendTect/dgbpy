@@ -118,6 +118,60 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
     dgbkeys.validdictstr: valid
   }
 
+def getCrossValidationIndices(dsets, valid_inputs=1):
+  """ Gets train and validation data for cross validation.
+
+  Parameters:
+      * dsets (dict): dictionary of survey names and datasets
+      * n_wells (int): number of wells to use as the validat  ion set
+
+  Returns:
+      * list: list of dictionaries containing train and validation data for each fold
+  """
+  # Get all well names
+  all_inp = [inp for groupnm in dsets.values() for inp in groupnm]
+  if len(all_inp) == 1:
+    return getDatasetNms(dsets, validation_split=valid_inputs)
+
+  if valid_inputs == None:
+    valid_inputs = 0
+  if valid_inputs < 1 or valid_inputs > int(0.5*len(all_inp)):
+    valid_inputs = int(0.25*len(all_inp)) #use 35% of number of wells as defaults
+
+  # Shuffle well names
+  np.random.shuffle(all_inp)
+
+  # Initialize result list
+  result = {}
+
+  # Create folds
+  for i in range(5):
+    train, valid = {}, {}
+    valid_wells = all_inp[i*valid_inputs : i*valid_inputs+valid_inputs]
+    if len(valid_wells) < valid_inputs:
+      break
+
+    for groupnm in dsets:
+      group = dsets[groupnm]
+      traingrp = {}
+      validgrp = {}
+      for inp in group:
+        dsetnms = group[inp].copy()
+        np.random.shuffle(dsetnms)
+        if inp in valid_wells:
+          validgrp.update({inp: dsetnms})
+        else:
+          traingrp.update({inp: dsetnms})
+      if traingrp:
+        train.update({groupnm: traingrp})
+      if validgrp:
+        valid.update({groupnm: validgrp})
+    result[dgbkeys.foldstr+f'{i+1}'] = {
+      dgbkeys.traindictstr: train,
+      dgbkeys.validdictstr: valid
+      }
+  return result
+
 def getChunks(dsets,nbchunks):
   """ Splits dataset object into smaller chunks
 

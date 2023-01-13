@@ -127,7 +127,10 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   dsets = dgbmlio.getChunks(infos[dgbkeys.datasetdictstr],nbchunks)
   datasets = []
   for dset in dsets:
-    datasets.append( dgbmlio.getDatasetNms(dset,validation_split=split) )
+    if dgbhdf5.isLogInput(infos):
+      datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split) )
+    else:
+      datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets})
 
   scaler, doscale = dgbhdf5.getDefaultScaler(scaler, infos)
@@ -135,7 +138,8 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   infos = dgbhdf5.updateScaleInfo(scaler, infos)
   if doscale:
     infos = computeScaler( infos, scalebyattrib, force )
-  if nbchunks > 1: #Decimate, only need to return the updated info
+  #Decimate and cross validation, only need to return the updated info
+  if nbchunks > 1 or dgbhdf5.isCrossValidation(infos): 
     return {dgbkeys.infodictstr: infos}
   return getScaledTrainingDataByInfo( infos, flatten=flatten, scale=doscale )
 
@@ -154,7 +158,7 @@ def getInputList( datasets ):
     dgbhdf5.dictAddIfNew( datasets[keynm], ret )
   return ret.keys()
 
-def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
+def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0, ifold=None ):
   """ Gets scaled training data
 
   Parameters:
@@ -172,7 +176,10 @@ def getScaledTrainingDataByInfo( infos, flatten=False, scale=True, ichunk=0 ):
   y_train = list()
   x_validate = list()
   y_validate = list()
-  datasets = infos[dgbkeys.trainseldicstr][ichunk]
+  if ifold and dgbhdf5.isCrossValidation( infos ):
+    datasets = infos[dgbkeys.trainseldicstr][ichunk][dgbkeys.foldstr+f'{ifold}']
+  else:
+    datasets = infos[dgbkeys.trainseldicstr][ichunk]
   groups = getInputList( datasets )
   for groupnm in groups:
     dsets = dgbmlio.getDatasetsByGroup( datasets, groupnm )
@@ -316,7 +323,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         force=False,
                                         nbchunks=params['nbchunk'],
-                                        split=validation_split )
+                                        split=params['split'] )
     tblogdir=None
     if 'withtensorboard' in params and params['withtensorboard']:
       tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )

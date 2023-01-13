@@ -72,11 +72,9 @@ class TrainingSequence(Sequence):
   def set_chunk(self,ichunk):
       infos = self._infos
       nbchunks = len(infos[dgbkeys.trainseldicstr])
-      if nbchunks > 1:
-          from dgbpy import mlapply as dgbmlapply
-          trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos,
-                                                 flatten=False,
-                                                 scale=True, ichunk=ichunk )
+      if nbchunks > 1 or dgbhdf5.isCrossValidation(infos):
+        return self.set_fold(ichunk, 1) #set first fold initially for each chunk
+
       else:
           trainbatch = self._trainbatch
 
@@ -95,6 +93,28 @@ class TrainingSequence(Sequence):
       self._data_IDs = range((len(self._x_data)*(self.transform_multiplier+1)))
       self.on_epoch_end()
       return True
+
+  def set_fold(self,ichunk,ifold):
+    infos = self._infos
+    from dgbpy import mlapply as dgbmlapply
+    trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos,
+                                              flatten=False,
+                                              scale=True, ichunk=ichunk, ifold=ifold )
+    if self._forvalid:
+          if not dgbkeys.xvaliddictstr in trainbatch or \
+             not dgbkeys.yvaliddictstr in trainbatch:
+              return False
+          self._x_data = trainbatch[dgbkeys.xvaliddictstr]
+          self._y_data = trainbatch[dgbkeys.yvaliddictstr]
+    else:
+        if not dgbkeys.xtraindictstr in trainbatch or \
+            not dgbkeys.ytraindictstr in trainbatch:
+            return False
+        self._x_data = trainbatch[dgbkeys.xtraindictstr]
+        self._y_data = trainbatch[dgbkeys.ytraindictstr]
+    self._data_IDs = range((len(self._x_data)*(self.transform_multiplier+1)))
+    self.on_epoch_end()
+    return True
 
   def on_epoch_end(self):
       self._nrdone = self._nrdone+1
