@@ -26,7 +26,7 @@ stop_lbl = '◼ Abort'
 pause_lbl = '❚❚ Pause'
 resume_lbl = '► Resume'
 timerkey = 'timerobj'
-master_bar = 'epoch_bar'
+parent_bar = 'epoch_bar'
 child_bar = 'iter_bar'
 
 RunState = Enum( 'RunState', 'Ready Running Pause', module=__name__ )
@@ -46,17 +46,17 @@ def getPauseResumeButton(callback_fn=None):
 def getPbar():
   chunk = Div(text = "Chunk 0 of 0")
   fold = Div(text = "Fold 0 of 0")
-  master = ProgBar(setProgValue(type=master_bar))
-  child = ProgBar(setProgValue(type=child_bar), master=master)
+  parent = ProgBar(setProgValue(type=parent_bar))
+  child = ProgBar(setProgValue(type=child_bar), parent=parent)
   chunk.visible = False
   fold .visible = False
-  master.visible(False)
+  parent.visible(False)
   child.visible(False)
-  progressfld = column(chunk, fold, master.panel(), child.panel())
+  progressfld = column(chunk, fold, parent.panel(), child.panel())
   ret = {
     'chunk': chunk,
     dgbkeys.foldstr: fold,
-    master_bar: master,
+    parent_bar: parent,
     child_bar : child,  
     }
   return ret, progressfld
@@ -74,7 +74,7 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
     'progress': progress,
     timerkey: None
   }
-  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[master_bar], progress[child_bar])
+  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], progress[child_bar])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
                               timer_fn=timercb) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
@@ -131,8 +131,8 @@ def endBarUpdateCB(ret):
   ret[dgbkeys.foldstr].visible = False
   ret[child_bar].visible(False)
   ret[child_bar].reset()
-  ret[master_bar].visible(False)
-  ret[master_bar].reset()
+  ret[parent_bar].visible(False)
+  ret[parent_bar].reset()
 
 def setReady( runbutbar ):
   runbutbar['state'] = RunState.Ready
@@ -191,14 +191,14 @@ def getAllUiFlds( objects ):
   return ret
 
 class ProgBar():
-  def __init__(self, value, master=None, **kw):
+  def __init__(self, value, parent=None, **kw):
     """
       Creates a progress bar widget with methods to control its state
     """
     self.success_ = True
     self.current_value_ = 0
     self.current_step_ = 0
-    self.master = master
+    self.parent = parent
     self.source_ = ColumnDataSource(data={'x_values': [0]})
     self.fig_ = figure(height=20, **kw)
     self.fig_.x_range = Range1d(0, 100, bounds=(0, 100))
@@ -226,8 +226,8 @@ class ProgBar():
     self.div.visible=bool
 
   def set(self, current, total):
-    if not self.master:
-      self.div.text = setProgValue(type=master_bar, current=current, total=total)
+    if not self.parent:
+      self.div.text = setProgValue(type=parent_bar, current=current, total=total)
     else:
       self.div.text = setProgValue(type=child_bar, current=current, total=total)
     self.current_value_ = percentage(current, total)
@@ -257,7 +257,7 @@ def setProgValue(type=None, current=0, total=0):
   """
   Create text value for a progress div widget
   """
-  if type==master_bar:
+  if type==parent_bar:
     text = f"<b>Epoch {current}/{total}</b>"
     return text
   if type==child_bar:
