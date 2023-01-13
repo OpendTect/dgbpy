@@ -52,7 +52,8 @@ def training_app(doc):
   
   progress = {
       'ichunk': 0, 'n_chunks': 0, '_chunkTemp': 0,
-      'epoch': 0, 'n_epochs': 0,
+      'ifold': 0, 'n_folds': 0, '_foldTemp':0,
+      'epoch': 0, 'n_epochs': 0, 'doCrossVal': False,
       'iter': 0, 'n_iters': 0, 'after_iter':False,
       'state': ProgState.Ready, 'Ended': False,
       }
@@ -407,18 +408,27 @@ def training_app(doc):
   def setProgressComplete(msgstr):
     progress['Ended'] = True
 
+  def setFold(msgstr):
+    if progress['state'] == ProgState.Ready:
+      progress['doCrossVal'] = True #allow crossval ui from training platform callbacks
+    progress['ifold'], progress['n_folds'] = uibokeh.getProgMsg(msgstr)
+
   def resetProgressDict():
-    progress['iter'], progress['n_iters'] = 0,0
+    progress['iter'], progress['n_iters'] = 0, 0
     progress['epoch'] = 0
     progress['state'], progress['Ended'] = ProgState.Ready, False
     progress['after_iter'] = False
-    if progress['_chunkTemp'] == progress['n_chunks']:
+    resetFold = False
+    if progress['_foldTemp'] == progress['n_folds']:
+      resetFold, progress['doCrossVal'] = True, False
+      progress['ifold'], progress['n_folds'], progress['_foldTemp'] = 0, 0, 0
+    if progress['_chunkTemp'] == progress['n_chunks'] and resetFold:
       progress['ichunk'], progress['_chunkTemp'], progress['n_chunks'] = 0, 0, 0
       progress['n_epochs'] = 0
     else:
       progress['state'] = ProgState.Running
 
-  def progressMonitorCB(chunk, master, child):
+  def progressMonitorCB(chunk, fold, master, child):
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
@@ -432,29 +442,37 @@ def training_app(doc):
       master.visible(True)
       child.visible(True)
       chunk.visible = True
+      fold.visible = progress['doCrossVal']
       progress['_chunkTemp'] = progress['ichunk']
       chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['_chunkTemp'],total=progress['n_chunks'])
+      if progress['doCrossVal']:
+        progress['_foldTemp'] = progress['ifold']
+        fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
       progress['state'] = ProgState.Running
       return
 
     # update progress widget after each chunk, epoch and iteration
     if progress['ichunk'] > progress['_chunkTemp']:
       chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['ichunk'],total=progress['n_chunks'])
+    if progress['ifold'] > progress['_foldTemp']:
+      fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
     if progress['epoch'] > master.current_step_:
       master.set(progress['epoch'], progress['n_epochs'])
     if progress['iter'] > child.current_step_:
       child.set(progress['iter'], progress['n_iters'])
 
-    # reset progress widget and progress dict after each chunk
+    # reset progress widget and progress dict after each chunk/fold
     if progress['Ended']:
       child.reset()
-      if progress['_chunkTemp'] < progress['n_chunks']:
+      if progress['_chunkTemp'] < progress['n_chunks'] or progress['_foldTemp'] < progress['n_folds']:
+        odcommon.log_msg('after_fold')
         master.reset()
         master.set(0, progress['n_epochs'])
       else:
         child.visible(False)
       resetProgressDict()
     progress['_chunkTemp'] = progress['ichunk']
+    progress['_foldTemp'] = progress['ifold']
 
 
   platformfld.on_change('value',mlchgCB)
@@ -471,7 +489,8 @@ def training_app(doc):
 
   args = curdoc().session_context.server_context.application_context.application.metadata
   service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
-                        '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete}
+                        '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete,
+                        '--Fold_bkh ': setFold}
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
