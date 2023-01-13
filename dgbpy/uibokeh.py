@@ -16,6 +16,8 @@ from bokeh.models import Spacer, ColumnDataSource, Range1d, Div
 from bokeh.models.widgets import Button
 from bokeh.plotting import curdoc, figure
 
+import dgbpy.keystr as dgbkeys
+
 but_width = 80
 but_height = 32
 but_spacer = 5
@@ -43,14 +45,17 @@ def getPauseResumeButton(callback_fn=None):
 
 def getPbar():
   chunk = Div(text = "Chunk 0 of 0")
+  fold = Div(text = "Fold 0 of 0")
   master = ProgBar(setProgValue(type=master_bar))
   child = ProgBar(setProgValue(type=child_bar), master=master)
   chunk.visible = False
+  fold .visible = False
   master.visible(False)
   child.visible(False)
-  progressfld = column(chunk, master.panel(), child.panel())
+  progressfld = column(chunk, fold, master.panel(), child.panel())
   ret = {
     'chunk': chunk,
+    dgbkeys.foldstr: fold,
     master_bar: master,
     child_bar : child,  
     }
@@ -69,7 +74,7 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
     'progress': progress,
     timerkey: None
   }
-  progressact = partial(progressact, progress['chunk'], progress[master_bar], progress[child_bar])
+  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[master_bar], progress[child_bar])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
                               timer_fn=timercb) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
@@ -123,6 +128,7 @@ def endBarUpdateCB(ret):
     cb = ret.pop('cb')
     curdoc().remove_periodic_callback(cb)
   ret['chunk'].visible = False
+  ret[dgbkeys.foldstr].visible = False
   ret[child_bar].visible(False)
   ret[child_bar].reset()
   ret[master_bar].visible(False)

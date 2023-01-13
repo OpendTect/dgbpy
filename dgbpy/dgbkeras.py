@@ -67,6 +67,7 @@ keras_dict = {
   'patience': 5,
   'learnrate': 1e-4,
   'epochdrop': 5,
+  'split': 1,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,
@@ -103,7 +104,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
-               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
+               validation_split=keras_dict['split'], scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -112,6 +113,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'patience': patience,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
+    'split': validation_split,
     'type': nntype,
     'transform': transform,
     'scale': scale,
@@ -352,7 +354,10 @@ class BokehProgressCallback(Callback):
       restore_stdout()
       print('--Chunk_Number '+str(ichunk+1)+' of '+str(nbchunks)+' --', flush=True)
       restore_stdout()
-        
+
+    def before_fit_fold(self, ifold, nbfolds):
+      restore_stdout()
+      print('--Fold_bkh '+str(ifold)+' of '+str(nbfolds)+' --', flush=True)
 
 def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
@@ -403,8 +408,12 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
 
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
-    if len(cbfn)==1 and isinstance(cbfn[0], BokehProgressCallback):
-      cbfn[0].before_fit_chunk(ichunk, nbchunks)
+    # check if action is from bokeh
+    bokeh_cb = False
+    fromBokeh = len(cbfn)==1 and isinstance(cbfn[0], BokehProgressCallback)
+    if fromBokeh:
+      bokeh_cb = cbfn[0]
+      bokeh_cb.before_fit_chunk(ichunk, nbchunks)
     try:
       if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
         continue
@@ -433,9 +442,24 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
     x_validate, y_validate, validation_batch_size = \
                             get_validation_data( validate_datagen )
 
+    isCrossVal = dgbhdf5.isCrossValidation(infos)
+    if bokeh_cb and isCrossVal:
+      nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
+      bokeh_cb.before_fit_fold(1, nbfolds) # log first fold
     try:
       model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
                 validation_data=validate_datagen,callbacks=callbacks)
+
+      if isCrossVal:
+        nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
+        for ifold in range(2, nbfolds+1): # start transfer from second fold
+          train_datagen.set_fold(ichunk, ifold)
+          validate_datagen.set_fold(ichunk, ifold)
+          if bokeh_cb: bokeh_cb.before_fit_fold(ifold, nbfolds)
+          transfer(model)
+          model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
+                validation_data=validate_datagen,callbacks=callbacks)
+
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')
