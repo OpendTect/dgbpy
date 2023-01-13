@@ -428,7 +428,7 @@ def training_app(doc):
     else:
       progress['state'] = ProgState.Running
 
-  def progressMonitorCB(chunk, fold, master, child):
+  def progressMonitorCB(chunk, fold, parent, child):
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
@@ -437,9 +437,9 @@ def training_app(doc):
 
     # initialise starting values  
     if progress['state']==ProgState.Started:
-      master.first_init(uibokeh.setProgValue(type=uibokeh.master_bar, total=progress['n_epochs']))
+      parent.first_init(uibokeh.setProgValue(type=uibokeh.parent_bar, total=progress['n_epochs']))
       child.first_init(uibokeh.setProgValue(type=uibokeh.child_bar, total=progress['n_iters']))
-      master.visible(True)
+      parent.visible(True)
       child.visible(True)
       chunk.visible = True
       fold.visible = progress['doCrossVal']
@@ -456,8 +456,8 @@ def training_app(doc):
       chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['ichunk'],total=progress['n_chunks'])
     if progress['ifold'] > progress['_foldTemp']:
       fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
-    if progress['epoch'] > master.current_step_:
-      master.set(progress['epoch'], progress['n_epochs'])
+    if progress['epoch'] > parent.current_step_:
+      parent.set(progress['epoch'], progress['n_epochs'])
     if progress['iter'] > child.current_step_:
       child.set(progress['iter'], progress['n_iters'])
 
@@ -466,8 +466,8 @@ def training_app(doc):
       child.reset()
       if progress['_chunkTemp'] < progress['n_chunks'] or progress['_foldTemp'] < progress['n_folds']:
         odcommon.log_msg('after_fold')
-        master.reset()
-        master.set(0, progress['n_epochs'])
+        parent.reset()
+        parent.set(0, progress['n_epochs'])
       else:
         child.visible(False)
       resetProgressDict()
