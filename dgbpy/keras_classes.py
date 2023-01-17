@@ -74,25 +74,9 @@ class TrainingSequence(Sequence):
       nbchunks = len(infos[dgbkeys.trainseldicstr])
       if nbchunks > 1 or dgbhdf5.isCrossValidation(infos):
         return self.set_fold(ichunk, 1) #set first fold initially for each chunk
-
       else:
           trainbatch = self._trainbatch
-
-      if self._forvalid:
-          if not dgbkeys.xvaliddictstr in trainbatch or \
-             not dgbkeys.yvaliddictstr in trainbatch:
-              return False
-          self._x_data = trainbatch[dgbkeys.xvaliddictstr]
-          self._y_data = trainbatch[dgbkeys.yvaliddictstr]
-      else:
-          if not dgbkeys.xtraindictstr in trainbatch or \
-             not dgbkeys.ytraindictstr in trainbatch:
-              return False
-          self._x_data = trainbatch[dgbkeys.xtraindictstr]
-          self._y_data = trainbatch[dgbkeys.ytraindictstr]
-      self._data_IDs = range((len(self._x_data)*(self.transform_multiplier+1)))
-      self.on_epoch_end()
-      return True
+      return self.get_data(trainbatch)
 
   def set_fold(self,ichunk,ifold):
     infos = self._infos
@@ -100,6 +84,9 @@ class TrainingSequence(Sequence):
     trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos,
                                               flatten=False,
                                               scale=True, ichunk=ichunk, ifold=ifold )
+    return self.get_data(trainbatch)
+
+  def get_data(self, trainbatch):
     if self._forvalid:
           if not dgbkeys.xvaliddictstr in trainbatch or \
              not dgbkeys.yvaliddictstr in trainbatch:
