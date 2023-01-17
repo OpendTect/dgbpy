@@ -250,10 +250,10 @@ def hasFastprogress():
 if hasFastprogress():
     from fastprogress.fastprogress import master_bar, progress_bar
 class ProgressBarCallback(Callback):
-  def set_dl(self, train_dl, valid_dl):
+  def __init__(self, config):
     """This method is called before training begins """
-    self.train_dl = train_dl
-    self.valid_dl = valid_dl
+    self.train_datagen = config.get('train_datagen')
+    self.valid_datagen = config.get('valid_datagen')
 
   def on_train_begin(self, logs=None):
     epochs = self.params['epochs']
@@ -262,7 +262,7 @@ class ProgressBarCallback(Callback):
 
   def on_epoch_begin (self, epoch, logs=None): 
     self.epoch = epoch
-    self.pb = progress_bar(self.train_dl, parent=self.mbar)
+    self.pb = progress_bar(self.train_datagen, parent=self.mbar)
     self.mbar.update(epoch)
     self.start_time = time.time()
 
@@ -279,7 +279,7 @@ class ProgressBarCallback(Callback):
     self.logger([epoch+1]+stats)
 
   def on_test_begin(self, logs=None):
-    self.pb = progress_bar(self.valid_dl, parent=self.mbar)
+    self.pb = progress_bar(self.valid_datagen, parent=self.mbar)
     self.mbar.update(self.epoch)
 
   def on_train_batch_end(self, batch, logs=None): 
@@ -292,6 +292,8 @@ class ProgressBarCallback(Callback):
    self.mbar.on_iter_end()
 
 class ProgressNoBarCallback(Callback):
+  def __init__(self, config): pass
+
   def on_train_begin(self, logs=None):
     self.logger = log_msg
 
@@ -307,13 +309,19 @@ class ProgressNoBarCallback(Callback):
 
 class BokehProgressCallback(Callback):
     """Send progress message to bokeh"""
-    def set_dl(self, train_dl, valid_dl):
-      self.train_dl = train_dl
-      self.valid_dl = valid_dl
+    def __init__(self, config):
+      self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
+      self.ichunk, self.nbchunks = config.get('ichunk'), config.get('nbchunks')
+      self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
+      self.isCrossVal = config.get('isCrossVal')
 
+    def on_train_begin(self, logs=None):
+      self.on_train_begin_chunk()
+      self.on_train_begin_fold()
+  
     def on_epoch_begin(self, epoch, logs=None):
-      self.ntrain_steps = len(self.train_dl)
-      self.nvalid_steps = len(self.valid_dl)
+      self.ntrain_steps = len(self.train_datagen)
+      self.nvalid_steps = len(self.valid_datagen)
       if epoch==0:
         restore_stdout()
         print('--Epoch '+str(epoch)+' of '+str(self.params['epochs'])+' --', flush=True)
@@ -350,70 +358,91 @@ class BokehProgressCallback(Callback):
       print('--Iter '+str(batch+1)+' of '+str(self.nvalid_steps)+' --', flush=True)
       restore_stdout()
     
-    def before_fit_chunk(self, ichunk, nbchunks):
+    def on_train_begin_chunk(self):
       restore_stdout()
-      print('--Chunk_Number '+str(ichunk+1)+' of '+str(nbchunks)+' --', flush=True)
+      print('--Chunk_Number '+str(self.ichunk)+' of '+str(self.nbchunks)+' --', flush=True)
       restore_stdout()
 
-    def before_fit_fold(self, ifold, nbfolds):
+    def on_train_begin_fold(self):
+      if self.isCrossVal:
+        restore_stdout()
+        print('--Fold_bkh '+str(self.ifold)+' of '+str(self.nbfolds)+' --', flush=True)
+        restore_stdout()
+
+class LogNrOfSamples(Callback):
+  def __init__(self, config):
+    self.logger = log_msg
+    self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
+    self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
+    self.batchsize, self.isCrossVal = config.get('batchsize'), config.get('isCrossVal')
+  def on_train_begin(self, logs=None):
+    if self.batchsize == 1:
+      log_msg( 'Training on', len(self.train_datagen), 'samples' )
+      log_msg( 'Validate on', len(self.valid_datagen), 'samples' )
+    else:
+      log_msg( 'Training on', len(self.train_datagen), 'batches of', self.batchsize, 'samples' )
+      log_msg( 'Validate on', len(self.valid_datagen), 'batches of', self.batchsize, 'samples' )
+    self.on_train_begin_fold()
+
+  def on_train_begin_fold(self):
+    if self.isCrossVal:
       restore_stdout()
-      print('--Fold_bkh '+str(ifold)+' of '+str(nbfolds)+' --', flush=True)
+      self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
+      restore_stdout()
+
+def epoch0endCB(epoch, logs):
+  if epoch==0:
+    announceShowTensorboard()
+    
+def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
+  from keras.callbacks import EarlyStopping, LambdaCallback
+  epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
+  early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
+  LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
+  callbacks = [early_stopping,LR_sched,epoch0end]
+  if logdir != None:
+    from keras.callbacks import TensorBoard
+    tensor_board = TensorBoard(log_dir=logdir, \
+                         write_graph=True, write_grads=False, write_images=True)
+    callbacks.append( tensor_board )
+
+  _custom_builtin_cbs = [LogNrOfSamples, ProgressBarCallback, ProgressNoBarCallback, BokehProgressCallback]
+
+  if hasFastprogress() and not silent:
+     prog_cb = ProgressBarCallback
+  else: 
+    prog_cb = ProgressNoBarCallback
+
+  custom_cbs = [prog_cb, LogNrOfSamples]
+  for cb in cbfn+custom_cbs:
+    if cb in _custom_builtin_cbs:
+      cb = cb(custom_config)
+    callbacks = [cb]+callbacks
+  return callbacks
+
 
 def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
-  from keras.callbacks import EarlyStopping, LambdaCallback
   from dgbpy.keras_classes import TrainingSequence
   import tensorflow as tf
   restore_stdout()
 
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
+  cbfn = dgbkeys.listify(cbfn)
   if classification:
     monitor = 'accuracy'
   else:
     monitor = 'loss'
-  early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
-  LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
-
-  def epoch0endCB(epoch, logs):
-    if epoch==0:
-      announceShowTensorboard()
-
-  epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
-
-  callbacks = [early_stopping,LR_sched,epoch0end]
-
   batchsize = params['batch']
-  if logdir != None:
-    from keras.callbacks import TensorBoard
-    tensor_board = TensorBoard(log_dir=logdir, \
-                         write_graph=True, write_grads=False, write_images=True)
-    callbacks.append( tensor_board )
   transform, scale = params['transform'], params['scale']
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
 
-  if hasFastprogress() and not silent:
-    prog_cb = [ProgressBarCallback()]
-  else:
-    prog_cb = [ProgressNoBarCallback()]
-
-  cbfn = dgbkeys.listify(cbfn)
-  for cb in cbfn+prog_cb:
-    if hasattr(cb, 'set_dl'):
-      cb.set_dl(train_datagen,validate_datagen)
-    callbacks = [cb] + callbacks
-
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
-    # check if action is from bokeh
-    bokeh_cb = False
-    fromBokeh = len(cbfn)==1 and isinstance(cbfn[0], BokehProgressCallback)
-    if fromBokeh:
-      bokeh_cb = cbfn[0]
-      bokeh_cb.before_fit_chunk(ichunk, nbchunks)
     try:
       if not train_datagen.set_chunk(ichunk) or not validate_datagen.set_chunk(ichunk):
         continue
@@ -423,42 +452,31 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
       log_msg('Try to lower the batch size and restart the training')
       log_msg('')
       raise e
-
-    if batchsize == 1:
-      log_msg( 'Training on', len(train_datagen), 'samples' )
-      log_msg( 'Validate on', len(validate_datagen), 'samples' )
-    else:
-      log_msg( 'Training on', len(train_datagen), 'batches of', batchsize, 'samples' )
-      log_msg( 'Validate on', len(validate_datagen), 'batches of', batchsize, 'samples' )
-
     if  len(train_datagen) < 1 or len(validate_datagen) < 1:
       log_msg('')
       log_msg('There is not enough data to train on')
       log_msg('Extract more data and restart')
       log_msg('')
       raise TypeError
-
     redirect_stdout()
-    x_validate, y_validate, validation_batch_size = \
-                            get_validation_data( validate_datagen )
-
     isCrossVal = dgbhdf5.isCrossValidation(infos)
-    if bokeh_cb and isCrossVal:
-      nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
-      bokeh_cb.before_fit_fold(1, nbfolds) # log first fold
+    config = { 'train_datagen':train_datagen, 'valid_datagen':validate_datagen,
+                'ichunk':ichunk+1, 'nbchunks':nbchunks,'isCrossVal':isCrossVal, 'batchsize':batchsize }
     try:
-      model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
-                validation_data=validate_datagen,callbacks=callbacks)
-
-      if isCrossVal:
+      if not isCrossVal:
+        callbacks = init_callbacks(monitor, params,logdir,silent,config,cbfn=cbfn)
+        model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
+                  validation_data=validate_datagen,callbacks=callbacks)
+      else:
         nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
-        for ifold in range(2, nbfolds+1): # start transfer from second fold
+        for ifold in range(1, nbfolds+1):
           train_datagen.set_fold(ichunk, ifold)
           validate_datagen.set_fold(ichunk, ifold)
-          if bokeh_cb: bokeh_cb.before_fit_fold(ifold, nbfolds)
-          transfer(model)
-          model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
-                validation_data=validate_datagen,callbacks=callbacks)
+          config['ifold'], config['nbfolds'] = ifold, nbfolds
+          callbacks = init_callbacks(monitor,params,logdir,silent,config,cbfn=cbfn)
+          if ifold != 1: # start transfer from second fold
+            transfer(model)
+          model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,validation_data=validate_datagen,callbacks=callbacks)
 
     except Exception as e:
       log_msg('')

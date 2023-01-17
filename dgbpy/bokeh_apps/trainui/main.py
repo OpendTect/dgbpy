@@ -425,6 +425,7 @@ def training_app(doc):
     if progress['_chunkTemp'] == progress['n_chunks'] and resetFold:
       progress['ichunk'], progress['_chunkTemp'], progress['n_chunks'] = 0, 0, 0
       progress['n_epochs'] = 0
+      resetFold = False
     else:
       progress['state'] = ProgState.Running
 
