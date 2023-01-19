@@ -367,7 +367,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         nbchunks=params['nbchunk'],
                                         force=False,
-                                        split=validation_split )
+                                        split=params['split'] )
 
     if type == TrainType.New:
       model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']

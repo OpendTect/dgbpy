@@ -418,8 +418,8 @@ def training_app(doc):
     progress['epoch'] = 0
     progress['state'], progress['Ended'] = ProgState.Ready, False
     progress['after_iter'] = False
-    resetFold = False
-    if progress['_foldTemp'] == progress['n_folds']:
+    resetFold = False if progress['doCrossVal'] else True
+    if progress['_foldTemp'] == progress['n_folds'] and progress['doCrossVal']:
       resetFold, progress['doCrossVal'] = True, False
       progress['ifold'], progress['n_folds'], progress['_foldTemp'] = 0, 0, 0
     if progress['_chunkTemp'] == progress['n_chunks'] and resetFold:
@@ -456,7 +456,7 @@ def training_app(doc):
     if progress['ichunk'] > progress['_chunkTemp']:
       chunk.text = uibokeh.setProgValue(type="Training on Chunk",current=progress['ichunk'],total=progress['n_chunks'])
     if progress['ifold'] > progress['_foldTemp']:
-      fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
+      fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['ifold'],total=progress['n_folds'])
     if progress['epoch'] > parent.current_step_:
       parent.set(progress['epoch'], progress['n_epochs'])
     if progress['iter'] > child.current_step_:
@@ -466,7 +466,6 @@ def training_app(doc):
     if progress['Ended']:
       child.reset()
       if progress['_chunkTemp'] < progress['n_chunks'] or progress['_foldTemp'] < progress['n_folds']:
-        odcommon.log_msg('after_fold')
         parent.reset()
         parent.set(0, progress['n_epochs'])
       else:
