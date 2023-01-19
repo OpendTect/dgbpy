@@ -41,6 +41,7 @@ torch_dict = {
     'nbchunk': 10,
     'epochs': 15,
     'epochdrop': 5,
+    'split': 0.2,
     'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
     'batch': 8,
     'learnrate': 0.0001,
@@ -82,6 +83,7 @@ def getParams(
     epochdrop=torch_dict['epochdrop'],
     batch=torch_dict['batch'],
     prefercpu = torch_dict['prefercpu'],
+    validation_split=torch_dict['split'], 
     scale=torch_dict['scale'],
     transform=torch_dict['transform'],
     withtensorboard=torch_dict['withtensorboard']):
@@ -92,6 +94,7 @@ def getParams(
     'learnrate': learnrate,
     'epochs': epochs,
     'epochdrop': epochdrop,
+    'split':validation_split,
     'batch': batch,
     'scale': scale,
     'transform': transform,
@@ -442,6 +445,12 @@ class ChunkedDataLoader(DataLoader):
     
     def set_chunk(self, ichunk):
         return self.dataset.set_chunk(ichunk)
+
+    def set_fold(self, ichunk, ifold):
+        return self.dataset.set_fold(ichunk, ifold)
+
+    def get_batchsize(self):
+        return self.batch_size
 
     def __iter__(self):
         for batch in super().__iter__():

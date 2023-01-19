@@ -67,7 +67,7 @@ keras_dict = {
   'patience': 5,
   'learnrate': 1e-4,
   'epochdrop': 5,
-  'split': 1,
+  'split': 0.2,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,

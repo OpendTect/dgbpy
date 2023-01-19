@@ -174,8 +174,8 @@ def getUiParams( keraspars, advkeraspars ):
   nrepochs = kerasgrp['epochfld'].value
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
-  validation_split = 1
-  if 'validfld' in kerasgrp:
+  validation_split = 0.2
+  if dgbhdf5.isCrossValidation(info):
     validation_split = kerasgrp['validfld'].value
   if epochdrop < 1:
     epochdrop = 1

@@ -71,12 +71,14 @@ def getUiPars(uipars=None):
   defbatchsz = torch_dict['batch']
   defmodel = modeltypes[0]
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  isCrossVal = dgbhdf5.isCrossValidation(info)
   if tc.TorchUserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
+      'validfld' : Slider(start=1,end=1000, title='Number of input for validation', visible = False),
       'batchfld': Select(title='Batch Size', options=cudacores),
       'epochfld': Slider(start=1, end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
@@ -86,6 +88,9 @@ def getUiPars(uipars=None):
       'chunkfld': Slider( start=1, end=100, title='Number of Chunks' ),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
+    if isCrossVal:
+      uiobjs['validfld'].visible = True
+      uiobjs['validfld'].end = dgbhdf5.getNrGroupInputs(info)
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
     uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
@@ -106,6 +111,9 @@ def getUiPars(uipars=None):
   uiobjs['epochdrop'].value = dict['epochdrop']
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  if isCrossVal:
+    uiobjs['validfld'].visible = True
+    uiobjs['validfld'].value = 1
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -172,6 +180,9 @@ def getUiParams( torchpars, advtorchpars ):
   nrepochs = torchgrp['epochfld'].value
   epochdroprate = torchgrp['epochfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
+  validation_split = 0.2
+  if dgbhdf5.isCrossValidation(info):
+    validation_split = torchgrp['validfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not torchgrp['rundevicefld'].visible or \
@@ -186,6 +197,7 @@ def getUiParams( torchpars, advtorchpars ):
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
+                             validation_split = validation_split, \
                              prefercpu = runoncpu,
                              scale = scale,
                              transform=transform,
