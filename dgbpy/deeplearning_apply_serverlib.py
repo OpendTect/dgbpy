@@ -152,10 +152,13 @@ class ModelApplier:
         return samples
 
     def postprocess(self,samples):
-        if dgbhdf5.unscaleOutput( self.info_ ):
-            if self.needtranspose_:
-                samples = np.transpose( samples, axes=(0,1,4,3,2) )
+        if self.needtranspose_:
+            samples = np.transpose( samples, axes=(0,1,4,3,2) )
 
+        if self.is2dinp_ and len(samples.shape)==5:
+            samples = samples[:,:,samples.shape[2]//2,:,:]
+        
+        if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
                 dgbscikit.unscale( samples, self.scaler_ )
 
@@ -166,13 +169,15 @@ class ModelApplier:
         inpshape = self.info_[dgbkeys.inpshapedictstr]
         nrzin = inp.shape[-1]
         vertical =  isinstance(inpshape,int)
-        is2d = False
+        self.is2dinp_ = False
+        self.is3dmodel_ = False
         if vertical:
             chunksz = 1
             nrzoutsamps = nrzin-inpshape+1
         else:
-            is2d = len(inp.shape) == 3
-            if is2d:
+            self.is2dinp_ = len(inp.shape) == 3
+            self.is3dmodel_ = len(inpshape) == 3
+            if self.is2dinp_:
                 chunksz = inp.shape[1] - inpshape[1] + 1
             else:
                 chunksz = inp.shape[2] - inpshape[1] + 1
@@ -196,7 +201,7 @@ class ModelApplier:
               for zidz in range(nrzoutsamps):
                 loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
             else:
-              if is2d:
+              if self.is2dinp_:
                 for zidz in range(nrzoutsamps):
                   loc_samples[zidz] = inp[:,i:i+nrtrcs+1,zidz:zidz+nrz]                 
               else:
@@ -212,7 +217,7 @@ class ModelApplier:
 
         if dgbkeys.preddictstr in ret:
             ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
-
+    
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )
