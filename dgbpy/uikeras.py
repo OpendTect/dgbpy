@@ -73,6 +73,7 @@ def getUiPars(uipars=None):
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
       'validfld' : validfld,
+      'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
       'batchfld': Select(title='Batch Size',options=cudacores),
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'patiencefld': Slider(start=1,end=100, title='Patience'),
@@ -104,6 +105,7 @@ def getUiPars(uipars=None):
   uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  uiobjs['foldfld'].value = dict['nbfold']
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -173,6 +175,9 @@ def getUiParams( keraspars, advkeraspars ):
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
   validation_split = kerasgrp['validfld'].value
+  nbfold = keras_dict['nbfold']
+  if kerasgrp['foldfld'].visible:
+    nbfold = kerasgrp['foldfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
@@ -188,6 +193,7 @@ def getUiParams( keraspars, advkeraspars ):
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
                              validation_split = validation_split, \
+                             nbfold=nbfold, \
                              nntype=kerasgrp['modeltypfld'].value, \
                              prefercpu=runoncpu, scale=scale, transform=transform, \
                              withtensorboard=withtensorboard)
