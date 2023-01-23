@@ -71,12 +71,18 @@ def getUiPars(uipars=None):
   defbatchsz = torch_dict['batch']
   defmodel = modeltypes[0]
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  isCrossVal = dgbhdf5.isCrossValidation(info)
+  if isCrossVal:
+    validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,title='Number of input for validation')
+  else:
+    validfld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,title='Validation Percentage Split')
   if tc.TorchUserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
+      'validfld': validfld,
       'batchfld': Select(title='Batch Size', options=cudacores),
       'epochfld': Slider(start=1, end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
@@ -172,6 +178,7 @@ def getUiParams( torchpars, advtorchpars ):
   nrepochs = torchgrp['epochfld'].value
   epochdroprate = torchgrp['epochfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
+  validation_split = torchgrp['validfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not torchgrp['rundevicefld'].visible or \
@@ -186,6 +193,7 @@ def getUiParams( torchpars, advtorchpars ):
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
+                             validation_split = validation_split, \
                              prefercpu = runoncpu,
                              scale = scale,
                              transform=transform,
