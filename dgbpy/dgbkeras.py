@@ -67,7 +67,8 @@ keras_dict = {
   'patience': 5,
   'learnrate': 1e-4,
   'epochdrop': 5,
-  'split': 1,
+  'split': 0.2,
+  'nbfold': 5,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,
@@ -104,7 +105,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
-               validation_split=keras_dict['split'], scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
+               validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'],
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -114,6 +116,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'learnrate': learnrate,
     'epochdrop': epochdrop,
     'split': validation_split,
+    'nbfold': nbfold,
     'type': nntype,
     'transform': transform,
     'scale': scale,

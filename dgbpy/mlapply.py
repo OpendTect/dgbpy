@@ -112,7 +112,7 @@ def computeScaler( infos, scalebyattrib, force=False ):
   return infos
 
 def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalScaler, force=False, 
-                           nbchunks=1, split=None ):
+                           nbchunks=1, split=None, nbfolds=5 ):
   """ Gets scaled training data
 
   Parameters:
@@ -128,7 +128,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   datasets = []
   for dset in dsets:
     if dgbhdf5.isLogInput(infos):
-      datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split) )
+      datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split,nbfolds=nbfolds) )
     else:
       datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets})
@@ -323,7 +323,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         force=False,
                                         nbchunks=params['nbchunk'],
-                                        split=params['split'] )
+                                        split=params['split'],nbfolds=params['nbfold'] )
     tblogdir=None
     if 'withtensorboard' in params and params['withtensorboard']:
       tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
@@ -367,7 +367,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                         scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
                                         nbchunks=params['nbchunk'],
                                         force=False,
-                                        split=validation_split )
+                                        split=params['split'],nbfolds=params['nbfold'] )
 
     if type == TrainType.New:
       model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
