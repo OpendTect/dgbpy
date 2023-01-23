@@ -396,10 +396,12 @@ def epoch0endCB(epoch, logs):
     
 def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
   from keras.callbacks import EarlyStopping, LambdaCallback
-  epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
   early_stopping = EarlyStopping(monitor=monitor, patience=params['patience'])
   LR_sched = adaptive_schedule(params['learnrate'],params['epochdrop'])
-  callbacks = [early_stopping,LR_sched,epoch0end]
+  callbacks = [early_stopping,LR_sched]
+  if params['withtensorboard']:
+    epoch0end = LambdaCallback(on_epoch_end=epoch0endCB)
+    callbacks.append(epoch0end)
   if logdir != None:
     from keras.callbacks import TensorBoard
     tensor_board = TensorBoard(log_dir=logdir, \
