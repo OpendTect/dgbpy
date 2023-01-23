@@ -83,6 +83,7 @@ def getUiPars(uipars=None):
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
       'validfld': validfld,
+      'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
       'batchfld': Select(title='Batch Size', options=cudacores),
       'epochfld': Slider(start=1, end=1000, title='Epochs'),
       'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
@@ -112,6 +113,7 @@ def getUiPars(uipars=None):
   uiobjs['epochdrop'].value = dict['epochdrop']
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
+  uiobjs['foldfld'].value = dict['nbfold']
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -179,6 +181,9 @@ def getUiParams( torchpars, advtorchpars ):
   epochdroprate = torchgrp['epochfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
   validation_split = torchgrp['validfld'].value
+  nbfold = torch_dict['nbfold']
+  if torchgrp['foldfld'].visible:
+    nbfold = torchgrp['foldfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not torchgrp['rundevicefld'].visible or \
@@ -194,6 +199,7 @@ def getUiParams( torchpars, advtorchpars ):
                              nntype=torchgrp['modeltypfld'].value, \
                              epochdrop=torchgrp['epochdrop'].value, \
                              validation_split = validation_split, \
+                             nbfold= nbfold, \
                              prefercpu = runoncpu,
                              scale = scale,
                              transform=transform,

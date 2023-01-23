@@ -118,7 +118,7 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
     dgbkeys.validdictstr: valid
   }
 
-def getCrossValidationIndices(dsets, valid_inputs=1):
+def getCrossValidationIndices(dsets, valid_inputs=1, nbfolds=5):
   """ Gets train and validation data for cross validation.
 
   Parameters:
@@ -136,7 +136,7 @@ def getCrossValidationIndices(dsets, valid_inputs=1):
   if valid_inputs == None:
     valid_inputs = 0
   if valid_inputs < 1 or valid_inputs > int(0.5*len(all_inp)):
-    valid_inputs = int(0.25*len(all_inp)) #use 35% of number of wells as defaults
+    valid_inputs = int(0.20*len(all_inp)) #use 20% of number of wells as defaults
 
   # Shuffle well names
   np.random.shuffle(all_inp)
@@ -145,7 +145,7 @@ def getCrossValidationIndices(dsets, valid_inputs=1):
   result = {}
 
   # Create folds
-  for i in range(5):
+  for i in range(nbfolds):
     train, valid = {}, {}
     valid_wells = all_inp[i*valid_inputs : i*valid_inputs+valid_inputs]
     if len(valid_wells) < valid_inputs:
