@@ -62,13 +62,17 @@ def getUiPars(uipars=None):
   defbatchsz = keras_dict['batch']
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
+  if isCrossVal:
+    validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,title='Number of input for validation')
+  else:
+    validfld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,title='Validation Percentage Split')
   if kc.UserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes),
-      'validfld' : Slider(start=1,end=1000, title='Number of input for validation', visible = False),
+      'validfld' : validfld,
       'batchfld': Select(title='Batch Size',options=cudacores),
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'patiencefld': Slider(start=1,end=100, title='Patience'),
@@ -79,9 +83,6 @@ def getUiPars(uipars=None):
       'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
     }
-    if isCrossVal:
-      uiobjs['validfld'].visible = True
-      uiobjs['validfld'].end = dgbhdf5.getNrGroupInputs(info)
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
     uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
@@ -103,9 +104,6 @@ def getUiPars(uipars=None):
   uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
-  if isCrossVal:
-    uiobjs['validfld'].visible = True
-    uiobjs['validfld'].value = 1
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -174,9 +172,7 @@ def getUiParams( keraspars, advkeraspars ):
   nrepochs = kerasgrp['epochfld'].value
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
-  validation_split = 0.2
-  if dgbhdf5.isCrossValidation(info):
-    validation_split = kerasgrp['validfld'].value
+  validation_split = kerasgrp['validfld'].value
   if epochdrop < 1:
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
