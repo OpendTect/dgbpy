@@ -112,7 +112,7 @@ def computeScaler( infos, scalebyattrib, force=False ):
   return infos
 
 def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalScaler, force=False, 
-                           nbchunks=1, split=None, nbfolds=5 ):
+                           nbchunks=1, split=1, nbfolds=5 ):
   """ Gets scaled training data
 
   Parameters:
