@@ -15,12 +15,13 @@ class RandomFlip():
     def __init__(self, p=0.3):
         self.p = p
         self.multiplier = 1
+        self.uniform_prob = np.random.uniform(0,1)
 
     def transformLabel(self, info):
         return dgbhdf5.isImg2Img(info)
 
     def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
+        if self.p > self.uniform_prob:
             if not isinstance(label, np.ndarray):
                 return self.transform(image), label
             return self.transform(image), self.transform(label)
@@ -48,12 +49,13 @@ class RandomGaussianNoise():
         self.p = p
         self.std = std
         self.multiplier = 1
+        self.uniform_prob = np.random.uniform(0,1)
 
     def transformLabel(self, info):
         return False
         
     def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
+        if self.p > self.uniform_prob:
             self.noise = np.random.normal(loc = 0, scale = self.std, size = image.shape).astype('float32')
             return self.transform(image), label
         return image, label
@@ -74,6 +76,7 @@ class RandomRotation():
         self.p = p
         self.angle = angle
         self.multiplier = 1
+        self.uniform_prob = np.random.uniform(0,1)
         import cv2
         self.cv2 = cv2
 
@@ -81,7 +84,7 @@ class RandomRotation():
         return dgbhdf5.isImg2Img(info)
    
     def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
+        if self.p > self.uniform_prob:
             self.ndims = ndims
             angle = np.random.choice(range(-self.angle, self.angle))
             # angle = np.random.choice([-self.angle, self.angle])
@@ -119,6 +122,7 @@ class RandomTranslation():
         self.p = p
         self.percent = percent / 100
         self.multiplier = 1
+        self.uniform_prob = np.random.uniform(0,1)
         from scipy.ndimage import shift
         self.shift = shift
         self.ndims = None
@@ -127,7 +131,7 @@ class RandomTranslation():
         return dgbhdf5.isImg2Img(info)
 
     def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
+        if self.p > self.uniform_prob:
             self.ndims = ndims
             if not isinstance(label, np.ndarray):
                 return self.transform(image), label
@@ -149,12 +153,13 @@ class RandomPolarityFlip():
     def __init__(self, p = 0.25):
         self.p = p
         self.multiplier = 1
+        self.uniform_prob = np.random.uniform(0,1)
 
     def transformLabel(self, info):
         return dgbhdf5.isRegression(info)
 
     def __call__(self, image=None, label=None, ndims=None):
-        if self.p > np.random.uniform(0,1):
+        if self.p > self.uniform_prob:
             if not isinstance(label, np.ndarray):
                 return self.transform(image), label
             return self.transform(image), self.transform(label)
@@ -245,6 +250,13 @@ class TransformCompose():
         for transform_i in self.transforms:
             self.multiplier += transform_i.multiplier
 
+    def set_uniform_generator_seed(self, seed, nsamples):
+        for transform_i in self.transforms:
+            if seed:
+                seed+=1 # set different seed for each transform
+            self.randomstate = np.random.RandomState(seed=seed)
+            transform_i.all_uniform_prob = self.randomstate.uniform(0, 1, nsamples)
+
     def passModuleCheck(self, transform_i):
         if isinstance(transform_i, RandomRotation) and not hasOpenCV():
             return False
@@ -264,7 +276,7 @@ class TransformCompose():
             doLabelTransform += transform.transformLabel(self.info),
         return doLabelTransform
 
-    def __call__(self, image, label, mixed_val = None):
+    def __call__(self, image, label, prob_idx, mixed_val = None):
         probs = False
         if self.mixed:
             probs = np.zeros(self.multiplier)
@@ -272,6 +284,7 @@ class TransformCompose():
         for tr_label, transform_i in enumerate(self.transforms):
             if hasattr(transform_i, 'p') and isinstance(probs, np.ndarray):
                 transform_i.p = probs[tr_label]
+            transform_i.uniform_prob = transform_i.all_uniform_prob[prob_idx] #set current uniform probability for each transform
             if self.do_label[tr_label]:
                 image, label = transform_i(image=image, label=label, ndims=self.ndims)
             else:
