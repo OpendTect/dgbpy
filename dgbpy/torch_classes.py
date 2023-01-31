@@ -358,6 +358,12 @@ class BokehProgressCallback(Callback):
         print('--Chunk_Number '+str(self.ichunk+1)+' of '+str(self.nbchunks)+' --', flush=True)
         odcommon.restore_stdout()
 
+    def begin_fold(self):
+        if self.run.isCrossVal:
+            odcommon.restore_stdout()
+            print('--Fold_bkh '+str(self.ifold)+' of '+str(self.nbfolds)+' --', flush=True)
+            odcommon.restore_stdout()
+
 class EarlyStoppingCallback(Callback):
     _order = 3
     def __init__(self, patience):
@@ -413,6 +419,26 @@ class TensorBoardLogCallback(Callback):
                     "validation":self.avg_stats.valid_stats.avg_stats[1] if self.valid_dl else np.nan
                 }, self.epoch)
 
+class LogNrOfSamplesCallback(Callback):
+    _order=0
+    def begin_fit(self):
+        batchsize = self.train_dl.get_batchsize()
+        if batchsize == 1:
+            odcommon.log_msg( 'Training on', len(self.run.train_dl), 'samples' )
+            odcommon.log_msg( 'Validate on', len(self.run.valid_dl), 'samples' )
+        else:
+            odcommon.log_msg( 'Training on', len(self.run.train_dl), 'batches of', batchsize, 'samples' )
+            odcommon.log_msg( 'Validate on', len(self.run.valid_dl), 'batches of', batchsize, 'samples' )
+
+    def begin_fold(self):
+        if self.run.isCrossVal:
+            odcommon.log_msg(f'----------------- Fold {self.run.ifold}/{self.run.nbfolds} ------------------')
+
+class TransformCallback(Callback):
+    def begin_epoch(self):
+        # set new transform seed for each epoch
+        self.run.train_dl.set_transform_seed() 
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -446,7 +472,8 @@ class Trainer:
 
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
-                        EarlyStoppingCallback(earlystopping) ]
+                        EarlyStoppingCallback(earlystopping), LogNrOfSamplesCallback(),
+                        TransformCallback() ]
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
@@ -490,7 +517,24 @@ class Trainer:
         self.epoch,self.dl = epoch,self.train_dl
         return self('begin_epoch')
 
-    def fit_one_chunk(self):
+    def fit_one_chunk(self, ichunk):
+        self.isCrossVal = dgbhdf5.isCrossValidation(self.imgdp[dgbkeys.infodictstr])
+        if not self.isCrossVal:
+            return self.train_fn()
+        else:
+            from dgbpy.dgbtorch import transfer
+            self.nbfolds = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr][ichunk])
+            for ifold in range(1, self.nbfolds+1):
+                self.ifold = ifold
+                self('begin_fold')
+                self.train_dl.set_fold(ichunk, ifold)
+                self.valid_dl.set_fold(ichunk, ifold)
+                if ifold!=1: # start transfer from second fold
+                    transfer(self.savemodel)
+                self.savemodel = self.train_fn()
+            return self.savemodel
+
+    def train_fn(self):
         try:
             self('begin_fit')
             for epoch in range(self.epochs):
@@ -531,13 +575,14 @@ class Trainer:
                 odcommon.log_msg('')
                 raise 
             
-            self.savemodel = self.fit_one_chunk()
+            self.savemodel = self.fit_one_chunk(ichunk)
             self.remove_cbs(cbs)
         return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
-                'begin_epoch', 'begin_validate', 'after_epoch', 'after_cancel_train', 'after_fit', 'before_fit_chunk'}
+                'begin_epoch', 'begin_validate', 'after_epoch', 'after_cancel_train', 
+                'after_fit', 'before_fit_chunk', 'begin_fold'}
             
     def __call__(self, cb_name):
         res = False
@@ -1021,25 +1066,25 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset(Dataset):
-    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
+    def __init__(self, imgdp, scale, seed=None, transform=list(), transform_copy = False):
         from dgbpy import transforms as T
         self.imgdp = imgdp
         self._data_IDs = []
         self.scale = scale
         self.transform = transform
-        self.trfm_copy = transform_copy
-        self.trfm_multiplier = 0
+        self.transform_seed = seed
+        self.trfm_copy, self.trfm_multiplier = transform_copy, 0
 
     def __len__(self):
         return len(self._data_IDs)
 
-    def __getitem__(self, idx):
-        idx, rem = np.divmod(idx, self.trfm_multiplier+1)
+    def __getitem__(self, _idx):
+        idx, rem = np.divmod(_idx, self.trfm_multiplier+1)
         if self.ndims < 2:
             X, Y = self._adaptShape(self.X[idx], self.y[idx])
             return X, Y
         if self.transformer:
-            X, Y = self.transformer(self.X[idx], self.y[idx], mixed_val = rem)
+            X, Y = self.transformer(self.X[idx], self.y[idx], _idx, mixed_val = rem)
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
@@ -1048,23 +1093,33 @@ class SeismicTrainDataset(Dataset):
             return X, Y
 
     def set_chunk(self, ichunk):
+        self.info = self.imgdp[dgbkeys.infodictstr]
+        nbchunks = len(self.info[dgbkeys.trainseldicstr])
+        if nbchunks > 1 or dgbhdf5.isCrossValidation(self.info):
+            return self.set_fold(ichunk, 1)
+        else:
+            return self.get_data(self.imgdp, ichunk)
+
+    def set_fold(self, ichunk, ifold):
+        from dgbpy import mlapply as dgbmlapply
+        trainchunk  = dgbmlapply.getScaledTrainingDataByInfo( self.info,
+                                                flatten=False,
+                                                scale=True, ichunk=ichunk, ifold=ifold)
+        return self.get_data(trainchunk, ichunk)
+
+    def set_transform_seed(self):
+        if self.transform_seed:
+            self.transform_seed+=1
+        self.transformer.set_uniform_generator_seed(self.transform_seed, len(self))
+
+    def get_data(self, trainchunk, ichunk):
         from dgbpy import dgbtorch
         from dgbpy import transforms as T
-        info = self.imgdp[dgbkeys.infodictstr]
-        nbchunks = len(info[dgbkeys.trainseldicstr])
-        if nbchunks > 1:
-            from dgbpy import mlapply as dgbmlapply
-            trainchunk  = dgbmlapply.getScaledTrainingDataByInfo( info,
-                                                    flatten=False,
-                                                    scale=True, ichunk=ichunk)
-            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(trainchunk, False)
-        else:
-            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(self.imgdp, False)
-
+        X, y, info, im_ch, self.ndims = dgbtorch.getDatasetPars(trainchunk, False)
         self.X = X.astype('float32')
         self.y = y.astype('float32')
 
-        if ichunk == 0:
+        if ichunk == 0: # initialise transforms on first chunk
             if isinstance(self.transform, (list, *T.all_transforms.values())):
                 if self.scale and isinstance(self.scale, (*T.scale_transforms.values(),)):
                     self.transform.append(self.scale)
@@ -1129,6 +1184,7 @@ class SeismicTestDataset(Dataset):
         self.imgdp = imgdp
         self.scale=scale
         self.transform = []
+
     def __len__(self):
         return self.X.shape[0]
 
@@ -1138,25 +1194,30 @@ class SeismicTestDataset(Dataset):
         return image, label
 
     def set_chunk(self, ichunk):
+        self.info = self.imgdp[dgbkeys.infodictstr]
+        nbchunks = len(self.info[dgbkeys.trainseldicstr])
+        if nbchunks > 1 or dgbhdf5.isCrossValidation(self.info):
+            return self.set_fold(ichunk, 1)
+        else:
+            return self.get_data(self.imgdp, ichunk)
+
+    def set_fold(self, ichunk, ifold):
+        from dgbpy import mlapply as dgbmlapply
+        validchunk  = dgbmlapply.getScaledTrainingDataByInfo( self.info,
+                                                flatten=False,
+                                                scale=True, ichunk=ichunk, ifold=ifold)
+        return self.get_data(validchunk, ichunk)
+
+    def get_data(self, validchunk, ichunk):
         from dgbpy import dgbtorch
         from dgbpy import transforms as T
-        info = self.imgdp[dgbkeys.infodictstr]
-        nbchunks = len(info[dgbkeys.trainseldicstr])
-        if nbchunks > 1:
-            from dgbpy import mlapply as dgbmlapply
-            validchunk  = dgbmlapply.getScaledTrainingDataByInfo( info,
-                                                    flatten=False,
-                                                    scale=True, ichunk=ichunk)
-            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(validchunk, True)
-        else:
-            X, y, self.info, im_ch, self.ndims = dgbtorch.getDatasetPars(self.imgdp, True)
-
+        X, y, info, im_ch, self.ndims = dgbtorch.getDatasetPars(validchunk, True)
         self.X = X.astype('float32')
         self.y = y.astype('float32')
 
         if ichunk == 0:
             if self.scale and isinstance(self.scale, (list, *T.scale_transforms.values())):
-                self.transform = T.TransformCompose(self.scale, self.info, self.ndims)
+                self.transform = T.TransformCompose(self.scale, info, self.ndims)
         return True
 
     def __getitem__(self,index):

@@ -452,6 +452,9 @@ class ChunkedDataLoader(DataLoader):
     def set_fold(self, ichunk, ifold):
         return self.dataset.set_fold(ichunk, ifold)
 
+    def set_transform_seed(self):
+        self.dataset.set_transform_seed()
+
     def get_batchsize(self):
         return self.batch_size
 
