@@ -12,7 +12,7 @@ from dgbpy import keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
 class RandomFlip():
-    def __init__(self, p=0.3):
+    def __init__(self, p=0.2):
         self.p = p
         self.multiplier = 1
         self.uniform_prob = np.random.uniform(0,1)
@@ -45,7 +45,7 @@ class RandomFlip():
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
 class RandomGaussianNoise():
-    def __init__(self, p=0.3, std=0.1):
+    def __init__(self, p=0.2, std=0.1):
         self.p = p
         self.std = std
         self.multiplier = 1
@@ -72,7 +72,7 @@ def hasOpenCV():
   return True
 
 class RandomRotation():
-    def __init__(self, p=0.3, angle=15):
+    def __init__(self, p=0.2, angle=15):
         self.p = p
         self.angle = angle
         self.multiplier = 1
@@ -150,7 +150,7 @@ class RandomTranslation():
         return self.shift(arr, transform_axes)
 
 class RandomPolarityFlip():
-    def __init__(self, p = 0.25):
+    def __init__(self, p = 0.2):
         self.p = p
         self.multiplier = 1
         self.uniform_prob = np.random.uniform(0,1)
