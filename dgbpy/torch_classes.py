@@ -419,7 +419,7 @@ class TensorBoardLogCallback(Callback):
                     "validation":self.avg_stats.valid_stats.avg_stats[1] if self.valid_dl else np.nan
                 }, self.epoch)
 
-class LogNrOfSamples(Callback):
+class LogNrOfSamplesCallback(Callback):
     _order=0
     def begin_fit(self):
         batchsize = self.train_dl.get_batchsize()
@@ -433,6 +433,11 @@ class LogNrOfSamples(Callback):
     def begin_fold(self):
         if self.run.isCrossVal:
             odcommon.log_msg(f'----------------- Fold {self.run.ifold}/{self.run.nbfolds} ------------------')
+
+class TransformCallback(Callback):
+    def begin_epoch(self):
+        # set new transform seed for each epoch
+        self.run.train_dl.set_transform_seed() 
 
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
@@ -467,7 +472,8 @@ class Trainer:
 
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
-                        EarlyStoppingCallback(earlystopping), LogNrOfSamples() ]
+                        EarlyStoppingCallback(earlystopping), LogNrOfSamplesCallback(),
+                        TransformCallback() ]
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
@@ -1060,25 +1066,25 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset(Dataset):
-    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
+    def __init__(self, imgdp, scale, seed=None, transform=list(), transform_copy = False):
         from dgbpy import transforms as T
         self.imgdp = imgdp
         self._data_IDs = []
         self.scale = scale
         self.transform = transform
-        self.trfm_copy = transform_copy
-        self.trfm_multiplier = 0
+        self.transform_seed = seed
+        self.trfm_copy, self.trfm_multiplier = transform_copy, 0
 
     def __len__(self):
         return len(self._data_IDs)
 
-    def __getitem__(self, idx):
-        idx, rem = np.divmod(idx, self.trfm_multiplier+1)
+    def __getitem__(self, _idx):
+        idx, rem = np.divmod(_idx, self.trfm_multiplier+1)
         if self.ndims < 2:
             X, Y = self._adaptShape(self.X[idx], self.y[idx])
             return X, Y
         if self.transformer:
-            X, Y = self.transformer(self.X[idx], self.y[idx], mixed_val = rem)
+            X, Y = self.transformer(self.X[idx], self.y[idx], _idx, mixed_val = rem)
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
@@ -1100,6 +1106,11 @@ class SeismicTrainDataset(Dataset):
                                                 flatten=False,
                                                 scale=True, ichunk=ichunk, ifold=ifold)
         return self.get_data(trainchunk, ichunk)
+
+    def set_transform_seed(self):
+        if self.transform_seed:
+            self.transform_seed+=1
+        self.transformer.set_uniform_generator_seed(self.transform_seed, len(self))
 
     def get_data(self, trainchunk, ichunk):
         from dgbpy import dgbtorch
