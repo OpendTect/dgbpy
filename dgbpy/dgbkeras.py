@@ -372,7 +372,7 @@ class BokehProgressCallback(Callback):
         print('--Fold_bkh '+str(self.ifold)+' of '+str(self.nbfolds)+' --', flush=True)
         restore_stdout()
 
-class LogNrOfSamples(Callback):
+class LogNrOfSamplesCallback(Callback):
   def __init__(self, config):
     self.logger = log_msg
     self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
@@ -393,6 +393,14 @@ class LogNrOfSamples(Callback):
       self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
       restore_stdout()
 
+class TransformCallback(Callback):
+  def __init__(self, config):
+    self.train_datagen = config.get('train_datagen')
+
+  def on_epoch_begin(self, epoch, logs=None):
+    self.train_datagen.set_transform_seed()
+
+
 def epoch0endCB(epoch, logs):
   if epoch==0:
     announceShowTensorboard()
@@ -411,14 +419,14 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
                          write_graph=True, write_grads=False, write_images=True)
     callbacks.append( tensor_board )
 
-  _custom_builtin_cbs = [LogNrOfSamples, ProgressBarCallback, ProgressNoBarCallback, BokehProgressCallback]
+  _custom_builtin_cbs = [TransformCallback, LogNrOfSamplesCallback, ProgressBarCallback, ProgressNoBarCallback, BokehProgressCallback]
 
   if hasFastprogress() and not silent:
      prog_cb = ProgressBarCallback
   else: 
     prog_cb = ProgressNoBarCallback
 
-  custom_cbs = [prog_cb, LogNrOfSamples]
+  custom_cbs = [prog_cb, LogNrOfSamplesCallback, TransformCallback]
   for cb in cbfn+custom_cbs:
     if cb in _custom_builtin_cbs:
       cb = cb(custom_config)
