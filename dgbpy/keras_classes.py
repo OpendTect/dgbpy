@@ -17,7 +17,7 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
 class TrainingSequence(Sequence):
-  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
+  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,seed=None,\
                scale=None,transform=list(),transform_copy=True,tempnm=None):
       from dgbpy.dgbkeras import get_data_format
       self._trainbatch = trainbatch
@@ -33,6 +33,7 @@ class TrainingSequence(Sequence):
       self._data_IDs = []
       self.ndims = self._getDims(self._infos)
       self.transform = []
+      self.transform_seed = seed
       self.transform_multiplier = 0
       self.transform_copy = transform_copy
       if exfilenm == None:
@@ -68,6 +69,11 @@ class TrainingSequence(Sequence):
 
   def enable_shuffling(self, yn):
     self._doshuffle = yn
+
+  def set_transform_seed(self):
+    if not isinstance(self.transform, list) and self.transform_seed and not self._forvalid:
+      self.transform_seed+=1
+      self.transform.set_uniform_generator_seed(self.transform_seed, len(self._data_IDs))
 
   def set_chunk(self,ichunk):
       infos = self._infos
@@ -135,9 +141,9 @@ class TrainingSequence(Sequence):
       X = np.empty( (nrpts,*inp_shape), dtype=x_data.dtype )
       Y = np.empty( (nrpts,*out_shape), dtype=y_data.dtype )
       idx, rem = np.divmod(data_IDs_temp, self.transform_multiplier+1)
-      for i, ID in enumerate(idx):
+      for i, (ID, _ID) in enumerate(zip(idx, data_IDs_temp)):
         if self.transform:
-            X[i,], Y[i,] = self.transform(x_data[ID], y_data[ID], mixed_val=rem[i])
+            X[i,], Y[i,] = self.transform(x_data[ID], y_data[ID], _ID, mixed_val=rem[i])
         else:
             X[i,], Y[i,] = x_data[ID], y_data[ID]
       dictinpshape = self._infos[dgbkeys.inpshapedictstr]
