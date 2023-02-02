@@ -243,6 +243,7 @@ class TransformCompose():
         self.do_label = self.transformLabel()
         self.multiplier = 0
         self.mixed = mixed
+        self.use_seed = False
         if self.mixed:
             self.set_params()
 
@@ -251,9 +252,9 @@ class TransformCompose():
             self.multiplier += transform_i.multiplier
 
     def set_uniform_generator_seed(self, seed, nsamples):
+        self.use_seed = True
         for transform_i in self.transforms:
-            if seed:
-                seed+=1 # set different seed for each transform
+            if seed: seed+=1 # set different seed for each transform
             self.randomstate = np.random.RandomState(seed=seed)
             transform_i.all_uniform_prob = self.randomstate.uniform(0, 1, nsamples)
 
@@ -284,7 +285,8 @@ class TransformCompose():
         for tr_label, transform_i in enumerate(self.transforms):
             if hasattr(transform_i, 'p') and isinstance(probs, np.ndarray):
                 transform_i.p = probs[tr_label]
-            transform_i.uniform_prob = transform_i.all_uniform_prob[prob_idx] #set current uniform probability for each transform
+            if self.use_seed:
+                transform_i.uniform_prob = transform_i.all_uniform_prob[prob_idx] #set current uniform probability for each transform
             if self.do_label[tr_label]:
                 image, label = transform_i(image=image, label=label, ndims=self.ndims)
             else:
