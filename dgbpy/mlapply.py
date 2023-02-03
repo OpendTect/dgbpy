@@ -127,7 +127,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   dsets = dgbmlio.getChunks(infos[dgbkeys.datasetdictstr],nbchunks)
   datasets = []
   for dset in dsets:
-    if dgbhdf5.isLogInput(infos):
+    if dgbhdf5.isLogInput(infos) and nbfolds:
       datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split,nbfolds=nbfolds) )
     else:
       datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
@@ -387,7 +387,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
                                         scaler=dgbhdf5.Scaler.GlobalScaler,
                                         force=False,
-                                        split=validation_split )
+                                        split=validation_split, nbfolds=None )
     if type == TrainType.New:
       model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
                                          params )
