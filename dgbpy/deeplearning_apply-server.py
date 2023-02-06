@@ -35,7 +35,7 @@ datagrp.add_argument( '--mldir',
             dest='mldir', nargs=1,
             help='Machine Learning Directory' )
 datagrp.add_argument( '--Order',
-            dest='applydir', type=str, default=dgbkeys.inlinestr
+            dest='applydir', type=str, default=dgbkeys.inlinestr,
             help='Apply direction for 2D models')
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--log',
