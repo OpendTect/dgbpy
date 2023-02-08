@@ -28,7 +28,7 @@ class ExitCommand(Exception):
     pass
 
 class ModelApplier:
-    def __init__(self, modelfnm,isfake=False):
+    def __init__(self, modelfnm, applydir=dgbkeys.inlinestr, isfake=False):
         self.pars_ = None
         self.fakeapply_ = isfake
         self.scaler_ = None
@@ -39,6 +39,7 @@ class ModelApplier:
         self.applyinfo_ = None
         self.batchsize_ = None
         self.debugstr = ''
+        self.applydir_ = applydir
 
     def _get_info(self,modelfnm):
         info = dgbmlio.getInfo( modelfnm, quick=True )
@@ -157,12 +158,36 @@ class ModelApplier:
 
         if self.is2dinp_ and len(samples.shape)==5:
             samples = samples[:,:,samples.shape[2]//2,:,:]
+        elif self.swapaxes_:
+            samples = samples.swapaxes(2, 3)
         
         if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
                 dgbscikit.unscale( samples, self.scaler_ )
 
         return samples
+
+    def flatModelApply(self, inp, samples, samples_shape):
+        inpshape = self.info_[dgbkeys.inpshapedictstr]
+        outshape = (1,) + inp.shape
+        outdata = np.zeros(outshape, dtype=inp.dtype)
+        applydata = np.empty(samples_shape, dtype=inp.dtype)
+        for idx in range(max(inpshape[0], inpshape[1])):
+            if self.isflat_inlinemodel_:
+                applydata[:,:,0] = samples[:,:,idx]
+            elif self.isflat_xlinemodel_:
+                applydata[:,:,:,0] = samples[:,:,:,idx]
+
+            ret = dgbmlapply.doApply( self.model_, self.info_, applydata, \
+                                    scaler=None, applyinfo=self.applyinfo_, \
+                                    batchsize=self.batchsize_ )
+            if dgbkeys.preddictstr in ret:
+                if self.isflat_inlinemodel_:
+                    outdata[0,:,idx] = ret[dgbkeys.preddictstr][:,0]
+                elif self.isflat_xlinemodel_:
+                    outdata[0,:,:,idx] = ret[dgbkeys.preddictstr][:,:,0]
+
+        return outdata
 
     def doWork(self,inp):
         nrattribs = inp.shape[0]
@@ -172,52 +197,69 @@ class ModelApplier:
         self.is2dinp_ = False
         self.is3dmodel_ = False
         if vertical:
-            chunksz = 1
             nrzoutsamps = nrzin-inpshape+1
         else:
             self.is2dinp_ = len(inp.shape) == 3
             self.is3dmodel_ = len(inpshape) == 3
-            if self.is2dinp_:
-                chunksz = inp.shape[1] - inpshape[1] + 1
-            else:
-                chunksz = inp.shape[2] - inpshape[1] + 1
+            self.isflat_inlinemodel_ = self.is3dmodel_ and inpshape[0] == 1 and inpshape[1] > 1
+            self.isflat_xlinemodel_ = self.is3dmodel_ and inpshape[0] > 1 and inpshape[1] == 1
             nrzoutsamps = nrzin - inpshape[2] +1
-        nroutsamps = nrzoutsamps * chunksz
         samples_shape = dgbhdf5.get_np_shape( inpshape, nrattribs=nrattribs,
                                               nrpts=nrzoutsamps )
         nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
         allsamples = list()
-        for i in range(chunksz):
-          if nrz == 1:
+        self.swapaxes_ = False
+        if nrz == 1:
             inp = np.transpose( inp )
-            if chunksz < 2:
-              allsamples.append( np.resize( np.array(inp), samples_shape ) )
-            else:
-              allsamples.append( np.resize( np.array(inp), samples_shape ) ) #review
-          else:
+            allsamples.append( np.resize( np.array(inp), samples_shape ) )
+        else:
             loc_samples = np.empty( samples_shape, dtype=inp.dtype )
+            if (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and not self.is2dinp_:
+                loc_samples = np.empty((1,)+inp.shape, dtype=inp.dtype)
+
             if vertical:
-              for zidz in range(nrzoutsamps):
-                loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
-            else:
-              if self.is2dinp_:
                 for zidz in range(nrzoutsamps):
-                  loc_samples[zidz] = inp[:,i:i+nrtrcs+1,zidz:zidz+nrz]                 
-              else:
+                    loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
+                allsamples.append( loc_samples )
+            elif self.is2dinp_ and self.isflat_xlinemodel_:
                 for zidz in range(nrzoutsamps):
-                  loc_samples[zidz] = inp[:,:,i:i+nrtrcs+1,zidz:zidz+nrz]
-            allsamples.append( loc_samples )
-        samples = np.concatenate( allsamples )
+                  loc_samples[zidz] = inp[:,:,zidz:zidz+nrz].swapaxes(0,1)
+                allsamples.append( loc_samples )
+                self.swapaxes_ = True
+            elif self.is2dinp_:
+                for zidz in range(nrzoutsamps):
+                  loc_samples[zidz] = inp[:,:,zidz:zidz+nrz]
+                allsamples.append( loc_samples )
+            else :
+                for zidz in range(nrzoutsamps):
+                    loc_samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+                allsamples.append( loc_samples )
+
+        samples = np.concatenate(allsamples)
+        if self.isflat_inlinemodel_ and self.applydir_ == dgbkeys.crosslinestr or \
+           self.isflat_xlinemodel_ and self.applydir_ == dgbkeys.inlinestr and \
+           not self.is2dinp_:
+            self.swapaxes_ = True
+            samples = samples.swapaxes(2, 3)
         samples = self.preprocess( samples )
 
-        ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
-                                  scaler=None, applyinfo=self.applyinfo_, \
-                                  batchsize=self.batchsize_ )
-
+        ret = {}
+        if self.info_[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr and not self.is2dinp_ and \
+            (self.isflat_inlinemodel_ or self.isflat_xlinemodel_):
+            ret[dgbkeys.preddictstr] = self.flatModelApply(inp, samples, samples_shape)
+            if self.applydir_ == dgbkeys.averagestr:
+                samples = samples.swapaxes(2, 3)
+                newret = self.flatModelApply(inp, samples, samples_shape)
+                newret = newret.swapaxes(2, 3)
+                ret[dgbkeys.preddictstr] = (newret + ret[dgbkeys.preddictstr])/2
+        else:
+            ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
+                                      scaler=None, applyinfo=self.applyinfo_, \
+                                      batchsize=self.batchsize_ )
         if dgbkeys.preddictstr in ret:
             ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
-
+    
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )
@@ -225,9 +267,6 @@ class ModelApplier:
         outkeys.append( dgbkeys.confdictstr )
         for outkey in outkeys:
           if outkey in ret:
-            if chunksz > 1:
-              nrattrret = ret[outkey].shape[-1]
-              ret[outkey] = np.resize( ret[outkey], (nrzoutsamps,chunksz,nrattrret))
             res.append( ret[outkey] )
         return res
 

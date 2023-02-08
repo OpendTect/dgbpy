@@ -68,6 +68,7 @@ zstepdictstr = 'zstep'
 
 # Value keys
 
+averagestr = 'Average'
 carrorderstr = 'C-Order'
 classdatavalstr = 'Classification Data'
 classesvalstr = 'Classes'
@@ -75,8 +76,10 @@ classificationvalstr = 'Classification'
 confvalstr = 'Confidence'
 contentvalstr = 'Content'
 continuousvalstr = 'Continuous Data'
+crosslinestr = 'Cross-line'
 disclaimerstr = 'Disclaimer, IP Rights and Permission-to-Use'
 globalstdtypestr = 'Global Standardization'
+inlinestr = 'In-line'
 inpshapestr = 'Input.Shape'
 kerasplfnm = 'keras'
 localstdtypestr = 'Local Standardization'

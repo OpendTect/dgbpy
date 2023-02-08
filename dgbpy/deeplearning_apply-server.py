@@ -9,6 +9,7 @@
 
 import sys
 import argparse
+import dgbpy.keystr as dgbkeys
 
 parser = argparse.ArgumentParser(
           description='Server application of a trained machine learning model')
@@ -33,6 +34,9 @@ datagrp = parser.add_argument_group( 'Data' )
 datagrp.add_argument( '--mldir',
             dest='mldir', nargs=1,
             help='Machine Learning Directory' )
+datagrp.add_argument( '--Order',
+            dest='applydir', type=str, default=dgbkeys.inlinestr,
+            help='Apply direction for 2D models')
 loggrp = parser.add_argument_group( 'Logging' )
 loggrp.add_argument( '--log',
             dest='logfile', metavar='file', nargs='?',
@@ -125,7 +129,7 @@ if 'parentpid' in args:
 applier = None
 try:
   if applier == None:
-    applier = applylib.ModelApplier( args['modelfile'].name, args['fakeapply'] )
+    applier = applylib.ModelApplier( args['modelfile'].name, args['applydir'], args['fakeapply'] )
   lastmessage = False
   cont = True
   while cont:
