@@ -173,19 +173,12 @@ class ModelApplier:
         outdata = np.zeros(outshape, dtype=inp.dtype)
         applydata = np.empty(samples_shape, dtype=inp.dtype)
         for idx in range(max(inpshape[0], inpshape[1])):
-            if self.isflat_inlinemodel_:
-                applydata[:,:,0] = samples[:,:,idx]
-            elif self.isflat_xlinemodel_:
-                applydata[:,:,:,0] = samples[:,:,:,idx]
-
+            applydata[:,:,0] = samples[:,:,idx]
             ret = dgbmlapply.doApply( self.model_, self.info_, applydata, \
                                     scaler=None, applyinfo=self.applyinfo_, \
                                     batchsize=self.batchsize_ )
             if dgbkeys.preddictstr in ret:
-                if self.isflat_inlinemodel_:
-                    outdata[0,:,idx] = ret[dgbkeys.preddictstr][:,0]
-                elif self.isflat_xlinemodel_:
-                    outdata[0,:,:,idx] = ret[dgbkeys.preddictstr][:,:,0]
+                outdata[0,:,idx] = ret[dgbkeys.preddictstr][:,0]
 
         return outdata
 
@@ -196,6 +189,7 @@ class ModelApplier:
         vertical =  isinstance(inpshape,int)
         self.is2dinp_ = False
         self.is3dmodel_ = False
+        self.swapaxes_ = False
         if vertical:
             nrzoutsamps = nrzin-inpshape+1
         else:
@@ -203,13 +197,18 @@ class ModelApplier:
             self.is3dmodel_ = len(inpshape) == 3
             self.isflat_inlinemodel_ = self.is3dmodel_ and inpshape[0] == 1 and inpshape[1] > 1
             self.isflat_xlinemodel_ = self.is3dmodel_ and inpshape[0] > 1 and inpshape[1] == 1
+            self.swapaxes_ = (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and self.applydir_ == dgbkeys.crosslinestr \
+                             and not self.is2dinp_
+            if self.isflat_xlinemodel_:
+                inpshape = (inpshape[1], inpshape[0], inpshape[2])
+                self.info_[dgbkeys.inpshapedictstr] = inpshape
+
             nrzoutsamps = nrzin - inpshape[2] +1
         samples_shape = dgbhdf5.get_np_shape( inpshape, nrattribs=nrattribs,
                                               nrpts=nrzoutsamps )
         nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
         allsamples = list()
-        self.swapaxes_ = False
         if nrz == 1:
             inp = np.transpose( inp )
             allsamples.append( np.resize( np.array(inp), samples_shape ) )
@@ -222,11 +221,6 @@ class ModelApplier:
                 for zidz in range(nrzoutsamps):
                     loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
                 allsamples.append( loc_samples )
-            elif self.is2dinp_ and self.isflat_xlinemodel_:
-                for zidz in range(nrzoutsamps):
-                  loc_samples[zidz] = inp[:,:,zidz:zidz+nrz].swapaxes(0,1)
-                allsamples.append( loc_samples )
-                self.swapaxes_ = True
             elif self.is2dinp_:
                 for zidz in range(nrzoutsamps):
                   loc_samples[zidz] = inp[:,:,zidz:zidz+nrz]
@@ -237,11 +231,9 @@ class ModelApplier:
                 allsamples.append( loc_samples )
 
         samples = np.concatenate(allsamples)
-        if self.isflat_inlinemodel_ and self.applydir_ == dgbkeys.crosslinestr or \
-           self.isflat_xlinemodel_ and self.applydir_ == dgbkeys.inlinestr and \
-           not self.is2dinp_:
-            self.swapaxes_ = True
+        if self.swapaxes_:
             samples = samples.swapaxes(2, 3)
+
         samples = self.preprocess( samples )
 
         ret = {}
