@@ -83,6 +83,10 @@ def getNrGroupInputs( info ):
 def getNrOutputs( info ):
   return len( getMainOutputs(info) )
 
+def getSeed( info ):
+  if isinstance(info, dict) and seeddictstr in info:
+    return info[seeddictstr]
+
 def get_np_shape( shape, nrpts=None, nrattribs=None ):
   ret = ()
   if nrpts != None:

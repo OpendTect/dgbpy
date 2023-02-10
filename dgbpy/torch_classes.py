@@ -1066,13 +1066,13 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset(Dataset):
-    def __init__(self, imgdp, scale, seed=None, transform=list(), transform_copy = False):
+    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
         from dgbpy import transforms as T
         self.imgdp = imgdp
         self._data_IDs = []
         self.scale = scale
         self.transform = transform
-        self.transform_seed = seed
+        self.transform_seed = dgbhdf5.getSeed(imgdp[dgbkeys.infodictstr])
         self.trfm_copy, self.trfm_multiplier = transform_copy, 0
 
     def __len__(self):
