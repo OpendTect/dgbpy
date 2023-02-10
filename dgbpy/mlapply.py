@@ -112,7 +112,7 @@ def computeScaler( infos, scalebyattrib, force=False ):
   return infos
 
 def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalScaler, force=False, 
-                           nbchunks=1, split=1, nbfolds=5 ):
+                           nbchunks=1, split=1, nbfolds=5, seed=None ):
   """ Gets scaled training data
 
   Parameters:
@@ -128,10 +128,10 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
   datasets = []
   for dset in dsets:
     if dgbhdf5.isLogInput(infos) and nbfolds:
-      datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split,nbfolds=nbfolds) )
+      datasets.append( dgbmlio.getCrossValidationIndices(dset,seed=seed,valid_inputs=split,nbfolds=nbfolds) )
     else:
       datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
-  infos.update({dgbkeys.trainseldicstr: datasets})
+  infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.seeddictstr: seed})
 
   scaler, doscale = dgbhdf5.getDefaultScaler(scaler, infos)
   scalebyattrib = doscale
