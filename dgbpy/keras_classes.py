@@ -17,7 +17,7 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
 class TrainingSequence(Sequence):
-  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,seed=None,\
+  def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
                scale=None,transform=list(),transform_copy=True,tempnm=None):
       from dgbpy.dgbkeras import get_data_format
       self._trainbatch = trainbatch
@@ -33,7 +33,7 @@ class TrainingSequence(Sequence):
       self._data_IDs = []
       self.ndims = self._getDims(self._infos)
       self.transform = []
-      self.transform_seed = seed
+      self.transform_seed = dgbhdf5.getSeed(self._infos)
       self.transform_multiplier = 0
       self.transform_copy = transform_copy
       if exfilenm == None:
