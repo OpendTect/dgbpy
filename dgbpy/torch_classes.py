@@ -384,18 +384,20 @@ class EarlyStoppingCallback(Callback):
     def after_epoch(self):
         if self.epoch == 0:
             self.best = self.avg_stats.valid_stats.avg_stats[1]
+            self.best_epoch = self.epoch
             return 
         if self.patience_cnt < self.patience:
             self.patience_cnt += 1
             if self.earlystop_operator(self.avg_stats.valid_stats.avg_stats[1], self.best):
                 self.best = self.avg_stats.valid_stats.avg_stats[1]
+                self.best_epoch = self.epoch
                 self.run.savemodel = self.model
                 self.patience_cnt = 0
         else: raise CancelTrainException()
 
     def after_fit(self):
         try:
-            odcommon.log_msg(f'Best validation accuracy at epoch {self.epoch+1} with validation accuracy: {self.best:.4f}')
+            odcommon.log_msg(f'Best validation accuracy at epoch {self.best_epoch+1} with validation metric score: {self.best:.4f}')
         except: 
             pass
 
