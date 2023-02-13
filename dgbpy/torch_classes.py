@@ -1074,8 +1074,9 @@ class SeismicTrainDataset(Dataset):
         from dgbpy import transforms as T
         self.imgdp = imgdp
         self._data_IDs = []
-        self.scale = scale
-        self.transform = transform
+        self.scale, self.isDefScaler = dgbhdf5.isDefaultScaler(scale, imgdp[dgbkeys.infodictstr])
+        self.transform = dgbkeys.listify(transform)
+        self.transformer = False
         self.transform_seed = dgbhdf5.getSeed(imgdp[dgbkeys.infodictstr])
         self.trfm_copy, self.trfm_multiplier = transform_copy, 0
 
@@ -1108,7 +1109,7 @@ class SeismicTrainDataset(Dataset):
         from dgbpy import mlapply as dgbmlapply
         trainchunk  = dgbmlapply.getScaledTrainingDataByInfo( self.info,
                                                 flatten=False,
-                                                scale=True, ichunk=ichunk, ifold=ifold)
+                                                scale=self.isDefScaler, ichunk=ichunk, ifold=ifold)
         return self.get_data(trainchunk, ichunk)
 
     def set_transform_seed(self):
@@ -1118,20 +1119,21 @@ class SeismicTrainDataset(Dataset):
 
     def get_data(self, trainchunk, ichunk):
         from dgbpy import dgbtorch
-        from dgbpy import transforms as T
         X, y, info, im_ch, self.ndims = dgbtorch.getDatasetPars(trainchunk, False)
         self.X = X.astype('float32')
         self.y = y.astype('float32')
 
-        if ichunk == 0: # initialise transforms on first chunk
-            if isinstance(self.transform, (list, *T.all_transforms.values())):
-                if self.scale and isinstance(self.scale, (*T.scale_transforms.values(),)):
-                    self.transform.append(self.scale)
-                self.transformer = T.TransformCompose(self.transform, info, self.ndims, mixed = self.trfm_copy)
-                self.trfm_multiplier = self.transformer.multiplier
-
+        if ichunk == 0: # initialise transforms on first chunk only
+            self.set_transforms(info)
         self._data_IDs = range(len(self.X)*(self.trfm_multiplier+1))
         return True
+
+    def set_transforms(self, info):
+        from dgbpy import transforms as T
+        if not self.isDefScaler:
+            self.transform.append(self.scale)
+        self.transformer = T.TransformCompose(self.transform, info, self.ndims, mixed = self.trfm_copy)
+        self.trfm_multiplier = self.transformer.multiplier
 
     def _adaptShape(self, X, Y):
         classification = self.info[dgbkeys.classdictstr]
@@ -1186,15 +1188,15 @@ class SeismicTrainDataset(Dataset):
 class SeismicTestDataset(Dataset):
     def __init__(self, imgdp, scale):
         self.imgdp = imgdp
-        self.scale=scale
+        self.scale, self.isDefScaler=dgbhdf5.isDefaultScaler(scale, imgdp[dgbkeys.infodictstr])
         self.transform = []
 
     def __len__(self):
         return self.X.shape[0]
 
-    def transformer(self, image, label):
+    def transformer(self, image, label, index):
         if self.transform:
-            return self.transform(image, label)
+            return self.transform(image, label, index)
         return image, label
 
     def set_chunk(self, ichunk):
@@ -1220,7 +1222,7 @@ class SeismicTestDataset(Dataset):
         self.y = y.astype('float32')
 
         if ichunk == 0:
-            if self.scale and isinstance(self.scale, (list, *T.scale_transforms.values())):
+            if not self.isDefScaler:
                 self.transform = T.TransformCompose(self.scale, info, self.ndims)
         return True
 
@@ -1273,7 +1275,7 @@ class SeismicTestDataset(Dataset):
         else:
             return self.X[index, :, 0, 0, :], self.y[index, :]
 
-        return self.transformer(data, label)
+        return self.transformer(data, label, index)
 
 class DatasetApply(Dataset):
     def __init__(self, X, info, isclassification, im_ch, ndims):
