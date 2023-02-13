@@ -464,21 +464,23 @@ class Trainer:
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
         self.imgdp, self.train_dl, self.valid_dl = imgdp, training_DataLoader, validation_DataLoader
         self.epochs, self.device, self.savemodel = epochs, device, model
-        self.tensorboard, self.silent = tensorboard, silent
+        self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
 
         self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
-        if self.classification: metrics = [accuracy, f1]
-        else: metrics = [mae]
+        if self.classification: self.metrics = [accuracy, f1]
+        else: self.metrics = [mae]
             
         self.in_train, self.logger = False, odcommon.log_msg
 
+    def init_callbacks(self, cbs):
         self.cbs = []
-        defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(metrics),
-                        EarlyStoppingCallback(earlystopping), LogNrOfSamplesCallback(),
+        defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(self.metrics),
+                        EarlyStoppingCallback(self.earlystopping), LogNrOfSamplesCallback(),
                         TransformCallback() ]
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
+        self.add_cbs(cbs)
 
     def add_cbs(self, cbs):
         for cb in dgbkeys.listify(cbs):
@@ -519,7 +521,7 @@ class Trainer:
         self.epoch,self.dl = epoch,self.train_dl
         return self('begin_epoch')
 
-    def fit_one_chunk(self, ichunk):
+    def fit_one_chunk(self, ichunk, cbs):
         self.isCrossVal = dgbhdf5.isCrossValidation(self.imgdp[dgbkeys.infodictstr])
         if not self.isCrossVal:
             return self.train_fn()
@@ -528,6 +530,7 @@ class Trainer:
             self.nbfolds = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr][ichunk])
             for ifold in range(1, self.nbfolds+1):
                 self.ifold = ifold
+                if ifold>1: self.init_callbacks(cbs)
                 self('begin_fold')
                 self.train_dl.set_fold(ichunk, ifold)
                 self.valid_dl.set_fold(ichunk, ifold)
@@ -556,7 +559,7 @@ class Trainer:
     def fit(self, cbs=None):
         self.nbchunks = len(self.imgdp[dgbkeys.infodictstr][dgbkeys.trainseldicstr])
         for ichunk in range(self.nbchunks):
-            self.add_cbs(cbs)
+            self.init_callbacks(cbs)
             self.ichunk = ichunk
             odcommon.log_msg('Starting training iteration',str(ichunk+1)+'/'+str(self.nbchunks))
             try:
@@ -577,8 +580,7 @@ class Trainer:
                 odcommon.log_msg('')
                 raise 
             
-            self.savemodel = self.fit_one_chunk(ichunk)
-            self.remove_cbs(cbs)
+            self.savemodel = self.fit_one_chunk(ichunk, cbs)
         return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
