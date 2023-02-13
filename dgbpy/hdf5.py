@@ -181,15 +181,15 @@ class Scaler(Enum):
   Normalization = normalizetypestr
   MinMaxScaler = minmaxtypestr
 
-def getDefaultScaler(scaler, info):
-  if isLogOutput(info) or scaler == Scaler.GlobalScaler:
-    return Scaler.GlobalScaler, True
+def isDefaultScaler(scaler, info):
+  if isLogOutput(info) or scaler == globalstdtypestr:
+    return scaler, True
   return scaler, False
 
 def updateScaleInfo( scaler, info ):
   if not scaler:
     return info
-  info[inpscalingdictstr] = Scaler(scaler).value
+  info[inpscalingdictstr] = scaler
   info[outputunscaledictstr] = doOutputScaling(info)
   return info
 

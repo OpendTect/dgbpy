@@ -267,6 +267,8 @@ class TransformCompose():
         for tr, transform_i in enumerate(transforms):
             if transform_i in all_transforms:
                 transforms[tr] = all_transforms[transform_i]()
+            if not isinstance(transforms[tr], (*all_transforms.values(),)):
+                transforms.pop(tr)
             if not self.passModuleCheck(transform_i):
                 transforms.pop(tr)
         return transforms

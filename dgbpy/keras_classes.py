@@ -49,13 +49,13 @@ class TrainingSequence(Sequence):
 
   def transform_init(self,scale,transform,transform_copy=True):
       from dgbpy import transforms as T
-      if isinstance(transform, (list, *T.all_transforms.values())):
-        if scale and isinstance(scale, (*T.scale_transforms.values(),)):
-          if self._forvalid: transform = [scale]
-          else: transform.append(scale)
-        self.transform = T.TransformCompose(transform, self._infos, self.ndims, mixed=transform_copy)
-        if transform_copy:
-          self.transform_multiplier = self.transform.multiplier
+      scale, self.isDefScaler = dgbhdf5.isDefaultScaler(scale, self._infos)
+      if not self.isDefScaler:
+        if self._forvalid: transform = [scale]
+        else: transform.append(scale)
+      self.transform = T.TransformCompose(transform, self._infos, self.ndims, mixed=transform_copy)
+      if transform_copy:
+        self.transform_multiplier = self.transform.multiplier
 
   def _getDims(self, info):
       from dgbpy.dgbkeras import get_model_shape, getModelDims
@@ -89,7 +89,7 @@ class TrainingSequence(Sequence):
     from dgbpy import mlapply as dgbmlapply
     trainbatch = dgbmlapply.getScaledTrainingDataByInfo( infos,
                                               flatten=False,
-                                              scale=True, ichunk=ichunk, ifold=ifold )
+                                              scale=self.isDefScaler, ichunk=ichunk, ifold=ifold )
     return self.get_data(trainbatch)
 
   def get_data(self, trainbatch):
