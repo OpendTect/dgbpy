@@ -111,7 +111,7 @@ def computeScaler( infos, scalebyattrib, force=False ):
       inp[groupnm].update({dgbkeys.scaledictstr: scaler})
   return infos
 
-def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalScaler, force=False, 
+def getScaledTrainingData( filenm, flatten=False, scaler=dgbkeys.globalstdtypestr, force=False, 
                            nbchunks=1, split=1, nbfolds=5, seed=None ):
   """ Gets scaled training data
 
@@ -133,7 +133,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbhdf5.Scaler.GlobalSc
       datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.seeddictstr: seed})
 
-  scaler, doscale = dgbhdf5.getDefaultScaler(scaler, infos)
+  scaler, doscale = dgbhdf5.isDefaultScaler(scaler, infos)
   scalebyattrib = doscale
   infos = dgbhdf5.updateScaleInfo(scaler, infos)
   if doscale:
@@ -320,7 +320,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     dgbkeras.set_compute_device( params[dgbkeys.prefercpustr] )
 
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
+                                        scaler=params[dgbkeys.scaledictstr],
                                         force=False,
                                         nbchunks=params['nbchunk'],
                                         split=params['split'],nbfolds=params['nbfold'] )
@@ -364,7 +364,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if 'withtensorboard' in params and params['withtensorboard']:
       tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
     trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=dgbhdf5.Scaler(params[dgbkeys.scaledictstr]),
+                                        scaler=params[dgbkeys.scaledictstr],
                                         nbchunks=params['nbchunk'],
                                         force=False,
                                         split=params['split'],nbfolds=params['nbfold'] )
@@ -385,7 +385,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if params == None:
       params = dgbscikit.getParams()
     trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
-                                        scaler=dgbhdf5.Scaler.GlobalScaler,
+                                        scaler=dgbkeys.globalstdtypestr,
                                         force=False,
                                         split=validation_split, nbfolds=None )
     if type == TrainType.New:
