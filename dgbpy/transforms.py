@@ -226,7 +226,7 @@ all_transforms = {
     'GaussianNoise': GaussianNoise,
     'Rotate': Rotate,
     'Translate': Translate,
-    'PolarityFlip': FlipPolarity,
+    'FlipPolarity': FlipPolarity,
 }
 all_transforms.update(scale_transforms)
 
