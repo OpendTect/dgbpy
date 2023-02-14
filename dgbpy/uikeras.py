@@ -122,9 +122,7 @@ def getAdvancedUiPars(uipars=None):
     }
 
     if not dgbhdf5.isLogOutput(info):
-      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Polarity Flip']
-      if hasOpenCV(): aug_labels.append('Random Rotation')
-      if dgbhdf5.isSeisClass(info): aug_labels.append('Random Translation')
+      aug_labels = uibokeh.set_augment_mthds(info)
       transformUi = {
         'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
         'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
@@ -139,11 +137,6 @@ def getAdvancedUiPars(uipars=None):
   else:
     uiobjs=uipars['uiobjects']
 
-  if 'augmentfld' in uiobjs:
-    setDefaultTransforms = []
-    for transform in dict['transform']:
-      setDefaultTransforms.append(uiTransform[transform].value)
-    uiobjs['augmentfld'].active = setDefaultTransforms
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   return uipars
@@ -156,15 +149,17 @@ def chunkfldCB(sizefld,attr,old,new):
 def getUiTransforms(advkerasgrp):
   transforms = []
   if 'augmentfld' in advkerasgrp:
+    labels = advkerasgrp['augmentfld'].labels
     selectedkeys = advkerasgrp['augmentfld'].active
     for key in selectedkeys:
-      transforms.append(uiTransform(key).name)
+      selectedlabel = labels[key]
+      transforms.append(uibokeh.augment_ui_map[selectedlabel])
   return transforms
 
 def getUiScaler(advkerasgrp):
   scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
   selectedOption = 0
-  if 'scalinfld' in advkerasgrp:
+  if 'scalingfld' in advkerasgrp:
     selectedOption = advkerasgrp['scalingfld'].active
   return scalers[selectedOption]
 
@@ -209,10 +204,3 @@ def decimateCB( widgetactivelist,chunkfld,sizefld ):
     if decimate:
       size /= chunkfld.value
   sizefld.text = getSizeStr( size )
-
-class uiTransform(Enum):
-  RandomFlip = 0
-  RandomGaussianNoise = 1
-  RandomTranslation = 2
-  RandomPolarityFlip = 3
-  RandomRotation = 4
