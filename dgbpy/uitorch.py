@@ -128,11 +128,8 @@ def getAdvancedUiPars(uipars=None):
       'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
       'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
-    
     if not dgbhdf5.isLogInput(info):
-      aug_labels = ['Random Flip', 'Random Gaussian Noise', 'Random Polarity Flip']
-      if hasOpenCV(): aug_labels.append('Random Rotation')
-      if dgbhdf5.isSeisClass(info): aug_labels.append('Random Translation')
+      aug_labels = uibokeh.set_augment_mthds(info)
       transformUi = {
         'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
         'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
@@ -147,11 +144,6 @@ def getAdvancedUiPars(uipars=None):
   else:
     uiobjs = uipars['uiobjects']
 
-  if 'augmentfld' in uiobjs:
-    setDefaultTransforms = []
-    for transform in dict['transform']:
-      setDefaultTransforms.append(uiTransform[transform].value)
-    uiobjs['augmentfld'].active = setDefaultTransforms
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   return uipars     
@@ -162,9 +154,11 @@ def enableAugmentationCB(args, widget=None):
 def getUiTransforms(advtorchgrp):
   transforms = []
   if 'augmentfld' in advtorchgrp:
+    labels = advtorchgrp['augmentfld'].labels
     selectedkeys = advtorchgrp['augmentfld'].active
     for key in selectedkeys:
-      transforms.append(uiTransform(key).name)
+      selectedlabel = labels[key]
+      transforms.append(uibokeh.augment_ui_map[selectedlabel])
   return transforms
 
 def getUiScaler(advtorchgrp):
@@ -207,10 +201,3 @@ def getUiParams( torchpars, advtorchpars ):
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
-
-class uiTransform(Enum):
-  RandomFlip = 0
-  RandomGaussianNoise = 1
-  RandomTranslation = 2
-  RandomPolarityFlip = 3
-  RandomRotation = 4

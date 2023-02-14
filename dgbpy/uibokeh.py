@@ -17,6 +17,7 @@ from bokeh.models.widgets import Button
 from bokeh.plotting import curdoc, figure
 
 import dgbpy.keystr as dgbkeys
+import dgbpy.hdf5 as dgbhdf5
 
 but_width = 80
 but_height = 32
@@ -286,3 +287,20 @@ class ProgState(Enum):
   Ready = 0
   Running = 1
   Started = 2
+
+def set_augment_mthds(info):
+  from dgbpy.transforms import hasOpenCV
+  labels = ['Flip Left/Right', 'Add Gaussian Noise', 'Flip Polarity']
+  if hasOpenCV():
+    labels.append('Rotate')
+  if dgbhdf5.isSeisClass(info):
+    labels.append('Add Empty Edges')
+  return labels
+
+augment_ui_map = {
+                    'Flip Left/Right': 'Flip',
+                    'Add Gaussian Noise': 'GaussianNoise',
+                    'Flip Polarity': 'FlipPolarity',
+                    'Rotate': 'Rotate',
+                    'Add Empty Edges': 'Translate'
+                   }
