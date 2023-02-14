@@ -11,7 +11,7 @@ import numpy as np
 from dgbpy import keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
-class RandomFlip():
+class Flip():
     def __init__(self, p=0.2):
         self.p = p
         self.multiplier = 1
@@ -44,7 +44,7 @@ class RandomFlip():
         else:
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
-class RandomGaussianNoise():
+class GaussianNoise():
     def __init__(self, p=0.2, std=0.1):
         self.p = p
         self.std = std
@@ -71,7 +71,7 @@ def hasOpenCV():
     return False
   return True
 
-class RandomRotation():
+class Rotate():
     def __init__(self, p=0.2, angle=15):
         self.p = p
         self.angle = angle
@@ -117,7 +117,7 @@ class RandomRotation():
             _arr[attrib,:] = self.cv2.warpAffine( _arr[attrib], M , dst_image , borderMode=self.cv2.BORDER_REFLECT)
         return _arr.copy()
 
-class RandomTranslation():
+class Translate():
     def __init__(self, p = 0.15, percent = 20):
         self.p = p
         self.percent = percent / 100
@@ -149,7 +149,7 @@ class RandomTranslation():
             transform_axes = (0, *ax)
         return self.shift(arr, transform_axes)
 
-class RandomPolarityFlip():
+class FlipPolarity():
     def __init__(self, p = 0.2):
         self.p = p
         self.multiplier = 1
@@ -222,11 +222,11 @@ scale_transforms = {
     dgbkeys.minmaxtypestr: MinMaxScaler
 }
 all_transforms = {
-    'RandomFlip': RandomFlip,
-    'RandomGaussianNoise': RandomGaussianNoise,
-    'RandomRotation': RandomRotation,
-    'RandomTranslation': RandomTranslation,
-    'RandomPolarityFlip': RandomPolarityFlip,
+    'Flip': Flip,
+    'GaussianNoise': GaussianNoise,
+    'Rotate': Rotate,
+    'Translate': Translate,
+    'PolarityFlip': FlipPolarity,
 }
 all_transforms.update(scale_transforms)
 
@@ -259,7 +259,7 @@ class TransformCompose():
             transform_i.all_uniform_prob = self.randomstate.uniform(0, 1, nsamples)
 
     def passModuleCheck(self, transform_i):
-        if isinstance(transform_i, RandomRotation) and not hasOpenCV():
+        if isinstance(transform_i, Rotate) and not hasOpenCV():
             return False
         return True
 
