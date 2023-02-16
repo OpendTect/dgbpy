@@ -23,7 +23,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uisklearn, uitorch, uikeras
-from uibokeh import ProgState
+from dgbpy.uibokeh import ProgState
 from dgbpy import mlio as dgbmlio
 from dgbpy.servicemgr import ServiceMgr
 from dgbpy.bokehserver import get_request_id
