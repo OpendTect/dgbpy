@@ -1300,6 +1300,7 @@ class DatasetApply(Dataset):
 import importlib
 import pkgutil
 import inspect
+import os,re
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -1368,14 +1369,29 @@ class TorchUserModel(ABC):
         for (_, c) in clsmembers:
           if issubclass(c, TorchUserModel) & (c is not TorchUserModel):
             mlm.append(c())
-        
-    for _, name, ispkg in pkgutil.iter_modules():
-      if name.startswith('mlmodel_torch_'):
-        module = importlib.import_module(name)
-        clsmembers = inspect.getmembers(module, inspect.isclass)
-        for (_, c) in clsmembers:
-          if issubclass(c, TorchUserModel) & (c is not TorchUserModel):
-            mlm.append(c())
+    
+    try:
+      py_settings_path = odcommon.get_settings_filename( 'settings_python' )
+      pattern = r'^PythonPath\.\d+: (.+)$'
+      py_paths = []
+      with open(py_settings_path, 'r') as f:
+        for line in f.readlines():
+          match = re.match(pattern, line).group(1)
+          if match and os.path.exists(match): py_paths.append(match)
+    except FileNotFoundError: pass
+
+    for path in py_paths:
+      for root, _, files in os.walk(path):
+        for file in files:
+          if file.startswith('mlmodel_torch_') and file.endswith('.py'):
+            relpath = os.path.relpath(root, path)
+            if relpath != '.': name = '.'.join([relpath, file[:-3]]).replace(os.path.sep, '.')  
+            else: name = file[:-3]
+            module = importlib.import_module(name)
+            clsmembers = inspect.getmembers(module, inspect.isclass)
+            for (_, c) in clsmembers:
+              if issubclass(c, TorchUserModel) & (c is not TorchUserModel):
+                mlm.append(c())
     return mlm
   
   @staticmethod
