@@ -260,8 +260,8 @@ class UserModel(ABC):
       py_paths = []
       with open(py_settings_path, 'r') as f:
         for line in f.readlines():
-          match = re.match(pattern, line).group(1)
-          if match and os.path.exists(match): py_paths.append(match)
+          match = re.match(pattern, line)
+          if match and os.path.exists(match.group(1)): py_paths.append(match.group(1))
     except FileNotFoundError: pass
 
     for path in py_paths:
