@@ -493,7 +493,7 @@ def training_app(doc):
                         '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete,
                         '--Fold_bkh ': setFold}
   if args:
-    this_service = ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id())
+    this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
     mh = MsgHandler()
     mh.add_servmgr(this_service)

@@ -20,7 +20,7 @@ from tornado.iostream import StreamClosedError
 import tornado.tcpserver
 
 class ServiceMgr(tornado.tcpserver.TCPServer):
-  def __init__(self, cmdserver, ppid, tornadoport, serviceID=None):
+  def __init__(self, cmdserver, tornadoport, serviceID=None):
     super(ServiceMgr, self).__init__()
     self.cmdserver = cmdserver
     self.cmdhost = None
@@ -33,12 +33,6 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       info = cmdserver.split(':')
       self.cmdhost = info[0]
       self.cmdport = int(info[1])
-
-    self._parentproc = None
-    if ppid > 0:
-      self._parentproc = psutil.Process(ppid)
-      self.PCB = tornado.ioloop.PeriodicCallback(self._parentChkCB, 1000)
-      self.PCB.start()
 
     self._ioloop = tornado.ioloop.IOLoop.current()
     self._startServer( tornadoport )
@@ -97,12 +91,6 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
                                 'port': port,
                                 'pid': os.getpid()
                                 })
-
-  def _parentChkCB(self):
-    if self._parentproc != None and not self._parentproc.is_running():
-      odcommon.log_msg('Found dead parent, exiting')
-      self.PCB.stop()
-      os.kill(psutil.Process().pid, signal.SIGKILL)
 
   async def handle_stream(self, stream, address):
     hdrlen = 10

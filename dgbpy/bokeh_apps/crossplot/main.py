@@ -21,7 +21,7 @@ def crossplotapp(doc):
   if args:
     from dgbpy.bokehserver import get_request_id
     from dgbpy.servicemgr import ServiceMgr
-    with ServiceMgr(args['bsmserver'],args['ppid'],args['port'],get_request_id()) as this_service:
+    with ServiceMgr(args['bsmserver'],args['port'],get_request_id()) as this_service:
       this_service.addAction('BokehParChg', bokehParChgCB )
   else:
     from sys import argv
