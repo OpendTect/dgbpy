@@ -8,12 +8,16 @@
 #
 import os
 import argparse
+import psutil
+import signal
 from bokeh.util.logconfig import basicConfig
 from bokeh.application import Application
 from bokeh.application.handlers import DirectoryHandler, ScriptHandler
 from bokeh.io import curdoc
 from bokeh.server.server import Server
+import tornado.ioloop
 import dgbpy.servicemgr as dgbservmgr
+import odpy.common as odcommon
 
 def get_request_id():
   reqargs = curdoc().session_context.request.arguments
@@ -58,6 +62,21 @@ def _getDocUrl(server):
   url = "http://%s:%d%s" % (address_string, server.port, server.prefix)
   return url
 
+class ProcMonitor:
+  def __init__(self, ppid):
+    self._parentproc = None
+    if ppid > 0:
+      self._parentproc = psutil.Process(ppid)
+      self.PCB = tornado.ioloop.PeriodicCallback(self._procChkCB, 1000)
+      self.PCB.start()
+
+  def _procChkCB(self):
+    if self._parentproc and not self._parentproc.is_running():
+      odcommon.log_msg('Found dead parent, exiting')
+      self.PCB.stop()
+      os.kill(psutil.Process().pid, signal.SIGKILL)
+
+parent_proc_checker = None
 def StartBokehServer(applications, args, attempts=20):
   basicConfig(filename=args['bokehlogfnm'])
   address = args['address']
@@ -84,6 +103,7 @@ def StartBokehServer(applications, args, attempts=20):
           server.show( app )
 
       try:
+          parent_proc_checker = ProcMonitor(args['ppid'])
           server.io_loop.start()
       except RuntimeError:
           pass
