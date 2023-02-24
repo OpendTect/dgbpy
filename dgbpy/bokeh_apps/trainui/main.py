@@ -23,7 +23,7 @@ import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 from dgbpy import mlapply as dgbmlapply
 from dgbpy import uibokeh, uisklearn, uitorch, uikeras
-from dgbpy.uibokeh import ProgState
+from dgbpy.uibokeh import ProgState, TrainStatus
 from dgbpy import mlio as dgbmlio
 from dgbpy.servicemgr import ServiceMgr
 from dgbpy.bokehserver import get_request_id
@@ -50,15 +50,18 @@ def training_app(doc):
     'ComArgs': None
   }
   
-  progress = {
+  def initProgressDict():
+    return {
       'ichunk': 0, 'n_chunks': 0, '_chunkTemp': 0,
       'ifold': 0, 'n_folds': 0, '_foldTemp':0,
       'epoch': 0, 'n_epochs': 0, 'doCrossVal': False,
       'iter': 0, 'n_iters': 0, 'after_iter':False,
       'state': ProgState.Ready, 'Ended': False,
+      'status': TrainStatus.Default
       }
-  
+
   info = get_default_info()
+  progress = initProgressDict()
 
   def set_info():
     uikeras.info = info
@@ -355,8 +358,10 @@ def training_app(doc):
     return execCommand( cmdtorun, background=True )
 
   def doAbort( proc ):
+    nonlocal progress
     if isRunning(proc):
       proc = kill( proc )
+      progress = initProgressDict()
     return None
 
   def doPause( proc ):
@@ -408,6 +413,12 @@ def training_app(doc):
   def setProgressComplete(msgstr):
     progress['Ended'] = True
 
+  def setTrainSuccess(msgstr):
+    progress['status'] = TrainStatus.Success
+
+  def setTrainFailure(msgstr):
+    progress['status'] = TrainStatus.Failed
+
   def setFold(msgstr):
     if progress['state'] == ProgState.Ready:
       progress['doCrossVal'] = True #allow crossval ui from training platform callbacks
@@ -429,7 +440,7 @@ def training_app(doc):
     else:
       progress['state'] = ProgState.Running
 
-  def progressMonitorCB(chunk, fold, parent, child):
+  def progressMonitorCB(chunk, fold, parent, child, status):
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
@@ -472,6 +483,9 @@ def training_app(doc):
       else:
         child.visible(False)
       resetProgressDict()
+    if progress['status']!=TrainStatus.Default:
+      status.set_status(progress['status'])
+      progress['status']=TrainStatus.Default
     progress['_chunkTemp'] = progress['ichunk']
     progress['_foldTemp'] = progress['ifold']
 
@@ -491,7 +505,7 @@ def training_app(doc):
   args = curdoc().session_context.server_context.application_context.application.metadata
   service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
                         '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete,
-                        '--Fold_bkh ': setFold}
+                        '--Fold_bkh ': setFold, '--Training Success':setTrainSuccess, '--Training Fail':setTrainFailure}
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )

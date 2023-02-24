@@ -303,107 +303,110 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     *
 
   """
+  try:
+    (model,infos) = (None,None)
+    if type == None:
+      type = TrainType.New
+    if type != TrainType.New:
+      (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
 
-  (model,infos) = (None,None)
-  if type == None:
-    type = TrainType.New
-  if type != TrainType.New:
-    (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
+    trainingdp = None
+    validation_split = 0.2 #Params?
+    if platform == dgbkeys.kerasplfnm:
+      import dgbpy.dgbkeras as dgbkeras
+      import tempfile
+      if params == None:
+        params = dgbkeras.getParams()
+      dgbkeras.set_compute_device( params[dgbkeys.prefercpustr] )
 
-  trainingdp = None
-  validation_split = 0.2 #Params?
-  if platform == dgbkeys.kerasplfnm:
-    import dgbpy.dgbkeras as dgbkeras
-    import tempfile
-    if params == None:
-      params = dgbkeras.getParams()
-    dgbkeras.set_compute_device( params[dgbkeys.prefercpustr] )
+      trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
+                                          scaler=params[dgbkeys.scaledictstr],
+                                          force=False,
+                                          nbchunks=params['nbchunk'],
+                                          split=params['split'],nbfolds=params['nbfold'] )
+      tblogdir=None
+      if 'withtensorboard' in params and params['withtensorboard']:
+        tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
+      if type == TrainType.New:
+        model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
+                                        type=params['type'],
+                                        learnrate=params['learnrate'])
+      elif type == TrainType.Transfer:
+        model = dgbkeras.transfer( model )
 
-    trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=params[dgbkeys.scaledictstr],
-                                        force=False,
-                                        nbchunks=params['nbchunk'],
-                                        split=params['split'],nbfolds=params['nbfold'] )
-    tblogdir=None
-    if 'withtensorboard' in params and params['withtensorboard']:
-      tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
-    if type == TrainType.New:
-      model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
-                                       type=params['type'],
-                                       learnrate=params['learnrate'])
-    elif type == TrainType.Transfer:
-      model = dgbkeras.transfer( model )
+      tempmodelnm = None
+      logfnm = get_log_file()
+      if logfnm != None:
+        tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
+        tempmodelnm = tempmodelfnm.name + '.h5'
+        tempmodelfnm = None
+      print('--Training Started--', flush=True)
+      cbfn = None
+      if bokeh: cbfn = dgbkeras.BokehProgressCallback
+      try:
+        model = dgbkeras.train( model, trainingdp, params=params,
+                                trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
+      except (TypeError,MemoryError) as e:
+        if tempmodelnm != None and os.path.exists(tempmodelnm):
+          model = dgbmlio.getModel( tempmodelnm, True )
+          raise e
+      try:
+        if os.path.exists(tempmodelnm):
+          os.remove( tempmodelnm )
+      except:
+        pass
 
-    tempmodelnm = None
-    logfnm = get_log_file()
-    if logfnm != None:
-      tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
-      tempmodelnm = tempmodelfnm.name + '.h5'
-      tempmodelfnm = None
-    print('--Training Started--', flush=True)
-    cbfn = None
-    if bokeh: cbfn = dgbkeras.BokehProgressCallback
-    try:
-      model = dgbkeras.train( model, trainingdp, params=params,
-                              trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
-    except (TypeError,MemoryError) as e:
-      if tempmodelnm != None and os.path.exists(tempmodelnm):
-        model = dgbmlio.getModel( tempmodelnm, True )
-        raise e
-    try:
-      if os.path.exists(tempmodelnm):
-        os.remove( tempmodelnm )
-    except:
-      pass
+    elif platform == dgbkeys.torchplfnm:
+      import dgbpy.dgbtorch as dgbtorch
+      if params == None:
+        params = dgbtorch.getParams()
+      tblogdir = None
+      if 'withtensorboard' in params and params['withtensorboard']:
+        tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
+      trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
+                                          scaler=params[dgbkeys.scaledictstr],
+                                          nbchunks=params['nbchunk'],
+                                          force=False,
+                                          split=params['split'],nbfolds=params['nbfold'] )
 
-  elif platform == dgbkeys.torchplfnm:
-    import dgbpy.dgbtorch as dgbtorch
-    if params == None:
-      params = dgbtorch.getParams()
-    tblogdir = None
-    if 'withtensorboard' in params and params['withtensorboard']:
-      tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
-    trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                        scaler=params[dgbkeys.scaledictstr],
-                                        nbchunks=params['nbchunk'],
-                                        force=False,
-                                        split=params['split'],nbfolds=params['nbfold'] )
+      if type == TrainType.New:
+        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
+                                        )
+      elif type == TrainType.Transfer:
+        model = dgbtorch.transfer( model )
 
-    if type == TrainType.New:
-      model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
-                                       )
-    elif type == TrainType.Transfer:
-      model = dgbtorch.transfer( model )
+      print('--Training Started--', flush=True)
+      cbfn = None
+      if bokeh: cbfn = [dgbtorch.tc.BokehProgressCallback()]
+      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
 
-    print('--Training Started--', flush=True)
-    cbfn = None
-    if bokeh: cbfn = [dgbtorch.tc.BokehProgressCallback()]
-    model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
+    elif platform == dgbkeys.scikitplfnm:
+      import dgbpy.dgbscikit as dgbscikit
+      if params == None:
+        params = dgbscikit.getParams()
+      trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
+                                          scaler=dgbkeys.globalstdtypestr,
+                                          force=False,
+                                          split=validation_split, nbfolds=None )
+      if type == TrainType.New:
+        model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
+                                          params )
+      print('--Training Started--', flush=True)
+      model = dgbscikit.train( model, trainingdp )
+    else:
+      log_msg( 'Unsupported machine learning platform' )
+      raise AttributeError
 
-  elif platform == dgbkeys.scikitplfnm:
-    import dgbpy.dgbscikit as dgbscikit
-    if params == None:
-      params = dgbscikit.getParams()
-    trainingdp = getScaledTrainingData( examplefilenm, flatten=True,
-                                        scaler=dgbkeys.globalstdtypestr,
-                                        force=False,
-                                        split=validation_split, nbfolds=None )
-    if type == TrainType.New:
-      model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
-                                         params )
-    print('--Training Started--', flush=True)
-    model = dgbscikit.train( model, trainingdp )
-  else:
-    log_msg( 'Unsupported machine learning platform' )
-    raise AttributeError
+    infos = trainingdp[dgbkeys.infodictstr]
+    modtype = dgbmlio.getModelType( infos )
+    outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
+    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
+    return (outfnm != None and os.path.isfile( outfnm ))
+  except Exception as e:
+    dgbmlio.announceTrainingFailure()
+    raise e
 
-  infos = trainingdp[dgbkeys.infodictstr]
-  modtype = dgbmlio.getModelType( infos )
-  outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
-  dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
-  return (outfnm != None and os.path.isfile( outfnm ))
-
-def reformat( res, applyinfo ):
+def reformat( res, applysinfo ):
   """ For reformatting prediction result type(s)
 
   Parameters:
