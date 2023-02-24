@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
-from dgbpy.mlio import announceShowTensorboard
+from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess
 
 import onnxruntime as rt
 def Tensor2Numpy(tensor):
@@ -571,6 +571,7 @@ class Trainer:
                 odcommon.log_msg('Data loading failed because of insufficient memory')
                 odcommon.log_msg('Try to lower the batch size and restart the training')
                 odcommon.log_msg('')
+                announceTrainingFailure()
                 raise e
 
             if  len(self.train_dl.dataset) < 1 or len(self.valid_dl.dataset) < 1:
@@ -578,9 +579,11 @@ class Trainer:
                 odcommon.log_msg('There is not enough data to train on')
                 odcommon.log_msg('Extract more data and restart')
                 odcommon.log_msg('')
+                announceTrainingFailure()
                 raise 
             
             self.savemodel = self.fit_one_chunk(ichunk, cbs)
+        announceTrainingSuccess()
         return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',

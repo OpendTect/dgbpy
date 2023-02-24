@@ -44,21 +44,48 @@ def getRunStopButton(callback_fn=None):
 def getPauseResumeButton(callback_fn=None):
   return getButton(pause_lbl,type=enums.ButtonType.primary,callback_fn=callback_fn)
 
+class TrainStatusUI():
+  message = Div(text="")
+
+  def set_status(self, status):
+    self.message.visible = True
+    if status==TrainStatus.Success:
+      self.message.text = '✅ Training Successful'
+      self.message.style = { "color":"#139D41", "background-color": "white", "font-size": "16px",
+                            "border": "4px solid #0CB61E", "border-radius": "8px",
+                            "box-shadow": "2px 2px 5px rgba(0, 0, 0, 0.5)", "padding": "5px 10px" }
+    elif status==TrainStatus.Failed:
+      self.message.text = '🚫 Training Failed'
+      self.message.style = { "color": "red", "background-color": "white", "font-size": "16px",
+                            "border": "4px solid red", "border-radius": "8px", 
+                            "box-shadow": "2px 2px 5px rgba(0, 0, 0, 0.5)", "padding": "5px 10px" } 
+
+  def visible(self, bool):
+    if bool:
+      self.message.visible = True
+    else:
+      self.message.visible = False
+
 def getPbar():
   chunk = Div(text = "Chunk 0 of 0")
   fold = Div(text = "Fold 0 of 0")
   parent = ProgBar(setProgValue(type=parent_bar))
   child = ProgBar(setProgValue(type=child_bar), parent=parent)
+  status = TrainStatusUI()
+
   chunk.visible = False
-  fold .visible = False
+  fold.visible = False
   parent.visible(False)
   child.visible(False)
-  progressfld = column(chunk, fold, parent.panel(), child.panel())
+  status.visible(False)
+
+  progressfld = column(chunk, fold, parent.panel(), child.panel(), status.message)
   ret = {
     'chunk': chunk,
     dgbkeys.foldstr: fold,
     parent_bar: parent,
     child_bar : child,  
+    'status' : status
     }
   return ret, progressfld
 
@@ -75,7 +102,7 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
     'progress': progress,
     timerkey: None
   }
-  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], progress[child_bar])
+  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], progress[child_bar], progress['status'])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
                               timer_fn=timercb) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
@@ -93,6 +120,12 @@ def startStopCB( cb, run_fn, abort_fn, progress_fn, timer_fn, repeat=2000 ):
   else:
     setReady( cb )
     cb[timerkey] = abort_fn( cb[timerkey] )
+    isAborted(cb)
+
+def isAborted(runbutbar):
+  progress = runbutbar['progress']
+  progress['status'].set_status(TrainStatus.Failed)
+
 
 def pauseResumeCB( cb, pause_fn, resume_fn ):
   if isRunning( cb ):
@@ -121,6 +154,7 @@ def setRunning( runbutbar, start_fn=None):
   if start_fn: start_fn(runbutbar['progress'])
 
 def startBarUpdateCB(cb, ret):
+  ret['status'].visible(False)
   if 'cb' not in ret:
     ret['cb'] = curdoc().add_periodic_callback(cb, 100)
 
@@ -287,6 +321,11 @@ class ProgState(Enum):
   Ready = 0
   Running = 1
   Started = 2
+
+class TrainStatus(Enum):
+  Default = 0
+  Success = 1
+  Failed = 2
 
 def set_augment_mthds(info):
   from dgbpy.transforms import hasOpenCV
