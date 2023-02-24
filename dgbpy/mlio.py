@@ -520,4 +520,13 @@ def announceShowTensorboard():
   restore_stdout()
   print('--ShowTensorboard--', flush=True)
   redirect_stdout()
-  
+
+def announceTrainingFailure():
+  restore_stdout()
+  print('--Training Failed--', flush=True)
+  restore_stdout()  
+
+def announceTrainingSuccess():
+  restore_stdout()
+  print('--Training Successful--', flush=True)
+  restore_stdout()  
