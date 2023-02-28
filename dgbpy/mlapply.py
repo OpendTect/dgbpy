@@ -406,7 +406,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     dgbmlio.announceTrainingFailure()
     raise e
 
-def reformat( res, applysinfo ):
+def reformat( res, applyinfo ):
   """ For reformatting prediction result type(s)
 
   Parameters:

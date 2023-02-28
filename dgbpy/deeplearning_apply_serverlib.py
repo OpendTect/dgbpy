@@ -22,7 +22,8 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbscikit, dgbkeras, dgbtorch
+from dgbpy import dgbtorch
+from dgbpy import dgbscikit, dgbkeras
 
 class ExitCommand(Exception):
     pass
