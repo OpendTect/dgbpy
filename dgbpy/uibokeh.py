@@ -45,7 +45,8 @@ def getPauseResumeButton(callback_fn=None):
   return getButton(pause_lbl,type=enums.ButtonType.primary,callback_fn=callback_fn)
 
 class TrainStatusUI():
-  message = Div(text="")
+  def __init__(self):
+    self.message = Div(text="", visible=False)
 
   def set_status(self, status):
     self.message.visible = True
@@ -77,7 +78,7 @@ def getPbar():
   fold.visible = False
   parent.visible(False)
   child.visible(False)
-  status.visible(False)
+  #status.visible(False)
 
   progressfld = column(chunk, fold, parent.panel(), child.panel(), status.message)
   ret = {
