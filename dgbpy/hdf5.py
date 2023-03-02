@@ -427,6 +427,10 @@ def getInfo( filenm, quick ):
     h5file.close()
     return {}
 
+  modname = None
+  if odhdf5.hasAttr(info, modelnmstr):
+    modname = odhdf5.getText(info, modelnmstr)
+
   learntype = odhdf5.getText(info,typestr)
   isclassification = isSeisClass( learntype )
   issegmentation = False
@@ -559,6 +563,7 @@ def getInfo( filenm, quick ):
   outshape = odhdf5.getIArray( info, outshapestr )
 
   retinfo = {
+    namedictstr: modname,
     learntypedictstr: learntype,
     segmentdictstr: issegmentation,
     inpshapedictstr: inpshape,
