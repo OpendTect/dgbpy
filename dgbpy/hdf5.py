@@ -17,7 +17,6 @@ from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
 
-from dgbpy import dgbscikit
 from dgbpy.keystr import *
 
 hdf5ext = 'h5'
@@ -551,6 +550,7 @@ def getInfo( filenm, quick ):
     if len(inpsurv) > 0:
       inpobj.update({ locationdictstr: inpsurv})
     if len(scales) > 0:
+      from dgbpy import dgbscikit
       inpobj.update({scaledictstr: dgbscikit.getNewScaler(means,scales) })
     inputs.update({ odhdf5.getText( info, inpidxstr+'Name' ): inpobj})
     idx += 1
