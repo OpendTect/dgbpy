@@ -17,7 +17,6 @@ from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
 
-from dgbpy import dgbscikit
 from dgbpy.keystr import *
 
 hdf5ext = 'h5'
@@ -427,6 +426,10 @@ def getInfo( filenm, quick ):
     h5file.close()
     return {}
 
+  modname = None
+  if odhdf5.hasAttr(info, modelnmstr):
+    modname = odhdf5.getText(info, modelnmstr)
+
   learntype = odhdf5.getText(info,typestr)
   isclassification = isSeisClass( learntype )
   issegmentation = False
@@ -547,6 +550,7 @@ def getInfo( filenm, quick ):
     if len(inpsurv) > 0:
       inpobj.update({ locationdictstr: inpsurv})
     if len(scales) > 0:
+      from dgbpy import dgbscikit
       inpobj.update({scaledictstr: dgbscikit.getNewScaler(means,scales) })
     inputs.update({ odhdf5.getText( info, inpidxstr+'Name' ): inpobj})
     idx += 1
@@ -559,6 +563,7 @@ def getInfo( filenm, quick ):
   outshape = odhdf5.getIArray( info, outshapestr )
 
   retinfo = {
+    namedictstr: modname,
     learntypedictstr: learntype,
     segmentdictstr: issegmentation,
     inpshapedictstr: inpshape,
