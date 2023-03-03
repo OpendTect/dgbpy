@@ -28,7 +28,7 @@ try:
   from keras.callbacks import Callback
 except ModuleNotFoundError:
   pass
-from dgbpy.mlio import announceShowTensorboard
+from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess
 
 def hasKeras():
   try:
@@ -464,12 +464,14 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
       log_msg('Data loading failed because of insufficient memory')
       log_msg('Try to lower the batch size and restart the training')
       log_msg('')
+      announceTrainingFailure()
       raise e
     if  len(train_datagen) < 1 or len(validate_datagen) < 1:
       log_msg('')
       log_msg('There is not enough data to train on')
       log_msg('Extract more data and restart')
       log_msg('')
+      announceTrainingFailure()
       raise TypeError
     redirect_stdout()
     isCrossVal = dgbhdf5.isCrossValidation(infos)
@@ -490,12 +492,13 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
           if ifold != 1: # start transfer from second fold
             transfer(model)
           model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,validation_data=validate_datagen,callbacks=callbacks)
-
+      announceTrainingSuccess()
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')
       log_msg('Try to lower the batch size and restart the training')
       log_msg('')
+      announceTrainingFailure()
       raise e
 
     restore_stdout()

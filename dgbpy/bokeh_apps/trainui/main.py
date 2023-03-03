@@ -61,7 +61,7 @@ def training_app(doc):
       }
 
   info = get_default_info()
-  progress = initProgressDict()
+  progress = None
 
   def set_info():
     uikeras.info = info
@@ -131,6 +131,7 @@ def training_app(doc):
     nonlocal advparsgroups
     nonlocal kerasadvpars
     nonlocal torchadvpars
+    nonlocal progress
     if examplefilenm and get_default_platform() != uinoplfm().getPlatformNm(True)[0]:
       info = dgbmlio.getInfo( examplefilenm, quick=True )
 
@@ -226,11 +227,13 @@ def training_app(doc):
     nonlocal kerasadvpars
     nonlocal torchadvpars
     nonlocal tensorboardfld
+    nonlocal progress
     nonlocal adparameterspanel
     set_info()
     keraspars, kerasadvpars = getKerasUiPars()
     torchpars, torchadvpars = getTorchUiPars()
     sklearnpars, sklearnadvpars = getSklearnUiPars()
+    progress = initProgressDict()
     parsgroups = setPlatformGrp(keraspars,torchpars,sklearnpars)
     advparsgroups = (kerasadvpars, torchadvpars, sklearnadvpars)
     if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
