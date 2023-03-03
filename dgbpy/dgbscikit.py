@@ -32,6 +32,7 @@ from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
+from dgbpy.mlio import announceTrainingSuccess, announceTrainingFailure
 from multiprocessing import cpu_count
 
 tot_cpu = cpu_count()
@@ -651,24 +652,29 @@ def getDefaultModel( setup, params=scikit_dict ):
           model = SVR(kernel=kernel,degree=degree)
   except Exception as e:
     log_msg( 'Exception:', e )
+    announceTrainingFailure
     raise e
   return model
 
 def train(model, trainingdp):
-  x_train = trainingdp[dgbkeys.xtraindictstr]
-  if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
-    y_train = trainingdp[dgbkeys.ytraindictstr]
-  else:
-    y_train = trainingdp[dgbkeys.ytraindictstr].ravel()
-  printProcessTime( 'Training with scikit-learn', True, print_fn=log_msg )
-  log_msg( '\nTraining on', len(y_train), 'samples' )
-  log_msg( 'Validate on', len(trainingdp[dgbkeys.yvaliddictstr]), 'samples\n' )
-  redirect_stdout()
-  model.verbose = 51
-  ret = model.fit(x_train,y_train)
-  restore_stdout()
-  printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
-  assessQuality( model, trainingdp )
+  try:
+    x_train = trainingdp[dgbkeys.xtraindictstr]
+    if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
+      y_train = trainingdp[dgbkeys.ytraindictstr]
+    else:
+      y_train = trainingdp[dgbkeys.ytraindictstr].ravel()
+    printProcessTime( 'Training with scikit-learn', True, print_fn=log_msg )
+    log_msg( '\nTraining on', len(y_train), 'samples' )
+    log_msg( 'Validate on', len(trainingdp[dgbkeys.yvaliddictstr]), 'samples\n' )
+    redirect_stdout()
+    model.verbose = 51
+    ret = model.fit(x_train,y_train)
+    restore_stdout()
+    printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
+    assessQuality( model, trainingdp )
+    announceTrainingSuccess()
+  except Exception as e:
+    announceTrainingFailure()
   return ret
 
 def assessQuality( model, trainingdp ):
@@ -689,6 +695,7 @@ def assessQuality( model, trainingdp ):
   except Exception as e:
     log_msg( '\nCannot compute model quality:' )
     log_msg( repr(e) )
+    announceTrainingFailure()
     
 def onnx_from_sklearn(model):
   try:
