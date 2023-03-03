@@ -21,6 +21,7 @@ class Flip():
         return dgbhdf5.isImg2Img(info)
 
     def __call__(self, image=None, label=None, ndims=None):
+        self.ndims = ndims
         if self.p > self.uniform_prob:
             if not isinstance(label, np.ndarray):
                 return self.transform(image), label
@@ -28,7 +29,7 @@ class Flip():
         return image, label
 
     def transform_pars(self, inp_shape):
-        if len(inp_shape) == 3:
+        if self.ndims == 3:
             self.aug_dims = (1, 2)
             self.aug_count = 2
             cubesz = inp_shape[1:3]
@@ -37,11 +38,11 @@ class Flip():
 
     def transform(self, arr):
         arr_shape = arr.shape[1:]
-        self.transform_pars(arr_shape)
-        flip2d = len(arr_shape) == 2
+        flip2d = self.ndims == 2
         if flip2d:
             return np.fliplr(arr)
         else:
+            self.transform_pars(arr_shape)
             return np.rot90(arr,self.aug_count,self.aug_dims).copy()
 
 class GaussianNoise():
