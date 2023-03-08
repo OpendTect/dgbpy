@@ -10,6 +10,7 @@ import os
 import argparse
 import psutil
 import signal
+import bokeh
 from bokeh.util.logconfig import basicConfig
 from bokeh.application import Application
 from bokeh.application.handlers import DirectoryHandler, ScriptHandler
@@ -50,6 +51,10 @@ def DefineBokehArguments(parser):
             dest='port', action='store',
             type=int, default=5006,
             help='Bokeh server port')
+  bokehgrp.add_argument( '--apps',
+            dest='apps', action='store', default='bokeh_apps/crossplot',
+            type=str,
+            help='A list of apps to serve')
   bokehgrp.add_argument( '--show',
             dest='show', action='store_true', default=False,
             help='Show the app in a browser')
@@ -121,7 +126,7 @@ def main():
   parser = DefineBokehArguments(parser)
   bokehargs = vars(parser.parse_args())
 
-  apps = ['bokeh_apps/crossplot', 'bokeh_apps/example_viewer', 'bokeh_apps/trainui']
+  apps = bokehargs['apps'].split(',')
   applications = {}
   dirnm = os.path.dirname(__file__)
   for app in apps:
@@ -138,8 +143,6 @@ def main():
     route = handler.url_path()
     applications[route] = application
 
-#  import odpy.common as odcommon
-#  odcommon.initLogging(args)
   StartBokehServer(applications, bokehargs)
 
 if __name__ == "__main__":
