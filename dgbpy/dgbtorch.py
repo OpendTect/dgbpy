@@ -231,7 +231,7 @@ def onnx_from_torch(model, infos):
     model_instance = dGBLeNet(model_shape, nroutputs, dims, attribs, predtype)
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
-    model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs)
+    model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=model.n_blocks)
   model_instance.load_state_dict(model.state_dict())
   input_size = torch_dict['batch']
   if model.__class__.__name__ == 'UNet':
