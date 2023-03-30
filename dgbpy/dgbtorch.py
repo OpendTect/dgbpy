@@ -366,12 +366,11 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
 
   predictions = []
   predictions_prob = []
-  dfdm.to(device)
   dfdm.eval()
   for input in dataloader:
       with torch.no_grad():
         out = dfdm(input)
-        pred = out.detach().cpu().numpy()
+        pred = out.detach().numpy()
         pred_prob = pred.copy()
         if isclassification:
           pred = np.argmax(pred, axis=1)
