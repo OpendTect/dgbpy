@@ -497,7 +497,8 @@ def getScaler( x_train, byattrib ):
 
 def transform( samples, mean, stddev ):
   samples -= mean
-  samples /= stddev
+  if stddev:
+    samples = samples/stddev 
   return samples
 
 def transformBack( samples, mean, stddev ):
