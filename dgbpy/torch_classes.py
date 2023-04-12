@@ -1303,7 +1303,6 @@ class SeismicTestDataset(Dataset):
 
 class DatasetApply(Dataset):
     def __init__(self, X, info, isclassification, im_ch, ndims):
-        from dgbpy import transforms as T
         super().__init__()
         self.im_ch = im_ch
         self.ndims = ndims
