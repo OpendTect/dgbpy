@@ -8,10 +8,7 @@
 
 from functools import partial
 
-from bokeh.core import enums
-from bokeh.layouts import row, column
-from bokeh.models import Spacer
-from bokeh.models.widgets import Button, Select, Slider, Spinner, Div
+from dgbpy.bokehcore import *
 
 from odpy.common import log_msg
 from dgbpy.dgbscikit import *
