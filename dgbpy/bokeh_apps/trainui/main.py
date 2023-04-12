@@ -12,10 +12,7 @@ import psutil
 import json
 from functools import partial
 import logging
-from bokeh.io import curdoc
-from bokeh.layouts import column, row
-from bokeh.models.widgets import Panel, Select, Tabs
-from bokeh.models import CheckboxGroup
+from dgbpy.bokehcore import *
 
 from odpy.oscommand import (getPythonCommand, execCommand, kill,
                             isRunning, pauseProcess, resumeProcess)
@@ -141,11 +138,11 @@ def training_app(doc):
   traintabnm = 'Training'
   paramtabnm = 'Parameters'
   adparamtabnm = "Advanced"
-  trainpanel = Panel(title=traintabnm)
-  parameterspanel = Panel(title=paramtabnm)
-  adparameterspanel = Panel(title=adparamtabnm)
+  trainpanel = TabPanel(title=traintabnm)
+  parameterspanel = TabPanel(title=paramtabnm)
+  adparameterspanel = TabPanel(title=adparamtabnm)
   mainpanel = Tabs(tabs=[trainpanel,parameterspanel,adparameterspanel])
-  platformfld = Select(title="Machine learning platform:",options=get_platforms())
+  platformfld = Select(title="Machine learning platform:",options=get_platforms(), width = 300, sizing_mode='fixed', height=50)
   tensorboardfld = CheckboxGroup(labels=['Clear Tensorboard log files'], inline=True,
                                    active=[], visible=True)
   this_service = None
@@ -162,25 +159,30 @@ def training_app(doc):
     return None,None
 
   def setAdvPanel (advparsgrp):
+    nonlocal adparameterspanel
     if advparsgrp:
       adparameterspanel.child = column(advparsgrp, row(parsAdvancedResetBut, parsbackbut))
     else:
       adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
 
   def selParsGrp( platformnm ):
+    nonlocal mainpanel
+    nonlocal parameterspanel
+    nonlocal adparameterspanel
     parsgrp,advparsgrp = getParsGrp( platformnm )
     if not parsresetbut or not parsbackbut :
       return
-    doc.clear()
+    parameterspanel = TabPanel(title=paramtabnm)
+    adparameterspanel = TabPanel(title=adparamtabnm)
     if not parsgrp:
-      parameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+      parameterspanel.child = row(parsresetbut, parsbackbut)
       adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
       parameterspanel.disabled = True
       adparameterspanel.disabled = True
     else:
       parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
       setAdvPanel(advparsgrp)
-    doc.add_root(mainpanel)
+    mainpanel.tabs = [trainpanel,parameterspanel,adparameterspanel]
     if this_service:
       this_service.sendObject('bokeh_app_msg', {'platform_change': platformnm})
 
@@ -503,6 +505,7 @@ def training_app(doc):
     platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     mlchgCB( 'value', 0, platformfld.value )
     doc.title = 'Machine Learning'
+    doc.add_root(mainpanel)
 
   args = curdoc().session_context.server_context.application_context.application.metadata
   service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
