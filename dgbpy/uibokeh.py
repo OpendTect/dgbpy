@@ -10,11 +10,7 @@ from enum import Enum
 from functools import partial
 import re
 
-from bokeh.core import enums
-from bokeh.layouts import row, column
-from bokeh.models import Spacer, ColumnDataSource, Range1d, Div
-from bokeh.models.widgets import Button
-from bokeh.plotting import curdoc, figure
+from dgbpy.bokehcore import *
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -52,12 +48,12 @@ class TrainStatusUI():
     self.message.visible = True
     if status==TrainStatus.Success:
       self.message.text = '✅ Training Successful'
-      self.message.style = { "color":"#139D41", "background-color": "white", "font-size": "16px",
+      self.message.styles = { "color":"#139D41", "background-color": "white", "font-size": "12px",
                             "border": "4px solid #0CB61E", "border-radius": "8px",
                             "box-shadow": "2px 2px 5px rgba(0, 0, 0, 0.5)", "padding": "5px 10px" }
     elif status==TrainStatus.Failed:
       self.message.text = '🚫 Training Failed'
-      self.message.style = { "color": "red", "background-color": "white", "font-size": "16px",
+      self.message.styles = { "color": "red", "background-color": "white", "font-size": "12px",
                             "border": "4px solid red", "border-radius": "8px", 
                             "box-shadow": "2px 2px 5px rgba(0, 0, 0, 0.5)", "padding": "5px 10px" } 
 
@@ -95,7 +91,7 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
   pauseresumebut = getPauseResumeButton()
   pauseresumebut.visible = False
   buttonsgrp = row(pauseresumebut,Spacer(width=but_spacer),runstopbut,width_policy='min')
-  buttonsfld = row(Spacer(width=but_spacer),buttonsgrp, sizing_mode='stretch_width')
+  buttonsfld = row(Spacer(width=but_spacer),buttonsgrp, sizing_mode='stretch_width', align='end')
   ret = {
     'run': runstopbut,
     'pause': pauseresumebut,

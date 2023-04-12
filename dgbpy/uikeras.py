@@ -11,8 +11,7 @@ from functools import partial
 import numpy as np
 from enum import Enum
 
-from bokeh.layouts import column
-from bokeh.models.widgets import CheckboxGroup, Div, Select, Slider, RadioGroup
+from dgbpy.bokehcore import *
 
 from odpy.common import log_msg
 from dgbpy.dgbkeras import *
@@ -71,10 +70,10 @@ def getUiPars(uipars=None):
   uiobjs = {}
   if not uipars:
     uiobjs = {
-      'modeltypfld': Select(title='Type', options=modeltypes),
+      'modeltypfld': Select(title='Type', options=modeltypes, width=300),
       'validfld' : validfld,
       'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
-      'batchfld': Select(title='Batch Size',options=cudacores),
+      'batchfld': Select(title='Batch Size',options=cudacores, width=300),
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
       'patiencefld': Slider(start=1,end=100, title='Patience'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
@@ -86,7 +85,7 @@ def getUiPars(uipars=None):
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
-    uiobjs['dodecimatefld'].on_click(partial(decimateCB,chunkfld=uiobjs['chunkfld'],sizefld=uiobjs['sizefld']))
+    uiobjs['dodecimatefld'].on_change('active', partial(decimateCB, uiobjs['chunkfld'], uiobjs['sizefld']))
     try:
       uiobjs['chunkfld'].on_change('value_throttled',partial(chunkfldCB, uiobjs['sizefld']))
     except AttributeError:
@@ -109,7 +108,7 @@ def getUiPars(uipars=None):
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
-  decimateCB( uiobjs['dodecimatefld'].active,uiobjs['chunkfld'],uiobjs['sizefld'] )
+  decimateCB( uiobjs['chunkfld'],uiobjs['sizefld'], None, None ,uiobjs['dodecimatefld'].active )
   return uipars
 
 def getAdvancedUiPars(uipars=None):
@@ -199,8 +198,8 @@ def getUiParams( keraspars, advkeraspars ):
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
 
-def decimateCB( widgetactivelist,chunkfld,sizefld ):
-  decimate = uibokeh.integerListContains( widgetactivelist, 0 )
+def decimateCB(chunkfld,sizefld,attr,old,new):
+  decimate = uibokeh.integerListContains( new, 0 )
   chunkfld.visible = decimate
   size = info[dgbkeys.estimatedsizedictstr]
   if sizefld and size:
