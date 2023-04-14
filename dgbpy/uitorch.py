@@ -125,6 +125,7 @@ def getAdvancedUiPars(uipars=None):
   uiobjs={}
   if not uipars:
     uiobjs = {
+      'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), margin=(5, 5, 0, 5)),
       'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
       'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
@@ -144,6 +145,7 @@ def getAdvancedUiPars(uipars=None):
   else:
     uiobjs = uipars['uiobjects']
 
+  uiobjs['tofp16fld'].active = [] if not dict['tofp16'] else [0]
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   return uipars     
@@ -185,6 +187,7 @@ def getUiParams( torchpars, advtorchpars ):
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
   withtensorboard = True if len(advtorchgrp['tensorboardfld'].active)!=0 else False
+  tofp16 = True if len(advtorchgrp['tofp16fld'].active)!=0 else False
   return getParams( dodec=isSelected(torchgrp['dodecimatefld']), \
                              nbchunk = torchgrp['chunkfld'].value, \
                              epochs=torchgrp['epochfld'].value, \
@@ -197,7 +200,8 @@ def getUiParams( torchpars, advtorchpars ):
                              prefercpu = runoncpu,
                              scale = scale,
                              transform=transform,
-                             withtensorboard = withtensorboard)
+                             withtensorboard = withtensorboard,
+                             tofp16 = tofp16,)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

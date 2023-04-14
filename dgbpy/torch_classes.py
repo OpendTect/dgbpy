@@ -458,7 +458,8 @@ class Trainer:
                  earlystopping: int = 5,
                  imgdp = None,
                  cbs = None,
-                 silent = None
+                 silent = None,
+                 tofp16 = False
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -470,6 +471,8 @@ class Trainer:
         if self.classification: self.metrics = [accuracy, f1]
         else: self.metrics = [mae]
             
+        self.tofp16 = tofp16 and torch.cuda.is_available()
+        self.gradScaler = torch.cuda.amp.GradScaler() if self.tofp16 else None
         self.in_train, self.logger = False, odcommon.log_msg
 
     def init_callbacks(self, cbs):
@@ -501,15 +504,33 @@ class Trainer:
     def one_batch(self, i, input, target):
         try:
             self.iter = i
-            self.input, self.target = input, target ;   self('begin_batch')
-            self.out = self.model(self.input) ;         self('after_pred')
-            self.compute_loss_func() ;                  self('after_loss')
-            if not self.in_train: return
-            self.loss.backward() ;                      self('after_backward')
-            self.optimizer.step() ;                     self('after_step')
+            self.input, self.target = input, target 
+            self('begin_batch')
+            if self.tofp16:
+                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                    self.out = self.model(self.input)
+                    self('after_pred')
+                    self.compute_loss_func()
+                    self('after_loss')
+                    if not self.in_train: return
+                self.gradScaler.scale(self.loss).backward()
+                self('after_backward')
+                self.gradScaler.step(self.optimizer) 
+                self('after_step')
+                self.gradScaler.update()
+            else:
+                self.out = self.model(self.input) 
+                self('after_pred')
+                self.compute_loss_func() 
+                self('after_loss')
+                if not self.in_train: return
+                self.loss.backward()
+                self('after_backward')
+                self.optimizer.step() 
+                self('after_step')
             self.optimizer.zero_grad()
-        except CancelBatchException:                    self('after_cancel_batch')
-        finally:                                        self('after_batch')
+        except CancelBatchException: self('after_cancel_batch')
+        finally: self('after_batch')
 
     def all_batches(self):
         self.iters = len(self.dl)
