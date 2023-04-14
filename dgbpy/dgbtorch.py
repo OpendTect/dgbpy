@@ -50,7 +50,8 @@ torch_dict = {
     'prefercpu': None,
     'scale': dgbkeys.globalstdtypestr,
     'transform':default_transforms,
-    'withtensorboard': withtensorboard
+    'withtensorboard': withtensorboard,
+    'tofp16': True,
 }
 
 def getMLPlatform():
@@ -88,7 +89,8 @@ def getParams(
     nbfold=torch_dict['nbfold'],
     scale=torch_dict['scale'],
     transform=torch_dict['transform'],
-    withtensorboard=torch_dict['withtensorboard']):
+    withtensorboard=torch_dict['withtensorboard'],
+    tofp16=torch_dict['tofp16']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
@@ -101,7 +103,8 @@ def getParams(
     'batch': batch,
     'scale': scale,
     'transform': transform,
-    'withtensorboard': withtensorboard
+    'withtensorboard': withtensorboard,
+    'tofp16': tofp16,
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -269,7 +272,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
+def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     from dgbpy.torch_classes import Trainer
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
@@ -292,7 +295,8 @@ def train(model, imgdp, params, cbfn=None, logdir = None, silent=False):
         epochs=params['epochs'],
         earlystopping = params['epochdrop'],
         imgdp=imgdp,
-        silent = silent
+        silent = silent,
+        tofp16=params['tofp16']
     )
     model = trainer.fit(cbs = cbfn)
     return model
