@@ -318,6 +318,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       if params == None:
         params = dgbkeras.getParams()
       dgbkeras.set_compute_device( params[dgbkeys.prefercpustr] )
+      if params['tofp16']:
+        dgbkeras.use_mixed_precision()
 
       trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
                                           scaler=params[dgbkeys.scaledictstr],

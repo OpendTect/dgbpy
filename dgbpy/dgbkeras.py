@@ -73,7 +73,8 @@ keras_dict = {
   'prefercpu': None,
   'transform': default_transforms,
   'scale': dgbkeys.globalstdtypestr,
-  'withtensorboard': withtensorboard
+  'withtensorboard': withtensorboard,
+  'tofp16': True
 }
 
 def can_use_gpu():
@@ -100,13 +101,21 @@ def set_compute_device( prefercpu ):
   cpudevs = tfconfig.list_physical_devices('CPU')
   tfconfig.set_visible_devices( cpudevs )
 
+def use_mixed_precision():
+  '''
+      Use this function to set the global policy to mixed precision.
+  '''
+  import tensorflow as tf
+  if can_use_gpu(): 
+    tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
 def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchunk'],
                epochs=keras_dict['epochs'],
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'],
-               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard']):
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -120,7 +129,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'type': nntype,
     'transform': transform,
     'scale': scale,
-    'withtensorboard': withtensorboard
+    'withtensorboard': withtensorboard,
+    'tofp16': tofp16
   }
   if prefercpu == None:
     prefercpu = get_cpu_preference()
