@@ -79,10 +79,10 @@ def get_default_info():
 
 def get_platforms():
   mlplatform = []
-  if uikeras.hasKeras():
-    mlplatform.append( uikeras.getPlatformNm(True) )
   if uitorch.hasTorch():
     mlplatform.append( uitorch.getPlatformNm(True) )
+  if uikeras.hasKeras():
+    mlplatform.append( uikeras.getPlatformNm(True) )
   if uisklearn.hasScikit():
     mlplatform.append( uisklearn.getPlatformNm(True) )
   if not bool(mlplatform):
@@ -96,10 +96,10 @@ def get_default_platform(mllearntype=dbk.loglogtypestr):
       if uisklearn.hasScikit():
         return uisklearn.getPlatformNm(True)[0]
     else:
-      if uikeras.hasKeras():
-        return uikeras.getPlatformNm(True)[0]
       if uitorch.hasTorch():
         return uitorch.getPlatformNm(True)[0]
+      if uikeras.hasKeras():
+        return uikeras.getPlatformNm(True)[0]
     return uinoplfm().getPlatformNm(True)[0]
 
 class uinoplfm:
