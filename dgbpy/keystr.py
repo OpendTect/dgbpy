@@ -105,6 +105,9 @@ typestr = 'Type'
 valuestr = 'Value'
 versionstr = 'Version'
 
+# Others
+ndimstr = 'ndims'
+
 def getNames( lst, uinames=True ):
   idx = -1
   if not uinames:
