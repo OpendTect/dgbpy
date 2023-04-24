@@ -34,7 +34,6 @@ class TrainingSequence(Sequence):
       self.ndims = self._getDims(self._infos)
       self.transform = []
       self.transform_seed = dgbhdf5.getSeed(self._infos)
-      self.transform_multiplier = 0
       self.transform_copy = transform_copy
       if exfilenm == None:
         self._exfilenm = self._infos[dgbkeys.filedictstr]
@@ -53,9 +52,8 @@ class TrainingSequence(Sequence):
       if not self.isDefScaler:
         if self._forvalid: transform = [scale]
         else: transform.append(scale)
-      self.transform = T.TransformCompose(transform, self._infos, self.ndims, mixed=transform_copy)
-      if transform_copy:
-        self.transform_multiplier = self.transform.multiplier
+      self.transform = T.TransformCompose(transform, self._infos, self.ndims, create_copy=transform_copy)
+      self.transform_multiplier = self.transform.multiplier
 
   def _getDims(self, info):
       from dgbpy.dgbkeras import get_model_shape, getModelDims
@@ -105,7 +103,7 @@ class TrainingSequence(Sequence):
             return False
         self._x_data = trainbatch[dgbkeys.xtraindictstr]
         self._y_data = trainbatch[dgbkeys.ytraindictstr]
-    self._data_IDs = range((len(self._x_data)*(self.transform_multiplier+1)))
+    self._data_IDs = range((len(self._x_data)*len(self.transform_multiplier)))
     self.on_epoch_end()
     return True
 
@@ -140,10 +138,10 @@ class TrainingSequence(Sequence):
       nrpts = len(data_IDs_temp)
       X = np.empty( (nrpts,*inp_shape), dtype=x_data.dtype )
       Y = np.empty( (nrpts,*out_shape), dtype=y_data.dtype )
-      idx, rem = np.divmod(data_IDs_temp, self.transform_multiplier+1)
+      idx, rem = np.divmod(data_IDs_temp, len(self.transform_multiplier))
       for i, (ID, _ID) in enumerate(zip(idx, data_IDs_temp)):
         if self.transform:
-            X[i,], Y[i,] = self.transform(x_data[ID], y_data[ID], _ID, mixed_val=rem[i])
+            X[i,], Y[i,] = self.transform(x_data[ID], y_data[ID], _ID, transform_idx=rem[i])
         else:
             X[i,], Y[i,] = x_data[ID], y_data[ID]
       dictinpshape = self._infos[dgbkeys.inpshapedictstr]

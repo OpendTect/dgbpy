@@ -1094,7 +1094,16 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset(Dataset):
-    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
+    def __init__(self, imgdp, scale, transform=list(), transform_copy = True):
+        """
+        Details:
+            imgdp : HDF5 Dataset
+            scale : Type of scaling to be applied to the data
+            transform : List of transforms to be applied to the data
+            transform_copy : If True, the number of samples is multiplied by the number of transforms.
+                             If False, the number of samples remains the same.
+                                But samples receives different transforms at each call.
+        """
         from dgbpy import transforms as T
         self.imgdp = imgdp
         self._data_IDs = []
@@ -1102,26 +1111,34 @@ class SeismicTrainDataset(Dataset):
         self.transform = dgbkeys.listify(transform)
         self.transformer = False
         self.transform_seed = dgbhdf5.getSeed(imgdp[dgbkeys.infodictstr])
-        self.trfm_copy, self.trfm_multiplier = transform_copy, 0
+        self.trfm_copy = transform_copy
 
     def __len__(self):
         return len(self._data_IDs)
 
-    def __getitem__(self, _idx):
-        idx, rem = np.divmod(_idx, self.trfm_multiplier+1)
+    def __getitem__(self, idx):
+        """
+        Details:
+            idx : Index of the sample to be retrieved.
+                    - using the expected multiplied number of samples by the trfm_multiplier
+        """
+        sample, transform_idx = np.divmod(idx, len(self.trfm_multiplier))
         if self.ndims < 2:
-            X, Y = self._adaptShape(self.X[idx], self.y[idx])
+            X, Y = self._adaptShape(self.X[sample], self.y[sample])
             return X, Y
         if self.transformer:
-            X, Y = self.transformer(self.X[idx], self.y[idx], _idx, mixed_val = rem)
+            X, Y = self.transformer(self.X[sample], self.y[sample], idx, transform_idx = transform_idx)
             X, Y = self._adaptShape(X, Y)
             return X, Y
         else:
-            X, Y = self.X[idx], self.y[idx]
+            X, Y = self.X[sample], self.y[sample]
             X, Y = self._adaptShape(X, Y)
             return X, Y
 
     def set_chunk(self, ichunk):
+        """
+            Set the chunk to be used for training
+        """
         self.info = self.imgdp[dgbkeys.infodictstr]
         nbchunks = len(self.info[dgbkeys.trainseldicstr])
         if nbchunks > 1 or dgbhdf5.isCrossValidation(self.info):
@@ -1130,6 +1147,9 @@ class SeismicTrainDataset(Dataset):
             return self.get_data(self.imgdp, ichunk)
 
     def set_fold(self, ichunk, ifold):
+        """
+            Set the fold for a particular chunk to be used for training
+        """
         from dgbpy import mlapply as dgbmlapply
         trainchunk  = dgbmlapply.getScaledTrainingDataByInfo( self.info,
                                                 flatten=False,
@@ -1137,11 +1157,17 @@ class SeismicTrainDataset(Dataset):
         return self.get_data(trainchunk, ichunk)
 
     def set_transform_seed(self):
+        """
+            Set different seed for each epoch
+        """
         if self.transform_seed:
             self.transform_seed+=1
         self.transformer.set_uniform_generator_seed(self.transform_seed, len(self))
 
     def get_data(self, trainchunk, ichunk):
+        """
+            Get the data from the chunk
+        """
         from dgbpy import dgbtorch
         X, y, info, im_ch, self.ndims = dgbtorch.getDatasetPars(trainchunk, False)
         self.X = X.astype('float32')
@@ -1149,17 +1175,23 @@ class SeismicTrainDataset(Dataset):
 
         if ichunk == 0: # initialise transforms on first chunk only
             self.set_transforms(info)
-        self._data_IDs = range(len(self.X)*(self.trfm_multiplier+1))
+        self._data_IDs = range(len(self.X)*(len(self.trfm_multiplier)))
         return True
 
     def set_transforms(self, info):
+        """
+            Set the transforms to be applied to the data
+        """
         from dgbpy import transforms as T
         if not self.isDefScaler:
             self.transform.append(self.scale)
-        self.transformer = T.TransformCompose(self.transform, info, self.ndims, mixed = self.trfm_copy)
+        self.transformer = T.TransformCompose(self.transform, info, self.ndims, create_copy = self.trfm_copy)
         self.trfm_multiplier = self.transformer.multiplier
 
     def _adaptShape(self, X, Y):
+        """
+            Adapt the shape of the data to the expected shape of the network
+        """
         classification = self.info[dgbkeys.classdictstr]
         if self.ndims == 3:
             if len(X.shape)==len(Y.shape) and len(X.shape)==4 and classification:     #segmentation
