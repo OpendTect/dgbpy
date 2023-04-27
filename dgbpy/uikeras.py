@@ -75,7 +75,7 @@ def getUiPars(uipars=None):
       'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
       'batchfld': Select(title='Batch Size',options=cudacores, width=300),
       'epochfld': Slider(start=1,end=1000, title='Epochs'),
-      'patiencefld': Slider(start=1,end=100, title='Patience'),
+      'patiencefld': Slider(start=1,end=100, title='Early Stopping'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
       'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1),
       'sizefld': Div( text='Size: Unknown' ),
