@@ -236,8 +236,8 @@ def training_app(doc):
     torchpars, torchadvpars = getTorchUiPars()
     sklearnpars, sklearnadvpars = getSklearnUiPars()
     progress = initProgressDict()
-    parsgroups = setPlatformGrp(keraspars,torchpars,sklearnpars)
-    advparsgroups = (kerasadvpars, torchadvpars, sklearnadvpars)
+    parsgroups = setPlatformGrp(torchpars,keraspars,sklearnpars)
+    advparsgroups = (torchadvpars, kerasadvpars, sklearnadvpars)
     if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
       adparameterspanel.disabled = False
     else:
