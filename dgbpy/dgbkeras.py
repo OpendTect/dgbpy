@@ -64,7 +64,7 @@ keras_dict = {
   'nbchunk': 10,
   'epochs': 15,
   'batch': 32,
-  'patience': 5,
+  'patience': 10,
   'learnrate': 1e-4,
   'epochdrop': 5,
   'split': 0.2,
