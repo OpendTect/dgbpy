@@ -86,7 +86,7 @@ def getUiPars(uipars=None):
       'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
       'batchfld': Select(title='Batch Size', options=cudacores, width=300),
       'epochfld': Slider(start=1, end=1000, title='Epochs'),
-      'epochdrop': Slider(start=1, end=100, title='Early Stopping'),
+      'patiencefld': Slider(start=1, end=100, title='Early Stopping'),
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
       'sizefld': Div( text='Size: Unknown' ),
       'dodecimatefld': CheckboxGroup( labels=['Decimate input'] ),
@@ -110,7 +110,7 @@ def getUiPars(uipars=None):
   uiobjs['batchfld'].value = str(defbatchsz)
   uiobjs['epochfld'].value = dict['epochs']
   uiobjs['lrfld'].value = np.log10(dict['learnrate'])
-  uiobjs['epochdrop'].value = dict['epochdrop']
+  uiobjs['patiencefld'].value = dict['patience']
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   uiobjs['foldfld'].value = dict['nbfold']
@@ -174,14 +174,15 @@ def getUiParams( torchpars, advtorchpars ):
   torchgrp = torchpars['uiobjects']     
   advtorchgrp = advtorchpars['uiobjects']
   nrepochs = torchgrp['epochfld'].value
-  epochdroprate = torchgrp['epochfld'].value / 100
-  epochdrop = int(nrepochs*epochdroprate)
+  # epochdroprate = torchgrp['epochfld'].value / 100
+  # epochdrop = int(nrepochs*epochdroprate)
+  patience = torchgrp['patiencefld'].value
   validation_split = torchgrp['validfld'].value
   nbfold = torch_dict['nbfold']
   if torchgrp['foldfld'].visible:
     nbfold = torchgrp['foldfld'].value
-  if epochdrop < 1:
-    epochdrop = 1
+  # if epochdrop < 1:
+  #   epochdrop = 1
   runoncpu = not torchgrp['rundevicefld'].visible or \
              not isSelected( torchgrp['rundevicefld'] )
   scale = getUiScaler(advtorchgrp)
@@ -194,7 +195,7 @@ def getUiParams( torchpars, advtorchpars ):
                              batch=int(torchgrp['batchfld'].value), \
                              learnrate= 10**torchgrp['lrfld'].value, \
                              nntype=torchgrp['modeltypfld'].value, \
-                             epochdrop=torchgrp['epochdrop'].value, \
+                             patience=torchgrp['patiencefld'].value, \
                              validation_split = validation_split, \
                              nbfold= nbfold, \
                              prefercpu = runoncpu,
