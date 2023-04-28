@@ -223,6 +223,15 @@ def onnx_from_torch(model, infos):
   else:
     predtype = tc.DataPredType.Continuous
     nroutputs = dgbhdf5.getNrOutputs( infos )
+  input_size = torch_dict['batch']
+  if model.__class__.__name__ == 'UNet': 
+    input_size = 1
+  if dims  == 3:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
+  elif dims == 2:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
+  elif dims == 1:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
   if model.__class__.__name__ == 'Sequential':
     from dgbpy.mlmodel_torch_dGB import ResNet18
     model_instance = ResNet18(nroutputs, dims, attribs)
@@ -235,16 +244,9 @@ def onnx_from_torch(model, infos):
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=model.n_blocks)
+  elif model.__class__.__name__ == 'GraphModule':
+    model_instance = torch.jit.trace(model.cpu(), dummy_input)
   model_instance.load_state_dict(model.state_dict())
-  input_size = torch_dict['batch']
-  if model.__class__.__name__ == 'UNet':
-    input_size = 1
-  if dims  == 3:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
-  elif dims == 2:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
-  elif dims == 1:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
   return model_instance, dummy_input
 
 def save( model, outfnm, infos, save_type=defsavetype ):
@@ -302,20 +304,24 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     return model
 
 def transfer(model):
+  from dgbpy.torch_classes import OnnxModel
+  if isinstance(model, OnnxModel):
+    model = model.convert_to_torch()
+
   for param in model.parameters():
     param.requires_grad = False
 
   for name, child in model.named_children():
-    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
-        break
     for param in child.parameters():
         param.requires_grad = True
+    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
+        break
 
   for name, child in reversed(list(model.named_children())):
-      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
-          break
       for param in child.parameters():
           param.requires_grad = True
+      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
+          break
   
   return model
 
