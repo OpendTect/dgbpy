@@ -25,6 +25,7 @@ resume_lbl = '► Resume'
 timerkey = 'timerobj'
 parent_bar = 'epoch_bar'
 child_bar = 'iter_bar'
+widget_margin = (4, 0, 0, 0)
 
 RunState = Enum( 'RunState', 'Ready Running Pause', module=__name__ )
 
