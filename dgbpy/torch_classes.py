@@ -50,6 +50,12 @@ class OnnxModel():
         ort_inputs = {ort_session.get_inputs()[0].name: Tensor2Numpy(self.inputs)}
         ort_outs = np.array(ort_session.run(None, ort_inputs))[-1]
         return Numpy2tensor(ort_outs)
+    
+    def convert_to_torch(self):
+        import onnx
+        from onnx2torch import convert
+        onnx_model = onnx.load(self.name)
+        return convert(onnx_model)
 
     def eval(self):
         pass
