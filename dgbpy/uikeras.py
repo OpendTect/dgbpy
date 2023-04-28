@@ -62,26 +62,28 @@ def getUiPars(uipars=None):
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
   if isCrossVal:
-    validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,title='Number of input for validation')
+    validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
+                      title='Number of input for validation', margin=uibokeh.widget_margin)
   else:
-    validfld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,title='Validation Percentage Split')
+    validfld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,
+                      title='Validation Percentage Split', margin=uibokeh.widget_margin)
   if kc.UserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
-      'modeltypfld': Select(title='Type', options=modeltypes, width=300),
+      'modeltypfld': Select(title='Type', options=modeltypes, width=300, margin=uibokeh.widget_margin),
       'validfld' : validfld,
-      'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal),
-      'batchfld': Select(title='Batch Size',options=cudacores, width=300),
-      'epochfld': Slider(start=1,end=1000, title='Epochs'),
-      'patiencefld': Slider(start=1,end=100, title='Early Stopping'),
-      'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)'),
-      'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1),
-      'sizefld': Div( text='Size: Unknown' ),
-      'dodecimatefld': CheckboxGroup( labels=['Decimate input']),
-      'chunkfld': Slider(start=1,end=100, title='Number of Chunks'),
-      'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu())
+      'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal, margin=uibokeh.widget_margin),
+      'batchfld': Select(title='Batch Size',options=cudacores, width=300, margin=uibokeh.widget_margin),
+      'epochfld': Slider(start=1,end=1000, title='Epochs', margin=uibokeh.widget_margin),
+      'patiencefld': Slider(start=1,end=100, title='Early Stopping', margin=uibokeh.widget_margin),
+      'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', margin=uibokeh.widget_margin),
+      'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, margin=uibokeh.widget_margin),
+      'sizefld': Div( text='Size: Unknown' , margin=uibokeh.widget_margin),
+      'dodecimatefld': CheckboxGroup( labels=['Decimate input'], margin=uibokeh.widget_margin),
+      'chunkfld': Slider(start=1,end=100, title='Number of Chunks', margin=uibokeh.widget_margin),
+      'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu(), margin=uibokeh.widget_margin)
     }
     if estimatedsz:
       uiobjs['sizefld'] = Div( text=getSizeStr( estimatedsz ) )
