@@ -1423,7 +1423,9 @@ class TorchUserModel(ABC):
 
     mlm = []
 
-    for _, name, ispkg in pkgutil.iter_modules(path=[Path(__file__).parent.absolute()]):
+    dgbpypath = Path(__file__).parent.absolute()
+    dgbpypathstr = os.fsdecode( dgbpypath )
+    for _, name, ispkg in pkgutil.iter_modules(path=[dgbpypathstr]):
       if name.startswith("mlmodel_torch_"):
         module = importlib.import_module('.'.join(['dgbpy',name]))
         clsmembers = inspect.getmembers(module, inspect.isclass)
