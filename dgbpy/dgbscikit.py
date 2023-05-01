@@ -45,6 +45,13 @@ def hasScikit():
     return False 
   return True
 
+def isVersionAtLeast(version):
+  try:
+    import sklearn
+  except ModuleNotFoundError:
+    return False
+  return sklearn.__version__ >= version
+
 def hasXGBoost():
   try:
     import xgboost
@@ -53,6 +60,8 @@ def hasXGBoost():
   return True
 
 platform = (dgbkeys.scikitplfnm,'Scikit-learn')
+mse_criterion = 'squared_error' if isVersionAtLeast('1.0') else 'mse'
+
 regmltypes = (\
             ('linear','Linear'),\
             ('ensemble','Ensemble'),\
@@ -605,9 +614,9 @@ def getDefaultModel( setup, params=scikit_dict ):
       if isclassification:
         model = RandomForestClassifier(n_estimators=n_estimators,criterion='gini',max_depth=max_depth,n_jobs=-1)
       elif ismultilabelregression:
-        model = MultiOutputRegressor(RandomForestRegressor(n_estimators=n_estimators,criterion='mse',max_depth=max_depth,n_jobs=-1))
+        model = MultiOutputRegressor(RandomForestRegressor(n_estimators=n_estimators,criterion=mse_criterion,max_depth=max_depth,n_jobs=-1))
       else:
-        model = RandomForestRegressor(n_estimators=n_estimators,criterion='mse',max_depth=max_depth,n_jobs=-1)
+        model = RandomForestRegressor(n_estimators=n_estimators,criterion=mse_criterion,max_depth=max_depth,n_jobs=-1)
     elif modelname == 'Gradient Boosting':
       n_estimators = params['est']
       learning_rate = params['lr']
