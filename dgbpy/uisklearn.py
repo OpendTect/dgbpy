@@ -367,6 +367,9 @@ def modelChgCB( attrnm, old, new, cb, modelsgrp ):
       ret['estparfldxgdt'].visible = True
       ret['depparfldxgdt'].visible = True
       ret['lrparfldxgdt'].visible = True
+    else:
+      ret['estparfldrf'].visible = True
+      ret['depparfldrf'].visible = True
   elif new == 'SVM':
     ret['svmtyp'].visible = True
     ret['kernel'].visible = True
