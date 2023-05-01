@@ -169,11 +169,16 @@ def training_app(doc):
     nonlocal mainpanel
     nonlocal parameterspanel
     nonlocal adparameterspanel
+    nonlocal mainpanel
     parsgrp,advparsgrp = getParsGrp( platformnm )
     if not parsresetbut or not parsbackbut :
       return
     parameterspanel = TabPanel(title=paramtabnm)
     adparameterspanel = TabPanel(title=adparamtabnm)
+    if platformnm==uikeras.getPlatformNm(True)[0] or platformnm==uitorch.getPlatformNm(True)[0]:
+      adparameterspanel.disabled = False
+    else:
+      adparameterspanel.disabled = True
     if not parsgrp:
       parameterspanel.child = row(parsresetbut, parsbackbut)
       adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
@@ -238,15 +243,10 @@ def training_app(doc):
     progress = initProgressDict()
     parsgroups = setPlatformGrp(torchpars,keraspars,sklearnpars)
     advparsgroups = (torchadvpars, kerasadvpars, sklearnadvpars)
-    if new==uikeras.getPlatformNm(True)[0] or new==uitorch.getPlatformNm(True)[0]:
-      adparameterspanel.disabled = False
-    else:
-      adparameterspanel.disabled = True
     selParsGrp( new )
 
   def updateUI():
     nonlocal platformfld
-
     if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       platformfld.options.remove( uisklearn.getPlatformNm(True) )
       if platformfld.value == uisklearn.getPlatformNm(False):

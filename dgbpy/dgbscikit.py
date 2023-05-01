@@ -683,9 +683,10 @@ def train(model, trainingdp):
     printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
     assessQuality( model, trainingdp )
     announceTrainingSuccess()
+    return ret
   except Exception as e:
     announceTrainingFailure()
-  return ret
+    raise e
 
 def assessQuality( model, trainingdp ):
   if not dgbkeys.yvaliddictstr in trainingdp:
