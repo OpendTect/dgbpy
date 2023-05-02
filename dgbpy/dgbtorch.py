@@ -41,11 +41,12 @@ torch_dict = {
     'nbchunk': 10,
     'epochs': 15,
     'patience': 10,
+    'epochdrop': 5,
     'split': 0.2,
     'nbfold': 5,
     'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
     'batch': 8,
-    'learnrate': 0.0001,
+    'learnrate': 1e-4,
     'type': None,
     'prefercpu': None,
     'scale': dgbkeys.globalstdtypestr,
@@ -81,6 +82,7 @@ def getParams(
     dodec = torch_dict[dgbkeys.decimkeystr],
     nbchunk = torch_dict['nbchunk'],
     learnrate=torch_dict['learnrate'],
+    epochdrop = torch_dict['epochdrop'],
     epochs=torch_dict['epochs'],
     patience=torch_dict['patience'],
     batch=torch_dict['batch'],
@@ -96,6 +98,7 @@ def getParams(
     'type': nntype,
     'nbchunk': nbchunk,
     'learnrate': learnrate,
+    'epochdrop': epochdrop,
     'epochs': epochs,
     'patience': patience,
     'split':validation_split,
@@ -275,12 +278,16 @@ def save( model, outfnm, infos, save_type=defsavetype ):
   h5file.close()
 
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
-    from dgbpy.torch_classes import Trainer
+    from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = torch_dict['criterion']
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
+    if params['epochdrop'] < 1:
+      scheduler = None
+    else:
+      scheduler = AdaptiveLR(optimizer, params['learnrate'], params['epochdrop'])
     tensorboard = None
     if logdir != None and params['withtensorboard']:
       from torch.utils.tensorboard import SummaryWriter
@@ -290,6 +297,7 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
         model=model,
         criterion=criterion,
         optimizer=optimizer,
+        scheduler=scheduler,
         device = device,
         training_DataLoader=trainloader,
         validation_DataLoader=testloader,

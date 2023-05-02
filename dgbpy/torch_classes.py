@@ -11,12 +11,14 @@
 import re
 import time
 from functools import partial
+import math
 import torch
 import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d, Dropout, Dropout2d, Dropout3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
+from torch.optim.lr_scheduler import _LRScheduler
 from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -228,6 +230,19 @@ def reformat_str(name):
     _camel_re2 = re.compile('([a-z0-9])([A-Z])')
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
+
+class AdaptiveLR(_LRScheduler):
+    def __init__(self, optimizer, initial_lrate, epochdrop):
+        self.initial_lrate = initial_lrate
+        self.epochdrop = epochdrop
+        super().__init__(optimizer)
+
+    def get_lr(self):
+        lr = []
+        for base_lr in self.base_lrs:
+            lr.append(self.initial_lrate * math.pow(0.5,
+                             math.floor((1+self.last_epoch)/self.epochdrop)))
+        return lr
 
 class Callback():
     _order=0
@@ -447,6 +462,16 @@ class TransformCallback(Callback):
         # set new transform seed for each epoch
         self.run.train_dl.set_transform_seed() 
 
+
+class LRSchedulerCallback(Callback):
+    def __init__(self, scheduler):
+        self.scheduler = scheduler
+
+    def after_epoch(self):
+        if not self.scheduler:
+            return
+        self.scheduler.step()
+        
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -456,6 +481,7 @@ class Trainer:
                  model: torch.nn.Module,
                  criterion: torch.nn.Module,
                  optimizer: torch.optim.Optimizer,
+                 scheduler,
                  device: torch.device,
                  training_DataLoader: torch.utils.data.Dataset,
                  validation_DataLoader: torch.utils.data.Dataset = None,
@@ -472,6 +498,7 @@ class Trainer:
         self.imgdp, self.train_dl, self.valid_dl = imgdp, training_DataLoader, validation_DataLoader
         self.epochs, self.device, self.savemodel = epochs, device, model
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
+        self.scheduler = scheduler
 
         self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
         if self.classification: self.metrics = [accuracy, f1]
@@ -485,7 +512,7 @@ class Trainer:
         self.cbs = []
         defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(self.metrics),
                         EarlyStoppingCallback(self.earlystopping), LogNrOfSamplesCallback(),
-                        TransformCallback() ]
+                        TransformCallback(), LRSchedulerCallback(self.scheduler) ]
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
