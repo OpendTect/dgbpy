@@ -1043,8 +1043,8 @@ class UNet(nn.Module):
 
         # create encoder path
         for i in range(self.n_blocks):
-            num_filters_in = self.in_channels if i == 0 else num_filters_out
             num_filters_out = self.start_filters * (2 ** i)
+            num_filters_in = self.in_channels if i == 0 else num_filters_out
             pooling = True if i < self.n_blocks - 1 else False
 
             down_block = DownBlock(in_channels=num_filters_in,
