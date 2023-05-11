@@ -233,7 +233,7 @@ def onnx_from_torch(model, infos):
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
   elif dims == 2:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
-  elif dims == 1:
+  elif dims == 1 or dims == 0:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
   if model.__class__.__name__ == 'Sequential':
     from dgbpy.mlmodel_torch_dGB import ResNet18
