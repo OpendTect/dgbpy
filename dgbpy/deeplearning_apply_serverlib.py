@@ -188,6 +188,8 @@ class ModelApplier:
         inpshape = self.info_[dgbkeys.inpshapedictstr]
         nrzin = inp.shape[-1]
         vertical =  isinstance(inpshape,int)
+        self.isflat_inlinemodel_ = False
+        self.isflat_xlinemodel_ = False
         self.is2dinp_ = False
         self.is3dmodel_ = False
         self.swapaxes_ = False
