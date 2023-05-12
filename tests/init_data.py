@@ -6,7 +6,6 @@ import dgbpy.mlapply as dgbml
 import dgbpy.mlio as dgbmlio
 import numpy as np
 
-
 def get_default_examples():
   retinfo = {
     'Dummy': {

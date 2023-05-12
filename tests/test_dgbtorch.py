@@ -52,11 +52,11 @@ def test_default_architecture():
 
 def test_default_model():   
     info = get_seismic_imgtoimg_data()[dbk.infodictstr]
-    model = get_default_model(info)
-    assert isinstance(model, list), 'model should be a list'
-    assert len(model) > 0, 'model types should not be empty for dummy workflows'
-    for i in range(len(model)):
-        assert isinstance(model[i], str)
+    models = get_default_model(info)
+    assert isinstance(models, list), 'model should be a list'
+    assert len(models) > 0, 'model types should not be empty for dummy workflows'
+    for i in range(len(models)):
+        assert isinstance(models[i], str)
 
 def train_model(trainpars=default_pars()):
     data = get_seismic_imgtoimg_data()
