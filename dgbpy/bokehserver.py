@@ -6,19 +6,18 @@
 # Support methods for embedded Bokeh Server
 #
 #
-import os
 import argparse
+import os
 import psutil
-import signal
-import bokeh
+import sys
 from bokeh.util.logconfig import basicConfig
 from bokeh.application import Application
 from bokeh.application.handlers import DirectoryHandler, ScriptHandler
 from bokeh.io import curdoc
 from bokeh.server.server import Server
 import tornado.ioloop
-import dgbpy.servicemgr as dgbservmgr
 import odpy.common as odcommon
+import dgbpy.servicemgr as dgbservmgr
 
 def get_request_id():
   reqargs = curdoc().session_context.request.arguments
@@ -70,8 +69,17 @@ def _getDocUrl(server):
 class ProcMonitor:
   def __init__(self, ppid):
     self._parentproc = None
+    self._bokehlog = None
+    self._bokehserver = None
     if ppid > 0:
-      self._parentproc = psutil.Process(ppid)
+      try:
+        self._parentproc = psutil.Process(ppid)
+      except (ProcessLookupError, psutil.NoSuchProcess):
+        raise ProcessLookupError
+
+  def start(self, server, logfnm):
+      self._bokehserver = server
+      self._bokehlog = logfnm
       self.PCB = tornado.ioloop.PeriodicCallback(self._procChkCB, 1000)
       self.PCB.start()
 
@@ -79,11 +87,22 @@ class ProcMonitor:
     if self._parentproc and not self._parentproc.is_running():
       odcommon.log_msg('Found dead parent, exiting')
       self.PCB.stop()
-      os.kill(psutil.Process().pid, signal.SIGKILL)
+      basicConfig(filename=None,force=True)
+      if self._bokehserver != None:
+        self._bokehserver.stop( True )
+        if self._bokehlog != None and os.path.exists(self._bokehlog):
+          os.remove( self._bokehlog )
+      sys.exit()
 
 parent_proc_checker = None
 def StartBokehServer(applications, args, attempts=20):
-  basicConfig(filename=args['bokehlogfnm'])
+  try:
+    parent_proc_checker = ProcMonitor(args['ppid'])
+  except ProcessLookupError:
+    sys.exit()
+
+  bokehlog = args['bokehlogfnm']
+  basicConfig(filename=bokehlog)
   address = args['address']
   port = args['port']
   application = list(applications.keys())[0]
@@ -108,7 +127,7 @@ def StartBokehServer(applications, args, attempts=20):
           server.show( app )
 
       try:
-          parent_proc_checker = ProcMonitor(args['ppid'])
+          parent_proc_checker.start( server, bokehlog )
           server.io_loop.start()
       except RuntimeError:
           pass
