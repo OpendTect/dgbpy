@@ -148,7 +148,7 @@ class ModelApplier:
                 raise TypeError
 
         if self.scaler_ != None:
-            dgbscikit.scale( samples, self.scaler_ )
+            samples = dgbscikit.scale( samples, self.scaler_ )
         if self.needtranspose_:
             samples = np.transpose( samples, axes=(0,1,4,3,2) )
         return samples
@@ -164,7 +164,7 @@ class ModelApplier:
         
         if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
-                dgbscikit.unscale( samples, self.scaler_ )
+                samples = dgbscikit.unscale( samples, self.scaler_ )
 
         return samples
 
