@@ -102,7 +102,7 @@ class Flip(BaseTransform):
         arr_shape = arr.shape[1:]
         flip2d = self.ndims == 2
         if flip2d:
-            return np.fliplr(arr)
+            return np.fliplr(arr).copy()
         else:
             self.transform_pars(arr_shape)
             return np.rot90(arr,self.aug_axis,self.aug_dims).copy()
@@ -324,21 +324,25 @@ class TransformCompose():
         """
         if isinstance(transform_i, Rotate) and not hasOpenCV():
             return False
+        if isinstance(transform_i, (Translate, Rotate, Flip, GaussianNoise)) and dgbhdf5.isLogInput(self.info):
+            return False
         return True
-
+    
     def _readTransforms(self, transforms):
         """
             Read and initialize the transforms and checks if they can be applied.
         """
-        for tr, transform_i in enumerate(transforms):
+        valid_transforms = []
+        for transform_i in transforms:
             if transform_i in all_transforms:
-                transforms[tr] = all_transforms[transform_i]()
-            if not isinstance(transforms[tr], (*all_transforms.values(),)):
-                transforms.pop(tr)
+                transform_i = all_transforms[transform_i]()
+            if not isinstance(transform_i, (*all_transforms.values(),)):
+                continue
             if not self.passModuleCheck(transform_i):
-                transforms.pop(tr)
-        self.set_multiplier(transforms)
-        return transforms
+                continue
+            valid_transforms.append(transform_i)
+        self.set_multiplier(valid_transforms)
+        return valid_transforms
     
     def set_multiplier(self, transforms):
         if not self.create_copy:

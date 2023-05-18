@@ -30,6 +30,8 @@ jobs:
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -m pip install git+https://github.com/OpendTect/dgbpy.git
         python -m pip install onnxruntime
+        python -m pip install onnx
+        python -m pip install opencv-python
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
