@@ -79,12 +79,12 @@ class Flip(BaseTransform):
         super().__init__()
         self.p = p
         self.multiplier = 1
+        self.mult_count = -1
 
     def set_multiplier(self, info):
         inp_shape = info[dgbkeys.inpshapedictstr]
         if inp_shape[0] == inp_shape[1]:
             self.multiplier = 3
-        self.mult_count = -1
 
     def transform_label(self, info):
         return dgbhdf5.isImg2Img(info)
