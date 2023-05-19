@@ -510,9 +510,9 @@ class Trainer:
 
     def init_callbacks(self, cbs):
         self.cbs = []
-        defaultCBS = [ TrainEvalCallback(), AvgStatsCallback(self.metrics),
-                        EarlyStoppingCallback(self.earlystopping), LogNrOfSamplesCallback(),
-                        TransformCallback(), LRSchedulerCallback(self.scheduler) ]
+        defaultCBS = [  TrainEvalCallback(), AvgStatsCallback(self.metrics), 
+                        LRSchedulerCallback(self.scheduler),EarlyStoppingCallback(self.earlystopping),
+                        LogNrOfSamplesCallback(), TransformCallback() ]
         if self.tensorboard: defaultCBS.append( TensorBoardLogCallback())
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
@@ -537,7 +537,8 @@ class Trainer:
     def one_batch(self, i, input, target):
         try:
             self.iter = i
-            self.input, self.target = input, target 
+            self.input, self.target = input, target
+            self.optimizer.zero_grad() 
             self('begin_batch')
             if self.tofp16:
                 with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
@@ -548,9 +549,10 @@ class Trainer:
                     if not self.in_train: return
                 self.gradScaler.scale(self.loss).backward()
                 self('after_backward')
-                self.gradScaler.step(self.optimizer) 
+                self.gradScaler.unscale_(self.optimizer)
+                self.gradScaler.step(self.optimizer)
+                self.gradScaler.update() 
                 self('after_step')
-                self.gradScaler.update()
             else:
                 self.out = self.model(self.input) 
                 self('after_pred')
@@ -561,7 +563,6 @@ class Trainer:
                 self('after_backward')
                 self.optimizer.step() 
                 self('after_step')
-            self.optimizer.zero_grad()
         except CancelBatchException: self('after_cancel_batch')
         finally: self('after_batch')
 
@@ -1041,9 +1042,9 @@ class UNet(nn.Module):
         self.down_blocks = []
         self.up_blocks = []
 
+        num_filters_out = None
         # create encoder path
         for i in range(self.n_blocks): 
-            num_filters_out = self.start_filters * (2 ** i)
             num_filters_in = self.in_channels if i == 0 else num_filters_out
             num_filters_out = self.start_filters * (2 ** i)
             pooling = True if i < self.n_blocks - 1 else False
@@ -1128,7 +1129,7 @@ class UNet(nn.Module):
 
 
 class SeismicTrainDataset(Dataset):
-    def __init__(self, imgdp, scale, transform=list(), transform_copy = True):
+    def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
         """
         Details:
             imgdp : HDF5 Dataset
