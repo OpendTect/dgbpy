@@ -106,6 +106,13 @@ def training_app(doc):
         trainingpars['ComArgs'] = {}
         for key,item in val.items():
           trainingpars['ComArgs'].update({key: item.split(',')})
+      elif key=='Default':
+        odcommon.log_msg(f'Change learntype to "{val}".')
+        if val in [dgbkeys.loglogtypestr, dgbkeys.logclustertypestr, dgbkeys.seisproptypestr, 
+                    dgbkeys.seisclasstypestr, dgbkeys.seisimgtoimgtypestr, dgbkeys.segmenttypestr]:
+          info[dgbkeys.learntypedictstr] = val
+          set_info()
+          doc.add_next_tick_callback(partial(updateUI))
 
     if dorun:
       doRun( doTrain(trainingpars['Output Model File']) )
