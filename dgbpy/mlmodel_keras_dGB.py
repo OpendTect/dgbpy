@@ -235,7 +235,7 @@ def dGBLeNet(model_shape, nroutputs, predtype):
     
   model = Model(inputs=[inputs], outputs=[dense3])
   return model
-        
+
 class dGB_LeNet_Classifier(UserModel):
   uiname = 'dGB LeNet classifier'
   uidescription = 'dGBs LeNet classifier Keras model in UserModel form'
@@ -259,3 +259,79 @@ class dGB_LeNet_Regressor(UserModel):
     model = dGBLeNet(input_shape, nroutputs, self.predtype)
     model = compile_model( model, nroutputs, True, False, learnrate )    
     return model
+
+
+def UNet_VGG19(model_shape, nroutputs, predtype):
+  import dgbpy.dgbkeras as dgbkeras
+
+  input_shape = model_shape
+  data_format = 'channels_last'
+
+  ndim = dgbkeras.getModelDims(model_shape, data_format)
+  print(ndim)
+
+  poolsz, stridesz = (2,2), (2,2)
+  filtersz1 = 64
+  filtersz2 = 128
+  filtersz3 = 256
+  filtersz4 = 512
+  filtersz5 = 32
+  filtersz6 = 16
+
+  params = dict(kernel_size=(3, 3), activation='relu', padding='same',data_format=data_format)
+
+  inputs = Input(shape=input_shape, name='1024_input')
+
+
+  conv1 = Conv2D(filtersz1, name='1024_block1_conv1', **params)(inputs)
+  conv1 = Conv2D(filtersz1, name='1024_block1_conv2', **params)(conv1)
+  pool1 = MaxPooling2D(poolsz, strides=stridesz, name='1024_block1_pool')(conv1)
+
+  conv2 = Conv2D(filtersz2, name='1024_block2_conv1', **params)(pool1)
+  conv2 = Conv2D(filtersz2, name='1024_block2_conv2', **params)(conv2)
+  pool2 = MaxPooling2D(poolsz, strides=stridesz, name='1024_block2_pool')(conv2)
+
+  conv3 = Conv2D(filtersz3, name='1024_block3_conv1', **params)(pool2)
+  conv3 = Conv2D(filtersz3, name='1024_block3_conv2', **params)(conv3)
+  conv3 = Conv2D(filtersz3, name='1024_block3_conv3', **params)(conv3)
+  pool3 = MaxPooling2D(poolsz, strides=stridesz, name='1024_block3_pool')(conv3)
+
+  conv4 = Conv2D(filtersz4, name='1024_block4_conv1', **params)(pool3)
+  conv4 = Conv2D(filtersz4, name='1024_block4_conv2', **params)(conv4)
+  conv4 = Conv2D(filtersz4, name='1024_block4_conv3', **params)(conv4)
+
+  up5 = concatenate([UpSampling2D(size=(2,2))(conv4), conv3], axis=-1)
+  conv5 = Conv2D(filtersz5, **params)(up5)
+  conv5 = Conv2D(filtersz5, **params)(conv5)
+  up6 = concatenate([UpSampling2D(size=(2,2))(conv5), conv2], axis=-1)
+  conv6 = Conv2D(filtersz6, **params)(up6)
+  conv6 = Conv2D(filtersz6, **params)(conv6)
+  up7 = concatenate([UpSampling2D(size=(2,2))(conv6), conv1], axis=-1)
+  conv7 = Conv2D(filtersz6, **params)(up7)
+  conv7 = Conv2D(filtersz6, **params)(conv7)
+
+  if nroutputs == 1:
+    nrout = nroutputs
+    activation = 'sigmoid'
+  else:
+    nrout = nroutputs
+    activation = 'softmax'
+  conv8 = Conv2D(nrout, (1,1), activation=activation)(conv7)
+
+  model = Model(inputs=[inputs], outputs=[conv8])
+  return model
+
+
+class dGB_UNet_Vgg19(UserModel):
+  uiname = 'dGB UNet VGG19'
+  uidescription = 'dGBs UNet Vgg19 Keras model in UserModel form'
+  predtype = DataPredType.Classification
+  outtype = OutputType.Image
+  dimtype = DimType.D3
+  
+  def _make_model(self, input_shape, nroutputs, learnrate):
+    model = UNet_VGG19(input_shape, nroutputs, self.predtype)
+    model = compile_model( model, nroutputs, False, True, learnrate )    
+    return model
+    
+        
