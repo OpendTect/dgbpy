@@ -134,8 +134,9 @@ class Rotate(BaseTransform):
         self.p = p
         self.angle = angle
         self.multiplier = 1
-        import cv2
-        self.cv2 = cv2
+        if hasOpenCV():
+            import cv2
+            self.cv2 = cv2
 
     def transform_label(self, info):
         return dgbhdf5.isImg2Img(info)
