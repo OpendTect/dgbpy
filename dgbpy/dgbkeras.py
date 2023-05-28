@@ -222,7 +222,7 @@ def getModelsByInfo( infos ):
     if isinstance(shape,int):
         ndim = 1
     else:
-        ndim = len(shape)-1
+        ndim = len(shape)-shape.count(1)
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
                                    infos[dgbhdf5.classdictstr],
                                    ndim )

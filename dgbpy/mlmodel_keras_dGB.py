@@ -151,7 +151,7 @@ class dGB_UnetSeg(UserModel):
   uidescription = 'dGBs Unet image segmentation'
   predtype = DataPredType.Classification
   outtype = OutputType.Image
-  dimtype = DimType.Any
+  dimtype = (DimType.D1, DimType.D3)
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
@@ -163,7 +163,7 @@ class dGB_UnetReg(UserModel):
   uidescription = 'dGBs Unet image regression'
   predtype = DataPredType.Continuous
   outtype = OutputType.Image
-  dimtype = DimType.Any
+  dimtype = (DimType.D1, DimType.D3)
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
@@ -268,7 +268,6 @@ def UNet_VGG19(model_shape, nroutputs, predtype):
   data_format = 'channels_last'
 
   ndim = dgbkeras.getModelDims(model_shape, data_format)
-  print(ndim)
 
   poolsz, stridesz = (2,2), (2,2)
   filtersz1 = 64
@@ -322,12 +321,12 @@ def UNet_VGG19(model_shape, nroutputs, predtype):
   return model
 
 
-class dGB_UNet_Vgg19(UserModel):
-  uiname = 'dGB UNet VGG19'
-  uidescription = 'dGBs UNet Vgg19 Keras model in UserModel form'
+class dGB_UNet_VGG19(UserModel):
+  uiname = 'dGB UNet VGG19 Segmentation'
+  uidescription = 'dGB UNet VGG19 Segmentation Keras model in UserModel form'
   predtype = DataPredType.Classification
   outtype = OutputType.Image
-  dimtype = DimType.D3
+  dimtype = DimType.D2
   
   def _make_model(self, input_shape, nroutputs, learnrate):
     model = UNet_VGG19(input_shape, nroutputs, self.predtype)
