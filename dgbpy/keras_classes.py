@@ -9,6 +9,7 @@
 #
 
 from datetime import datetime, timedelta
+from typing import Iterable
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence, to_categorical
@@ -194,6 +195,12 @@ class DimType(Enum):
   D3 = 3
   Any = 4
 
+  @classmethod
+  def is_valid(cls, dim_type):
+    if not isinstance(dim_type, Iterable):
+      return isinstance(dim_type, cls)
+    return all(isinstance(dim_type, cls) for dim_type in dim_type)
+
 class UserModel(ABC):
   """Abstract base class for user defined Keras machine learning models
 
@@ -329,11 +336,12 @@ class UserModel(ABC):
 
     """
     if isinstance(pred_type, DataPredType) and isinstance(out_type, OutputType) and\
-       isinstance(dim_type, DimType) :
+       DimType.is_valid(dim_type):
       return [model for model in UserModel.mlmodels \
           if (model.predtype == pred_type or pred_type == DataPredType.Any) and\
-	     (model.outtype == out_type or out_type == OutputType.Any) and\
-             (model.dimtype == dim_type or model.dimtype == DimType.Any)]
+	           (model.outtype == out_type or out_type == OutputType.Any) and\
+             (model.dimtype == dim_type or model.dimtype == DimType.Any or\
+                (isinstance(model.dimtype, Iterable) and dim_type in model.dimtype))]
     return None
 
   @staticmethod
