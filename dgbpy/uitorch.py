@@ -53,10 +53,11 @@ def getUiModelTypes( learntype, classification, ndim ):
 def getUiPars(uipars=None):
   dict = torch_dict
   learntype = info[dgbkeys.learntypedictstr]
-  if isinstance(info[dgbkeys.inpshapedictstr], int):
+  inpshape = info[dgbkeys.inpshapedictstr]
+  if isinstance(inpshape, int):
     ndim = 1
   else:
-    ndim = len(info[dgbkeys.inpshapedictstr])
+    ndim = len(inpshape) - inpshape.count(1)
   modeltypes = getUiModelTypes( learntype, info[dgbkeys.classdictstr], ndim )
 
   if len(modeltypes)==0:
