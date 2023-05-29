@@ -11,10 +11,10 @@ def is_version_3():
 
 if is_version_3():
     from bokeh.models import TabPanel
-    from bokeh.models import Select, Tabs, CheckboxGroup, Slider, RadioGroup, Button
+    from bokeh.models import Select, Tabs, CheckboxGroup, Slider, RadioGroup, Button, MultiSelect, RangeSlider
 else:
     from bokeh.models.widgets import Panel as TabPanel
-    from bokeh.models.widgets import Select, Tabs, CheckboxGroup, Slider, RadioGroup, Button
+    from bokeh.models.widgets import Select, Tabs, CheckboxGroup, Slider, RadioGroup, Button, MultiSelect, RangeSlider
     from bokeh.plotting import curdoc
 
 def add_property(widget, name, value):
