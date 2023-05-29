@@ -622,9 +622,11 @@ class Trainer:
                 self('before_fit_chunk')
                 if not self.train_dl.set_chunk(ichunk) or not self.valid_dl.set_chunk(ichunk):
                     continue
+                if self.train_dl.batch_size > len(self.train_dl):
+                    raise Exception('Batch size is too high for the available data')
             except Exception as e:
                 odcommon.log_msg('')
-                odcommon.log_msg('Data loading failed because of insufficient memory')
+                odcommon.log_msg('Data loading failed because of insufficient memory or batch size too high')
                 odcommon.log_msg('Try to lower the batch size and restart the training')
                 odcommon.log_msg('')
                 announceTrainingFailure()
