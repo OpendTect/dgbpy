@@ -148,7 +148,7 @@ def getModelsByInfo( infos ):
     if isinstance(shape,int):
         ndim = 1
     else:
-        ndim = len(shape)-1
+        ndim = len(shape) - shape.count(1)
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
                                    infos[dgbhdf5.classdictstr], 
                                    ndim )                             
@@ -247,6 +247,9 @@ def onnx_from_torch(model, infos):
   elif model.__class__.__name__ == 'UNet':
     from dgbpy.torch_classes import UNet
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=model.n_blocks)
+  elif model.__class__.__name__ == 'UNet_VGG19':
+    from dgbpy.torch_classes import UNet_VGG19
+    model_instance = UNet_VGG19(model_shape, nroutputs, attribs)
   elif model.__class__.__name__ == 'GraphModule':
     model_instance = torch.jit.trace(model.cpu(), dummy_input)
   model_instance.load_state_dict(model.state_dict())

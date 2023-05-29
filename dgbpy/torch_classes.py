@@ -11,6 +11,7 @@
 import re
 import time
 from functools import partial
+from typing import Iterable
 import math
 import torch
 import numpy as np
@@ -1128,6 +1129,96 @@ class UNet(nn.Module):
         return f'{d}'
 
 
+class UNet_VGG19(nn.Module):
+    def __init__(self, model_shape, out_channels, nrattribs):
+        super(UNet_VGG19, self).__init__()
+
+        filtersz1 = 64
+        filtersz2 = 128
+        filtersz3 = 256
+        filtersz4 = 512
+        filtersz5 = 32
+        filtersz6 = 16
+
+        params = dict(kernel_size=3, padding=1)
+
+        # Encoder
+        self.conv1_1 = nn.Conv2d(nrattribs, filtersz1, **params)
+        self.conv1_2 = nn.Conv2d(filtersz1, filtersz1, **params)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.conv2_1 = nn.Conv2d(filtersz1, filtersz2, **params)
+        self.conv2_2 = nn.Conv2d(filtersz2, filtersz2, **params)
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.conv3_1 = nn.Conv2d(filtersz2, filtersz3, **params)
+        self.conv3_2 = nn.Conv2d(filtersz3, filtersz3, **params)
+        self.conv3_3 = nn.Conv2d(filtersz3, filtersz3, **params)
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.conv4_1 = nn.Conv2d(filtersz3, filtersz4, **params)
+        self.conv4_2 = nn.Conv2d(filtersz4, filtersz4, **params)
+        self.conv4_3 = nn.Conv2d(filtersz4, filtersz4, **params)
+
+        # Decoder
+        self.upconv5 = nn.ConvTranspose2d(filtersz4, filtersz3, kernel_size=2, stride=2)
+        self.conv5_1 = nn.Conv2d(filtersz4 + filtersz3, filtersz5, **params)
+        self.conv5_2 = nn.Conv2d(filtersz5, filtersz5, **params)
+
+        self.upconv6 = nn.ConvTranspose2d(filtersz5, filtersz2, kernel_size=2, stride=2)
+        self.conv6_1 = nn.Conv2d(filtersz5 + filtersz2, filtersz6, **params)
+        self.conv6_2 = nn.Conv2d(filtersz6, filtersz6, **params)
+
+        self.upconv7 = nn.ConvTranspose2d(filtersz6, filtersz1, kernel_size=2, stride=2)
+        self.conv7_1 = nn.Conv2d(filtersz6 + filtersz1, filtersz6, **params)
+        self.conv7_2 = nn.Conv2d(filtersz6, filtersz6, **params)
+
+        self.conv8 = nn.Conv2d(filtersz6, out_channels, kernel_size=1)
+
+        self.activation = nn.Sigmoid() if out_channels == 1 else nn.Softmax(dim=1)
+
+
+    def forward(self, x):
+        # Encoder
+        conv1 = nn.ReLU()(self.conv1_1(x))
+        conv1 = nn.ReLU()(self.conv1_2(conv1))
+        pool1 = self.pool1(conv1)
+
+        conv2 = nn.ReLU()(self.conv2_1(pool1))
+        conv2 = nn.ReLU()(self.conv2_2(conv2))
+        pool2 = self.pool2(conv2)
+
+        conv3 = nn.ReLU()(self.conv3_1(pool2))
+        conv3 = nn.ReLU()(self.conv3_2(conv3))
+        conv3 = nn.ReLU()(self.conv3_3(conv3))
+        pool3 = self.pool3(conv3)
+
+        conv4 = nn.ReLU()(self.conv4_1(pool3))
+        conv4 = nn.ReLU()(self.conv4_2(conv4))
+        conv4 = nn.ReLU()(self.conv4_3(conv4))
+
+        # Decoder
+        up5 = nn.functional.interpolate(conv4, scale_factor=2, mode='bilinear', align_corners=False)
+        up5 = torch.cat([up5, conv3], dim=1)
+        conv5 = nn.ReLU()(self.conv5_1(up5))
+        conv5 = nn.ReLU()(self.conv5_2(conv5))
+
+        up6 = nn.functional.interpolate(conv5, scale_factor=2, mode='bilinear', align_corners=False)
+        up6 = torch.cat([up6, conv2], dim=1)
+        conv6 = nn.ReLU()(self.conv6_1(up6))
+        conv6 = nn.ReLU()(self.conv6_2(conv6))
+
+        up7 = nn.functional.interpolate(conv6, scale_factor=2, mode='bilinear', align_corners=False)
+        up7 = torch.cat([up7, conv1], dim=1)
+        conv7 = nn.ReLU()(self.conv7_1(up7))
+        conv7 = nn.ReLU()(self.conv7_2(conv7))
+
+        conv8 = self.conv8(conv7)
+        output = self.activation(conv8)
+
+        return output
+
+
 class SeismicTrainDataset(Dataset):
     def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
         """
@@ -1413,6 +1504,12 @@ class DimType(Enum):
   D3 = 3
   Any = 4
 
+  @classmethod
+  def is_valid(cls, dim_type):
+    if not isinstance(dim_type, Iterable):
+      return isinstance(dim_type, cls)
+    return all(isinstance(dim_type, cls) for dim_type in dim_type)
+
 class TorchUserModel(ABC):
   """Abstract base class for user defined Torch machine learning models
   
@@ -1524,11 +1621,12 @@ class TorchUserModel(ABC):
     
     """
     if isinstance(pred_type, DataPredType) and isinstance(out_type, OutputType) and\
-       isinstance(dim_type, DimType) :
+       DimType.is_valid(dim_type) :
        return [model for model in TorchUserModel.mlmodels \
           if (model.predtype == pred_type or pred_type == DataPredType.Any) and\
-	     (model.outtype == out_type or out_type == OutputType.Any) and\
-               (model.dimtype == dim_type or model.dimtype == DimType.Any)]
+	         (model.outtype == out_type or out_type == OutputType.Any) and\
+             (model.dimtype == dim_type or model.dimtype == DimType.Any or \
+                (isinstance(model.dimtype, Iterable) and dim_type in model.dimtype))]
     
     return None
 
