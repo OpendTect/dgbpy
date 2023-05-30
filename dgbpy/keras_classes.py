@@ -16,6 +16,19 @@ from tensorflow.keras.utils import Sequence, to_categorical
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
+def model_info( modelfnm ):
+  from dgbpy.dgbkeras import load
+  model = load( modelfnm, False )
+  mi = model_info_dict( model )
+  return (mi['input_shape'], mi['output_shape'], mi['data_format'])
+
+def model_info_dict( keras_model ):
+  minfo = {}
+  minfo['input_shape'] = keras_model.input_shape
+  minfo['output_shape'] = keras_model.output_shape
+  minfo['data_format'] = next((layer.data_format if hasattr(layer, 'data_format') else 'channels_last' for layer in keras_model.layers))
+  return minfo
+
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
                scale=None,transform=list(),transform_copy=True,tempnm=None):
