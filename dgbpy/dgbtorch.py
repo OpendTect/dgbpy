@@ -227,7 +227,7 @@ def onnx_from_torch(model, infos):
     predtype = tc.DataPredType.Continuous
     nroutputs = dgbhdf5.getNrOutputs( infos )
   input_size = torch_dict['batch']
-  if model.__class__.__name__ == 'UNet': 
+  if model.__class__.__name__ == 'UNet' or 'UNet_VGG19': 
     input_size = 1
   if dims  == 3:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
