@@ -195,10 +195,8 @@ class WellCrossplotData:
     self.cdsview.update(filters=[])
 
   def filter_depth_range(self, mindepth, maxdepth):
-    minfilter = self.cds.data['depth']>=mindepth
-    maxfilter = self.cds.data['depth']<=maxdepth
-    filter = np.logical_and(minfilter, maxfilter)
-    self.cdsview.update(filters=[BooleanFilter(filter)])
+    zfilter = [True if z>=mindepth and z<=maxdepth else False for z in self.cds.data['depth']]
+    self.cdsview.update(filters=[BooleanFilter(zfilter)])
 
   def filter_marker_range(self, topmarker, botmarker, topoffset, botoffset ):
     filter = None
@@ -213,14 +211,12 @@ class WellCrossplotData:
       if np.isnan(botdepth):
         botdepth = data['depth'][-1]
       botdepth += botoffset
-      minfilter = data['depth']>=topdepth
-      maxfilter = data['depth']<=botdepth
-      wellfilter = data['well']==allwells.index(well)
-      wellfilter = np.logical_and(wellfilter, np.logical_and(minfilter,maxfilter))
+      wellidx = allwells.index(well)
+      wellfilter = [True if z>=topdepth and z<=botdepth and widx==wellidx else False for z, widx in zip(data['depth'],data['well'])]
       if filter is None:
         filter = wellfilter
       else:
-        filter = np.logical_or(filter, wellfilter)
+        filter += wellfilter
     self.cdsview.update(filters=[BooleanFilter(filter)])
 
   

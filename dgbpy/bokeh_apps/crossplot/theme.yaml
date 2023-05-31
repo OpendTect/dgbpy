@@ -1,7 +1,7 @@
 attrs:
     Figure:
-        plot_width: 400
-        plot_height: 400
+        min_width: 400
+        min_height: 400
         background_fill_color: '#DFDFDF'
         border_fill_color: '#FFFFFF'
         outline_line_color: '#444444'

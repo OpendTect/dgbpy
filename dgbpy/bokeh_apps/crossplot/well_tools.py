@@ -1,10 +1,7 @@
 import odpy.wellman as odwm
 import numpy as np
 from functools import partial
-from bokeh.io import curdoc
-from bokeh.layouts import row, column
-from bokeh.models import MultiSelect, Select, Button, RangeSlider, Spinner, Panel, Tabs
-from bokeh.plotting import figure
+from dgbpy.bokehcore import *
 import logging
 import odpy.common as odcommon
 from well_data import WellInfo, WellCrossplotData
@@ -17,7 +14,7 @@ class MulitWellSelector:
 	def __init__(self, wellinfo):
 		self.wellinfo = wellinfo
 		self.apply_but = Button(label='Apply', button_type='success')
-		self.well_select = MultiSelect(title='Select wells', height_policy='fit', options=self.wellinfo.names())
+		self.well_select = MultiSelect(title='Select wells', options=self.wellinfo.names())
 
 	def select_wells(self, wellnms):
 		self.well_select.update(value=wellnms)
@@ -59,14 +56,14 @@ class DepthRangeSelector:
 		self.wd = wellinfo
 		self.selmarkers = []
 		self.slider = RangeSlider(step=1, title="Depth Range")
-		self.depthtab = Panel(child=self.slider, title="Depth Range")
+		self.depthtab = TabPanel(child=self.slider, title="Depth Range")
 		self.topmarker = Select(title="Top")
 		self.topoffset = Spinner(title="Above", low=-500, high=500, step=1, value=0, width=80)
 		self.botmarker = Select(title="Base")
 		self.botoffset = Spinner(title="Below", low=-500, high=500, step=1, value=0, width=80)
 		marker_controls = column(	row(self.topmarker, self.topoffset), 
 									row(self.botmarker, self.botoffset))
-		self.markertab = Panel(child=marker_controls, title="Marker Range")
+		self.markertab = TabPanel(child=marker_controls, title="Marker Range")
 		self.tabs = Tabs(tabs=[self.depthtab,self.markertab])
 		self.select_wells(self.wd.names())
 		self.topmarker.on_change("value", self.on_topmarker_chg)
@@ -105,7 +102,7 @@ class MultiWellCrossPlot:
 		self.well_select = MulitWellSelector(self.wd.wellinfo)
 		self.log_select = MultiWellLogSelector(self.wd.wellinfo, titles=['Crossplot X Log', 'Crossplot Y log'])
 		self.depth_select = DepthRangeSelector(self.wd.wellinfo)
-		self.xplot = figure(toolbar_location='right', title='Crossplot', sizing_mode='stretch_both')
+		self.xplot = figure(toolbar_location='right', title='Crossplot')
 		self.xplot.circle('xlog', 'ylog', source = self.wd.cds, view=self.wd.cdsview)
 		self.well_select.apply_but.on_click(self.on_apply)
 		self.well_select.well_select.on_change("value", self.on_well_select)
@@ -146,7 +143,9 @@ class MultiWellCrossPlot:
 	def get_controls(self):
 		controls = column(	self.well_select.get_controls(), self.log_select.get_controls(), 
 							self.depth_select.get_controls())
-		dashboard = row(controls, self.xplot, sizing_mode='stretch_height')
+		self.xplot.sizing_mode = 'stretch_both'
+		dashboard = row(controls, self.xplot)
+		dashboard.sizing_mode = 'stretch_both'
 		return dashboard
 
 	def update_axes(self):
