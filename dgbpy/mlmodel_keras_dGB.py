@@ -309,8 +309,8 @@ def UNet_VGG19(model_shape, nroutputs, predtype):
   conv7 = Conv2D(filtersz6, **params)(up7)
   conv7 = Conv2D(filtersz6, **params)(conv7)
 
-  if nroutputs == 1:
-    nrout = nroutputs
+  if nroutputs == 2:
+    nrout = 1
     activation = 'sigmoid'
   else:
     nrout = nroutputs
