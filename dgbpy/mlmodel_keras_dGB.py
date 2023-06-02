@@ -163,7 +163,7 @@ class dGB_UnetReg(UserModel):
   uidescription = 'dGBs Unet image regression'
   predtype = DataPredType.Continuous
   outtype = OutputType.Image
-  dimtype = (DimType.D1, DimType.D3)
+  dimtype = (DimType.D1, DimType.D2)
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
@@ -309,19 +309,23 @@ def UNet_VGG19(model_shape, nroutputs, predtype):
   conv7 = Conv2D(filtersz6, **params)(up7)
   conv7 = Conv2D(filtersz6, **params)(conv7)
 
-  if nroutputs == 2:
-    nrout = 1
-    activation = 'sigmoid'
+  if isinstance(predtype, DataPredType) and predtype==DataPredType.Continuous:
+      nrout = nroutputs
+      activation = 'linear'
   else:
-    nrout = nroutputs
-    activation = 'softmax'
+    if nroutputs == 2:
+      nrout = 1
+      activation = 'sigmoid'
+    else:
+      nrout = nroutputs
+      activation = 'softmax'
   conv8 = Conv2D(nrout, (1,1), activation=activation)(conv7)
 
   model = Model(inputs=[inputs], outputs=[conv8])
   return model
 
 
-class dGB_UNet_VGG19(UserModel):
+class dGB_UNetSeg_VGG19(UserModel):
   uiname = 'dGB UNet VGG19 Segmentation'
   uidescription = 'dGB UNet VGG19 Segmentation Keras model in UserModel form'
   predtype = DataPredType.Classification
@@ -333,4 +337,15 @@ class dGB_UNet_VGG19(UserModel):
     model = compile_model( model, nroutputs, False, True, learnrate )    
     return model
     
+class dGB_UNetReg_VGG19(UserModel):
+  uiname = 'dGB UNet VGG19 Regression'
+  uidescription = 'dGB UNet VGG19 Regression Keras model in UserModel form'
+  predtype = DataPredType.Continuous
+  outtype = OutputType.Image
+  dimtype = DimType.D2
+  
+  def _make_model(self, model_shape, nroutputs, learnrate):
+    model = dGBUNet(model_shape, nroutputs, self.predtype)
+    model = compile_model( model, nroutputs, True, True, learnrate )
+    return model
         
