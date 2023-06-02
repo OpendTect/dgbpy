@@ -141,10 +141,23 @@ class dGB_LeNet_Classifier(TorchUserModel):
     model = dGBLeNet(model_shape=model_shape, output_classes=nroutputs, dim=ndim, nrattribs=nrattributes, predtype=self.predtype)
     return model
   
-class dGB_UNet_VGG19(TorchUserModel):
+class dGB_UNetSeg_VGG19(TorchUserModel):
   uiname = 'dGB UNet VGG19 Segmentation'
   uidescription = 'dGBs UNet VGG19 Segmentation Model in TorchUserModel form'
   predtype = DataPredType.Classification
+  outtype = OutputType.Image
+  dimtype = DimType.D2
+
+  def _make_model(self, model_shape, nroutputs, nrattributes):
+    from dgbpy.dgbtorch import getModelDims
+    ndim = getModelDims(model_shape, 'channels_first')
+    model = UNet_VGG19(model_shape=model_shape, out_channels=nroutputs, nrattribs=nrattributes)
+    return model
+
+class dGB_UNetReg_VGG19(TorchUserModel):
+  uiname = 'dGB UNet VGG19 Regression'
+  uidescription = 'dGBs UNet VGG19 Regression Model in TorchUserModel form'
+  predtype = DataPredType.Continuous
   outtype = OutputType.Image
   dimtype = DimType.D2
 
