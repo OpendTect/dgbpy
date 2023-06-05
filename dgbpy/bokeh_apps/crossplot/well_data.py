@@ -10,70 +10,69 @@
 import odpy.wellman as odwm
 import numpy as np
 from bokeh.models import ColumnDataSource, CDSView, BooleanFilter
+import odbind as odb
+from odbind.survey import Survey
+from odbind.well import Well
 
 import config as cfg
 
 
 class WellInfo:
-  COLS = ["name","x", "y", "logs", "markers", "mdmin", "mdmax"]
-
   def __init__(self):
-    self.cds = ColumnDataSource(data={cl: [] for cl in WellInfo.COLS})
-    self.get_data()
-
-  def get_data(self):
-    wellnms = odwm.getNames(reload=True)
-    xloc = []
-    yloc = []
-    logs = []
-    markers = []
-    mdmin = []
-    mdmax = []
-    for wellnm in wellnms:
-      welldata = odwm.getInfo(wellnm)
-      xloc.append(welldata["X"])
-      yloc.append(welldata["Y"])
-      logs.append(odwm.getLogNames(wellnm))
-      markers.append(odwm.getMarkers(wellnm))
-      mdrng = odwm.getTrack(wellnm)[0]
-      mdmin.append(mdrng[0])
-      mdmax.append(mdrng[-1])
-    self.cds.update(data={'name': wellnms, 'x': xloc, 'y': yloc, 'logs': logs, 'markers': markers, 'mdmin': mdmin, 'mdmax': mdmax})
+    self.survey = Survey(odb.get_user_survey())
 
   def names(self):
-    return self.cds.data['name']
+    return Well.names(self.survey)
 
   def lognames(self, well):
     try:
-      return self.cds.data['logs'][self.names().index(well)]
-    except ValueError:
+      wellobj = Well(self.survey, well)
+      if not wellobj.isok:
+        return []
+
+      return wellobj.log_names
+    except:
       return []
 
   def markernames(self, well):
     try:
-      return self.cds.data['markers'][self.names().index(well)][0]
-    except ValueError:
+      wellobj = Well(self.survey, well)
+      if not wellobj.isok:
+        return []
+
+      return wellobj.marker_names
+    except:
       return []
 
   def markerdepths(self, well):
     try:
-      return self.cds.data['markers'][self.names().index(well)][1]
-    except ValueError:
+      wellobj = Well(self.survey, well)
+      if not wellobj.isok:
+        return []
+
+      return [marker['dah'] for marker in wellobj.marker_info()]
+    except:
       return []
 
   def markerdepth(self, well, marker):
     try:
-      idx = self.markernames(well).index(marker)
-      return self.markerdepths(well)[idx]
-    except ValueError:
+      wellobj = Well(self.survey, well)
+      if not wellobj.isok:
+        return np.nan
+    
+      return wellobj.marker_info([marker])[0]['dah']
+    except:
       return np.nan
 
   def depthrange(self, well):
     depthrg = [0,1000]
     idx = None
     try:
-      idx = self.names().index(well)
-      depthrg = [self.cds.data['mdmin'][idx], self.cds.data['mdmax'][idx]]
+      wellobj = Well(self.survey, well)
+      if wellobj.isok:
+        track = wellobj.track()
+        depthrg = [track['dah'][0], track['dah'][-1]]
+
       return depthrg
     except:
       return depthrg
@@ -119,23 +118,19 @@ class WellInfo:
 
   def get_logdata(self, well, logsel):
     data = {}
-    if well in self.names():
-      idxs = self.logidxs(well, logsel)
-      idxstr = ','.join(str(x) for x in idxs)
-      if idxstr:
-        data = odwm.getLogs(well, idxstr)
-        logkys = []
-        for ky in data:
-          vals = np.array(data[ky],dtype=float)
-          vals[vals==1e30] = np.nan
-          data[ky] = vals
-          logkys.append(ky)
-        data['logkeys'] = logkys
-      else:
-        mdrng = self.depthrange(well)
-        data['depth'] = np.arange(mdrng[0], mdrng[-1], 1)
-      nv = data['depth'].size
-      data['well'] = np.ones(nv)*self.names().index(well)
+    uom = []
+    sel = [log for log in logsel if log!='dah']
+    wellobj =Well(self.survey, well)
+    if wellobj.isok and sel:
+      data, uom = wellobj.logs(sel)
+      logkeys = {ky: f"{ky} ({uomky})" for ky, uomky in zip(data.keys(),uom)}
+      data['logkeys'] = logkeys
+    else:
+      mdrng = self.depthrange(well)
+      data['dah'] = np.arange(mdrng[0], mdrng[-1], 1)
+      data['logkeys'] = {'dah': 'depth'}
+    nv = data['dah'].size
+    data['well'] = [well]*nv
     return data
 
   def get_common_markernames(self, wellnms):
@@ -145,7 +140,7 @@ class WellInfo:
       if mrkset:
         mrkset = [nm for nm in mrkset if nm in mrknms]
       else:
-        mrkset = mrknms
+        mrkset = [nm for nm in mrknms]
     return mrkset
 
   def get_unique_markernames(self, wellnms):
@@ -156,68 +151,53 @@ class WellInfo:
     return list(mrkset)
 
 class WellCrossplotData:
-  COLS = ["well", "depth", "xlog", "ylog"]
   def __init__(self):
     self.logsel = []
     self.wellinfo = WellInfo()
-    self.wellnms = []
-    self.cds = ColumnDataSource(data={cl: [] for cl in WellCrossplotData.COLS})
-    self.cdsview = CDSView(filters=[], source=self.cds )
+    self.cdsdata = {}
+    self.cdsviews = {}
 
   def get_data(self, wellnms, xlog, ylog):
-    new_data = {}
-    self.wellnms = wellnms
+    if xlog=="depth":
+      xlog = "dah"
+    if ylog=="depth":
+      ylog = "dah"
     for well in wellnms:
       data = self.wellinfo.get_logdata(well, [xlog, ylog])
       if not data:
         return
-      logkys = data.get('logkeys', [])
-      xlogky = 'depth'
-      if xlog!='depth' and logkys:
-        xlogky = logkys[1]
-      ylogky = 'depth'
-      if ylog!='depth' and logkys:
-        ylogky = logkys[-1]
-      if 'depth' in new_data:
-        new_data['depth'] = np.append(new_data['depth'], data['depth'])
-        new_data['well'] = np.append(new_data['well'], data['well'])
-        new_data['xlog'] = np.append(new_data['xlog'], data[xlogky])
-        new_data['ylog'] = np.append(new_data['ylog'], data[ylogky])
+
+      if well in self.cdsdata:
+        self.cdsdata[well].update(data={'depth': data['dah'], 'xlog': data[xlog], 'ylog': data[ylog]})
       else:
-        new_data['depth'] = data['depth']
-        new_data['well'] = data['well']
-        new_data['xlog'] = data[xlogky]
-        new_data['ylog'] = data[ylogky]
-        self.logsel = [xlogky, ylogky]
-    self.cds.update(data=new_data)
+        self.cdsdata[well] = ColumnDataSource(data={'depth': data['dah'], 'xlog': data[xlog], 'ylog': data[ylog]})
+        self.cdsviews[well] = CDSView(filters=[], source=self.cdsdata[well])
+      logkys = data.get('logkeys', {})
+      
+    self.logsel = [logkys[xlog], logkys[ylog]]
 
   def filter_reset(self):
-    self.cdsview.update(filters=[])
+    for well in self.cdsviews:
+      self.cdsviews[well].update(filters=[])
 
   def filter_depth_range(self, mindepth, maxdepth):
-    zfilter = [True if z>=mindepth and z<=maxdepth else False for z in self.cds.data['depth']]
-    self.cdsview.update(filters=[BooleanFilter(zfilter)])
+    for well in self.cdsdata:
+      zfilter = [True if z>=mindepth and z<=maxdepth else False for z in self.cdsdata[well].data['depth']]
+      self.cdsviews[well].update(filters=[BooleanFilter(zfilter)])
 
   def filter_marker_range(self, topmarker, botmarker, topoffset, botoffset ):
-    filter = None
-    data = self.cds.data
-    allwells = self.wellinfo.names()
-    for well in self.wellnms:
+    for well in self.cdsdata:
+      depthrg = self.wellinfo.depthrange(well)
       topdepth = self.wellinfo.markerdepth(well, topmarker)
       if np.isnan(topdepth):
-        topdepth = data['depth'][0]
+        topdepth = depthrg[0]
       topdepth -= topoffset
       botdepth = self.wellinfo.markerdepth(well, botmarker)
       if np.isnan(botdepth):
-        botdepth = data['depth'][-1]
+        botdepth = depthrg[-1]
       botdepth += botoffset
-      wellidx = allwells.index(well)
-      wellfilter = [True if z>=topdepth and z<=botdepth and widx==wellidx else False for z, widx in zip(data['depth'],data['well'])]
-      if filter is None:
-        filter = wellfilter
-      else:
-        filter += wellfilter
-    self.cdsview.update(filters=[BooleanFilter(filter)])
+      filter = [True if z>=topdepth and z<=botdepth else False for z in self.cdsdata[well].data['depth']]
+      self.cdsviews[well].update(filters=[BooleanFilter(filter)])
 
   
       
