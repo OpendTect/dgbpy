@@ -30,9 +30,9 @@ setup(
         'tensorflow>=2.1.4',
         'torch>=1.9.0',
         'fastprogress>=1.0.0',
+        'onnxruntime>=1.0.0',
     ],
     extras_require={
-        'onnxruntime': ['onnxruntime>=1.0.0'],
         'onnxmltools': ['onnxmltools>=1.9.0'],
         'pydot': ['pydot>=1.4.1'],
         'scikit-learn-intelex': ['scikit-learn-intelex>=1.0.0'],
