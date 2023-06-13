@@ -29,6 +29,7 @@ setup(
         'psutil>=5.7.0',
         'tensorflow>=2.1.4',
         'torch>=1.9.0',
+        'fastprogress>=1.0.0',
     ],
     extras_require={
         'onnxruntime': ['onnxruntime>=1.0.0'],
