@@ -1,14 +1,22 @@
 import sys
 sys.path.insert(0, '..')
 
+import os, pytest
 import dgbpy.keystr as dbk
 import dgbpy.dgbkeras as dgbkeras
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.keras_classes as kc
 import keras
-
 from init_data import *
-import pytest
+
+all_data = lambda **kwargs: (
+    get_2d_seismic_imgtoimg_data(**kwargs),
+    get_3d_seismic_imgtoimg_data(**kwargs),
+    get_seismic_classification_data(**kwargs),
+    get_loglog_data(**kwargs),
+)
+
+test_data_ids = ['2D_seismic_imgtoimg', '3D_seismic_imgto_img', 'seismic_classification', 'loglog']
 
 
 def default_pars():
@@ -22,13 +30,26 @@ def default_pars():
 
 def get_default_model(info):
     learntype, classification, nrdims, nrattribs = getExampleInfos(info)
-    modeltype = dgbkeras.getModelsByType(learntype, classification, nrdims)
-    return modeltype
+    modeltypes = dgbkeras.getModelsByType(learntype, classification, nrdims)
+    return modeltypes
 
 
 def get_model_arch(info, model, model_id):
     architecture = dgbkeras.getDefaultModel(info, type=model[model_id])
     return architecture
+
+def is_model_trained(initial, current):
+    for initial_layer, current_layer in zip(initial, current):
+        if not np.array_equal(initial_layer, current_layer):
+            return True 
+    return False
+
+def save_model(model, filename):
+    dgbkeras.save(model, filename)
+    return model, filename
+
+def load_model(filename):
+    return dgbkeras.load(filename, False)
 
 
 def test_training_parameters():
@@ -51,34 +72,117 @@ def test_training_parameters():
         elif key in ['transform']:
             assert isinstance(value, list)
 
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_default_model(data):
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    assert isinstance(models, list), 'model should be a list'
+    assert len(models) > 0, 'model types should not be empty for dummy workflows'
+    for i in range(len(models)):
+        assert isinstance(models[i], str), 'model type should be a string'
 
-def test_default_architecture():
-    info = get_2d_seismic_imgtoimg_data()[dbk.infodictstr]
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_default_architecture(data):
+    info = data[dbk.infodictstr]
     models = get_default_model(info)
     for imodel, _ in enumerate(models):
         arch = get_model_arch(info, models, imodel)
         assert isinstance(
             arch, keras.models.Model
-        ), 'architecture should be a nn.Module'
+        ), 'architecture should be a keras Module'
 
-
-def test_default_model():
-    info = get_2d_seismic_imgtoimg_data()[dbk.infodictstr]
-    models = get_default_model(info)
-    assert isinstance(models, list), 'model should be a list'
-    assert len(models) > 0, 'model types should not be empty for dummy workflows'
-    for i in range(len(models)):
-        assert isinstance(models[i], str)
-
-
-def train_model(trainpars=default_pars()):
-    data = get_2d_seismic_imgtoimg_data()
+def train_model(trainpars=default_pars(), data=None):
     info = data[dbk.infodictstr]
     model = get_default_model(info)
     modelarch = get_model_arch(info, model, 0)
     model = dgbkeras.train(modelarch, data, trainpars, silent=True)
-    return model
+    return model, info
 
 
-def test_train_default():
-    model = train_model()
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_train_default(data):
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    for imodel, _ in enumerate(models):
+        modelarch = get_model_arch(info, models, imodel)
+        default_model = keras.models.clone_model(modelarch)
+        trained_model = dgbkeras.train(modelarch, data, default_pars(), silent=True)
+        assert isinstance(trained_model, keras.models.Model), 'model should be a keras Module'
+        assert trained_model is not None, 'model should not be None'
+        assert len(trained_model.get_weights()) > 0, 'model should have parameters'
+        initial_state_dict = default_model.get_weights()
+        current_state_dict = trained_model.get_weights()
+        assert is_model_trained(
+            current_state_dict, initial_state_dict
+        ), 'model should have been trained'
+
+@pytest.mark.parametrize('data', (get_2d_seismic_imgtoimg_data(),))
+def test_train_with_tensorboard(data):
+    pars = default_pars()
+    pars['withtensorboard'] = True
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_train_with_augmentation(data):
+    pars = default_pars()
+    pars['transform'] = ['flip', 'rotate', 'scale', 'noise']
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+    assert isinstance(model, keras.models.Model), 'model should be a keras Module'
+
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_saving_and_loading_model(data):
+    filename = 'kerasmodel.h5'
+    trainpars = default_pars()
+    model, info = train_model(trainpars=trainpars, data=data)
+    save_model(model, filename)
+
+    assert os.path.isfile(filename), 'model should have been saved'
+    assert os.path.getsize(filename) > 0, 'model file should not be empty'
+
+    loaded_model = load_model(filename)
+    assert isinstance(loaded_model, keras.models.Model), 'model should be a keras Module'
+    os.remove(filename)
+
+class TCase_TrainSequence(kc.TrainingSequence):
+    def set_fold(self, ichunk, ifold):
+        return self.get_data(self._trainbatch)
+
+@pytest.mark.parametrize('data', (get_loglog_data(nbfolds=2, split=1),))
+def test_train_multiple_folds(data):
+    pars = default_pars()
+    pars['nbfold'] = 2
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    kc.TrainingSequence = TCase_TrainSequence
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+    assert isinstance(model, keras.models.Model), 'model should be a keras Module'
+
+@pytest.mark.parametrize('data', (get_loglog_data(nbchunks=2, nbfolds=2, split=1),))
+def test_train_multiple_chunks_and_folds(data):
+    pars = default_pars()
+    pars['nbchunk'] = 2
+    pars['nbfold'] = 2
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    kc.TrainingSequence = TCase_TrainSequence
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+    assert isinstance(model, keras.models.Model), 'model should be a keras Module'
+
+@pytest.mark.parametrize('data', all_data(nbchunks=2), ids=test_data_ids)
+def test_train_multiple_chunks(data):
+    pars = default_pars()
+    pars['nbchunk'] = 2
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    kc.TrainingSequence = TCase_TrainSequence
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+    assert isinstance(model, keras.models.Model), 'model should be a keras Module'
