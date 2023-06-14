@@ -1221,7 +1221,7 @@ class UNet_VGG19(nn.Module):
         return output
 
 
-class SeismicTrainDataset(Dataset):
+class TrainDatasetClass(Dataset):
     def __init__(self, imgdp, scale, transform=list(), transform_copy = False):
         """
         Details:
@@ -1369,7 +1369,7 @@ class SeismicTrainDataset(Dataset):
             return X[:, 0, 0, :], Y[:]
         return data, label
 
-class SeismicTestDataset(Dataset):
+class TestDatasetClass(Dataset):
     def __init__(self, imgdp, scale):
         self.imgdp = imgdp
         self.scale, self.isDefScaler=dgbhdf5.isDefaultScaler(scale, imgdp[dgbkeys.infodictstr])
