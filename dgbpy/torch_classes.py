@@ -46,12 +46,16 @@ if hasFastprogress():
 class OnnxModel():
     def __init__(self, filepath : str):
         self.name = filepath
+        providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
+        try:
+            self.session = rt.InferenceSession(self.name, providers=providers)
+        except RuntimeError:
+            self.session = rt.InferenceSession(self.name, providers=[dgbkeys.onnxcpustr])
 
     def __call__(self, inputs):
         self.inputs = inputs
-        ort_session = rt.InferenceSession(self.name)
-        ort_inputs = {ort_session.get_inputs()[0].name: Tensor2Numpy(self.inputs)}
-        ort_outs = np.array(ort_session.run(None, ort_inputs))[-1]
+        ort_inputs = {self.session.get_inputs()[0].name: Tensor2Numpy(self.inputs)}
+        ort_outs = np.array(self.session.run(None, ort_inputs))[-1]
         return Numpy2tensor(ort_outs)
     
     def convert_to_torch(self):
