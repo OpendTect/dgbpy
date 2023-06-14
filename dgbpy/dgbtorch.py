@@ -502,9 +502,9 @@ def getDatasetPars(imgdp, _forvalid):
     return x_data, y_data, info, inp_ch, ndims
 
 def DataGenerator(imgdp, batchsize, scaler=None, transform=list()):
-    from dgbpy.torch_classes import SeismicTrainDataset, SeismicTestDataset
-    train_dataset = SeismicTrainDataset(imgdp, scaler, transform=transform)
-    test_dataset = SeismicTestDataset(imgdp, scaler)
+    from dgbpy.torch_classes import TrainDatasetClass, TestDatasetClass
+    train_dataset = TrainDatasetClass(imgdp, scaler, transform=transform)
+    test_dataset = TestDatasetClass(imgdp, scaler)
 
     trainloader, testloader = getDataLoaders(train_dataset, test_dataset, batchsize)
     return trainloader, testloader
