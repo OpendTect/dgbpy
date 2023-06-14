@@ -30,7 +30,7 @@ setup(
         'tensorflow>=2.1.4',
         'torch>=1.9.0',
         'fastprogress>=1.0.0',
-        'onnxruntime>=1.0.0',
+        'onnxruntime-gpu>=1.0.0',
     ],
     extras_require={
         'onnxmltools': ['onnxmltools>=1.9.0'],
