@@ -31,8 +31,7 @@ class OnnxModel:
 def model_info( modelfnm ):
     model = load( modelfnm )
     mi = model_info_dict( model )
-    return (mi['esttype'], mi['modtype'], mi['module'], mi['params'],
-	    mi['nfeatures'], mi['noutputs'], mi['classes'], mi['modclass'])
+    return json.dumps(mi)
 
 def model_info_dict( skl_model ):
     minfo = {}
