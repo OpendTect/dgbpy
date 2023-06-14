@@ -77,7 +77,7 @@ def test_training_parameters():
         elif key in ['split', 'learnrate']:
             assert isinstance(value, (float, int))
         elif key in ['criterion']:
-            assert isinstance(value, dgbtorch.nn.modules.loss._Loss)
+            assert isinstance(value, nn.modules.loss._Loss)
         elif key in ['scale']:
             assert isinstance(value, str)
         elif key in ['type']:
@@ -95,7 +95,7 @@ def test_default_model(data):
     assert isinstance(models, list), 'model should be a list'
     assert len(models) > 0, 'model types should not be empty for dummy workflows'
     for i in range(len(models)):
-        assert isinstance(models[i], str)
+        assert isinstance(models[i], str), 'model type should be a string'
 
 
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
@@ -105,7 +105,7 @@ def test_default_architecture(data):
     for imodel, _ in enumerate(models):
         arch = get_model_arch(info, models, imodel)
         assert isinstance(
-            arch, dgbtorch.nn.Module
+            arch, nn.Module
         ), 'architecture should be a nn.Module'
 
 
@@ -146,7 +146,6 @@ def test_train_with_tensorboard(data):
 
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
 def test_train_with_augmentation(data):   
-    get_3d_seismic_imgtoimg_data()
     pars = default_pars()
     pars['transform'] = ['Flip', 'GaussianNoise', 'Rotate', 'FlipPolarity']
     info = data[dbk.infodictstr]
@@ -171,11 +170,11 @@ def test_saving_and_loading_model(data):
     os.remove(f'{filename}.h5')
     os.remove(f'{filename}.onnx')
 
-class TCase_SeismicTrainDataset(tc.SeismicTrainDataset):
+class TCase_TrainDataset(tc.TrainDatasetClass):
     def set_fold(self, ichunk, ifold):
         return self.get_data(self.imgdp, ichunk)
     
-class TCase_SeismicTestDataset(tc.SeismicTestDataset):
+class TCase_TestDataset(tc.TestDatasetClass):
     def set_fold(self, ichunk, ifold):
         return self.get_data(self.imgdp, ichunk)
 
@@ -186,8 +185,8 @@ def test_train_multiple_folds(data):
     info = data[dbk.infodictstr]
     model = get_default_model(info)
     modelarch = get_model_arch(info, model, 0)
-    tc.SeismicTrainDataset = TCase_SeismicTrainDataset
-    tc.SeismicTestDataset = TCase_SeismicTestDataset
+    tc.TrainDatasetClass = TCase_TrainDataset
+    tc.TestDatasetClass = TCase_TestDataset
     trained_model = dgbtorch.train(modelarch, data, pars)
     assert isinstance(trained_model, nn.Module), 'model should be a nn.Module'
 
@@ -199,8 +198,8 @@ def test_train_multiple_chunks_and_folds(data):
     info = data[dbk.infodictstr]
     model = get_default_model(info)
     modelarch = get_model_arch(info, model, 0)
-    tc.SeismicTrainDataset = TCase_SeismicTrainDataset
-    tc.SeismicTestDataset = TCase_SeismicTestDataset
+    tc.TrainDatasetClass = TCase_TrainDataset
+    tc.TestDatasetClass = TCase_TestDataset
     trained_model = dgbtorch.train(modelarch, data, pars)
     assert isinstance(trained_model, nn.Module), 'model should be a nn.Module'
 
