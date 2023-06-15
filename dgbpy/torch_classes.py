@@ -21,6 +21,7 @@ from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d, Dropout, 
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
 from torch.optim.lr_scheduler import _LRScheduler
 from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
+from dgbpy.dgbonnx import OnnxModel
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
@@ -43,15 +44,7 @@ def hasFastprogress():
 if hasFastprogress():
     from fastprogress.fastprogress import master_bar, progress_bar
 
-class OnnxModel():
-    def __init__(self, filepath : str):
-        self.name = filepath
-        providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
-        try:
-            self.session = rt.InferenceSession(self.name, providers=providers)
-        except RuntimeError:
-            self.session = rt.InferenceSession(self.name, providers=[dgbkeys.onnxcpustr])
-
+class OnnxTorchModel(OnnxModel):
     def __call__(self, inputs):
         self.inputs = inputs
         ort_inputs = {self.session.get_inputs()[0].name: Tensor2Numpy(self.inputs)}

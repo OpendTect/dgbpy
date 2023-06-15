@@ -165,7 +165,7 @@ def test_saving_and_loading_model(data):
     assert os.path.exists(f'{filename}.onnx'), 'model onnx file not found'
     loaded_model = load_model(f'{filename}.h5')
     assert isinstance(
-        loaded_model, dgbtorch.tc.OnnxModel
+        loaded_model, dgbtorch.tc.OnnxTorchModel
     ), 'loaded model should be an onnx model'
     os.remove(f'{filename}.h5')
     os.remove(f'{filename}.onnx')

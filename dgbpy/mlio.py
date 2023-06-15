@@ -388,7 +388,10 @@ def getModel( modelfnm, fortrain=False, pars=None ):
     model = dgbscikit.load( modelfnm )
   elif platform == dgbkeys.torchplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    model = dgbtorch.load(modelfnm)
+    model = dgbtorch.load( modelfnm )
+  elif platform == dgbkeys.onnxplfnm:
+    import dgbpy.dgbonnx as dgbonnx
+    model = dgbonnx.load( modelfnm )
   else:
     from odpy.common import log_msg
     log_msg( 'Unsupported machine learning platform' )

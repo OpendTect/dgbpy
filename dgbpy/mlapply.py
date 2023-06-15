@@ -482,6 +482,9 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
     res = dgbtorch.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   elif platform == dgbkeys.numpyvalstr:
     res = numpyApply( samples )
+  elif platform == dgbkeys.onnxplfnm:
+    import dgbpy.dgbonnx as dgbonnx
+    res = dgbonnx.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
