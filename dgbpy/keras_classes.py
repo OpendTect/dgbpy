@@ -9,6 +9,7 @@
 #
 
 from datetime import datetime, timedelta
+import json
 from typing import Iterable
 import numpy as np
 import tensorflow as tf
@@ -21,12 +22,16 @@ def model_info( modelfnm ):
   from dgbpy.dgbkeras import load
   model = load( modelfnm, False )
   mi = model_info_dict( model )
-  return (mi['input_shape'], mi['output_shape'], mi['data_format'])
+  return json.dumps(mi)
 
 def model_info_dict( keras_model ):
   minfo = {}
-  minfo['input_shape'] = keras_model.input_shape
-  minfo['output_shape'] = keras_model.output_shape
+  minfo['num_inputs'] = len(keras_model.input_names)
+  minfo['num_outputs'] = len(keras_model.output_names)
+  minfo['input_names'] = keras_model.input_names
+  minfo['output_names'] = keras_model.output_names
+  minfo['input_shape'] = [shp if shp else 1 for shp in keras_model.input_shape]
+  minfo['output_shape'] = [shp if shp else 1 for shp in keras_model.output_shape]
   minfo['data_format'] = next((layer.data_format if hasattr(layer, 'data_format') else 'channels_last' for layer in keras_model.layers))
   return minfo
 
