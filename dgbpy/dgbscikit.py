@@ -774,8 +774,8 @@ def load( modelfnm ):
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    from dgbpy.sklearn_classes import OnnxModel
-    model = OnnxModel( str(modfnm) )
+    from dgbpy.sklearn_classes import OnnxScikitModel
+    model = OnnxScikitModel( str(modfnm) )
   if savetype == savetypes[1]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )

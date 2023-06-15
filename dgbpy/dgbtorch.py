@@ -203,8 +203,8 @@ def load( modelfnm ):
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    from dgbpy.torch_classes import OnnxModel
-    model = OnnxModel(str(modfnm))
+    from dgbpy.torch_classes import OnnxTorchModel
+    model = OnnxTorchModel(str(modfnm))
   elif savetype == savetypes[1]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -315,8 +315,8 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     return model
 
 def transfer(model):
-  from dgbpy.torch_classes import OnnxModel
-  if isinstance(model, OnnxModel):
+  from dgbpy.torch_classes import OnnxTorchModel
+  if isinstance(model, OnnxTorchModel):
     model = model.convert_to_torch()
 
   for param in model.parameters():
@@ -382,7 +382,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       else:
         dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
       dfdm.load_state_dict(model)
-  elif model.__class__.__name__ == 'OnnxModel':
+  elif model.__class__.__name__ == 'OnnxTorchModel':
     dfdm = model
 
   predictions = []

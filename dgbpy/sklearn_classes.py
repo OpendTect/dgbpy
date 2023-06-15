@@ -3,7 +3,7 @@ import numpy as np
 from joblib import load
 import json
 
-class OnnxModel:
+class OnnxScikitModel:
     def __init__(self, filepath : str):
         self.name = filepath
 
