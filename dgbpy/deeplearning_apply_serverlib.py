@@ -395,6 +395,12 @@ class Message:
                  + struct.pack('=h',self._subid)
         return od_hdr + payload
 
+    def _make_exception_report(self, msg, exc):
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
+        return f'{msg}:\n{repr(exc)} on line {str(exc_tb.tb_lineno)} of script {fname}\n{stackstr}\n\n{self.applier.debugstr}'
+
     def _create_response_json_content(self):
         action = self.request.get('action')
         content = { 'result': None }
@@ -409,7 +415,7 @@ class Message:
               self.applier.setOutputs( self.request.get('value') )
               content['result'] = 'Output names received'
             except Exception as e:
-              content = {"result": f'start error exception: {repr(e)}.'}
+              content = {"result": self._make_exception_report('Start error exception', e)}
         else:
             content['result'] = f'Error: invalid action "{action}".'
         content_encoding = 'utf-8'
@@ -431,10 +437,7 @@ class Message:
             else:
                 content = {"result": f'Error: invalid action "{action}".'}
         except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
-            content = {'result': f'Apply error exception:\n{repr(e)+" on line "+str(exc_tb.tb_lineno)+" of script "+fname}\n{stackstr}\n\n{self.applier.debugstr}'}
+            content = {'result': self._make_exception_report('Apply error exception', e)}
             self.applier.debugstr = ''
             content_encoding = 'utf-8'
             response = {
