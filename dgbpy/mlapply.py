@@ -464,14 +464,24 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
       withprobs = applyinfo[dgbkeys.probadictstr]
       doprobabilities = len(withprobs) > 0
     withconfidence = dgbkeys.dtypeconf in applyinfo
+  
+  inpshape = info[dgbkeys.inpshapedictstr]
+  outshape = info[dgbkeys.outshapedictstr]
+  if isinstance(inpshape, int):
+    inpshape = [inpshape]
+  if isinstance(outshape, int): 
+    outshape = [outshape]
+  dictinpshape = tuple( inpshape )
+  dictoutshape = tuple( outshape )
+  if isclassification:
+    nroutputs = len(info[dgbkeys.classesdictstr])
+  else:
+    nroutputs = dgbhdf5.getNrOutputs(info)
 
   res = None
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    inpshape = info[dgbkeys.inpshapedictstr]
-    if isinstance(inpshape, int):
-      inpshape = [inpshape]
-    dictinpshape = tuple( inpshape )
+    
     res = dgbkeras.apply( model, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
                           dictinpshape, scaler=None, batch_size=batchsize  )
   elif platform == dgbkeys.scikitplfnm:
@@ -484,7 +494,8 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
     res = numpyApply( samples )
   elif platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbonnx as dgbonnx
-    res = dgbonnx.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
+    res = dgbonnx.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
+                        dictinpshape, dictoutshape, nroutputs )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError

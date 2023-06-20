@@ -639,7 +639,9 @@ def getWellInfo( info, filenm ):
   return info
 
 def getNrClasses(info):
-  return len(info[classesdictstr])
+  if classesdictstr in info:
+    return len(info[classesdictstr])
+  return 1
 
 def arroneitemsize( dtype ):
   arr = np.empty(1,dtype)

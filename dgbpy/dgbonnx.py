@@ -1,8 +1,10 @@
 import numpy as np
+import onnx
 import onnxruntime as rt
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
+import dgbpy.onnx_classes as oc
 
 
 def get_model_shape( shape, nrattribs, attribfirst=True ):
@@ -28,6 +30,18 @@ def get_model_shape( shape, nrattribs, attribfirst=True ):
         ret += (nrattribs,)
     return ret
 
+def get_output_shape( shape ):
+    ret = ()
+    if isinstance( shape, int ):
+        ret += (shape,)
+    else:
+        for i in shape:
+            if i > 1:
+                ret += (i,)
+    if len(ret) == 0:
+        ret += (1,)
+    return ret
+
 def getModelDims( model_shape ):
     ret = model_shape[1:]
     if len(ret) == 1 and ret[0] == 1:
@@ -49,6 +63,7 @@ def load( modelfnm ):
 class OnnxModel():
     def __init__(self, filepath : str):
         self.name = filepath
+        self.onnx_mdl = onnx.load(self.name)
         providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
         try:
             self.session = rt.InferenceSession(self.name, providers=providers)
@@ -61,44 +76,28 @@ class OnnxModel():
         ort_outs = np.array(self.session.run(None, ort_inputs))[-1]
         return ort_outs
 
-def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
+def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs):
     ret = {}
     res = None
-    attribs = dgbhdf5.getNrAttribs(info)
-    model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
-    ndims = getModelDims(model_shape)
-
-    try:
-        img2img = info[dgbkeys.seisimgtoimgtypestr]
-        img2img = True
-    except KeyError:
-        img2img = False
-
-    if isclassification:
-        nroutputs = len(info[dgbkeys.classesdictstr])
-    else:
-        nroutputs = dgbhdf5.getNrOutputs(info)
+    out_shape = get_output_shape( dictoutshape )
+    img2img = len(out_shape) > 2
 
     predictions = []
-    predictions_prob = []
     for input in samples:
+        input = np.expand_dims(input, axis=0)
         pred = model(input)
-        pred_prob = pred.copy()
-        if isclassification:
-            pred = np.argmax(pred, axis=1)
         for _ in pred:
             predictions.append(_)
-        for _prob in pred_prob:
-            predictions_prob.append(_prob)
 
     if withpred:
         if isclassification:
             if not (doprobabilities or withconfidence):
-                try:
-                    res = np.array(predictions_prob)
-                    res = np.transpose(np.array(predictions))
-                except AttributeError:
-                    pass
+                res = np.argmax(np.array(predictions), axis=1)
+                ret.update({dgbkeys.preddictstr: res})
+
+        if not isinstance(res, np.ndarray):
+            res = np.array(predictions)
+            ret.update({dgbkeys.preddictstr: res})
 
     if isclassification and (doprobabilities or withconfidence or withpred):
         if len(ret)<1:
@@ -122,31 +121,13 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
             ret.update({dgbkeys.probadictstr: res})
         if withconfidence:
             N = 2
-            predictions_prob = np.array(predictions_prob)
-            x = predictions_prob.shape[0]
-            indices = np.argpartition(predictions_prob.transpose(),-N,axis=0)[-N:].transpose()
-            sortedprobs = predictions_prob.transpose()[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
+            predictions = np.array(predictions)
+            x = predictions.shape[0]
+            indices = np.argpartition(predictions.transpose(),-N,axis=0)[-N:].transpose()
+            sortedprobs = predictions.transpose()[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
             res = np.diff(sortedprobs,axis=0)
             ret.update({dgbkeys.confdictstr: res})
 
-    if withpred:
-        res = np.transpose(np.array(predictions))
-        ret.update({dgbkeys.preddictstr: res})
-
-    if doprobabilities:
-        res = np.transpose( np.array(predictions_prob) )
-        ret.update({dgbkeys.probadictstr: res})
-    if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-        if ndims==3:
-            if isclassification:
-                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)
-            else:
-                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 2, 1, 0)
-        elif ndims==2:
-            if isclassification:
-                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(2, 1, 0)
-            else:
-                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)
     return ret
 
 
