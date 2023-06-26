@@ -29,6 +29,10 @@ To get the developer version, run
 git clone --recursive https://github.com/OpendTect/dgbpy.git
 ```
 
+## Documentation
+
+* [dgby API reference](https://doc.opendtect.org/7.0.0/doc/dgbpy/index.html)
+
 ## Citing dgbpy
 
 Please cite `dgbpy` in your publications if it helps your research.
