@@ -180,6 +180,17 @@ def get_loglog_info():
     default[dbk.interpoldictstr] = False
     return default
 
+def loglog_classification_info():
+    default = get_default_info()
+    default[dbk.exampledictstr] = get_default_multiple_examples()
+    default[dbk.inputdictstr] = get_default_multiple_input()
+    default[dbk.learntypedictstr] = dbk.loglogtypestr
+    default[dbk.inpshapedictstr] = 1
+    default[dbk.outshapedictstr] = 1
+    default[dbk.classdictstr] = True
+    default[dbk.interpoldictstr] = False
+    default[dbk.classesdictstr] = [1, 2, 3]
+    return default
 
 def get_2d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
     info = get_seismic_imgtoimg_info()
@@ -254,7 +265,7 @@ def get_seismic_classification_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbf
     }
 
 
-def get_loglog_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
+def get_loglog_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0, flatten=False):
     info = get_loglog_info()
     dataset = get_dataset_dict_multiple(nrpts)
     info[dbk.datasetdictstr] = dataset
@@ -268,6 +279,38 @@ def get_loglog_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
     y_train = np.random.random(y_train_shape).astype(np.single)
     x_validate = np.random.random(x_valid_shape).astype(np.single)
     y_validate = np.random.random(y_valid_shape).astype(np.single)
+
+    if flatten:
+        x_train = x_train.reshape(x_train.shape[0], -1)
+        x_validate = x_validate.reshape(x_validate.shape[0], -1)
+
+    return {
+        dbk.xtraindictstr: x_train,
+        dbk.ytraindictstr: y_train,
+        dbk.xvaliddictstr: x_validate,
+        dbk.yvaliddictstr: y_validate,
+        dbk.infodictstr: info,
+    }
+
+
+def get_loglog_classification_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0, flatten=False):
+    info = loglog_classification_info()
+    dataset = get_dataset_dict_multiple(nrpts)
+    info[dbk.datasetdictstr] = dataset
+    info = prepare_dataset_dict(info, nbchunks, seed, split, nbfolds)
+
+    nclasses, train_shape, valid_shape = prepare_data_arr(info, split, nrpts)
+    x_train_shape, y_train_shape = train_shape
+    x_valid_shape, y_valid_shape = valid_shape
+
+    x_train = np.random.random(x_train_shape).astype(np.single)
+    y_train = np.random.randint(nclasses, size=y_train_shape).astype(np.single)
+    x_validate = np.random.random(x_valid_shape).astype(np.single)
+    y_validate = np.random.randint(nclasses, size=y_valid_shape).astype(np.single)
+
+    if flatten:
+        x_train = x_train.reshape(x_train.shape[0], -1)
+        x_validate = x_validate.reshape(x_validate.shape[0], -1)
 
     return {
         dbk.xtraindictstr: x_train,
