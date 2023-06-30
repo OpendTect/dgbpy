@@ -648,7 +648,7 @@ def getDefaultModel( setup, params=scikit_dict ):
       else:
         model = MLPRegressor(hidden_layer_sizes=hidden_layer,learning_rate_init=learning_rate,max_iter=max_iter)
     elif modelname == 'Support Vector Machine':
-      kernel = dgbkeys.getNameFromUiName( kerneltypes, params['kernel'] )
+      kernel = dgbkeys.getNameFromList( kerneltypes, params['kernel'], uiname=False )
       degree = params['degree']
       if isclassification:
         if kernel == linkernel:
