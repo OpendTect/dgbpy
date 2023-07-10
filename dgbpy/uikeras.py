@@ -119,7 +119,8 @@ def getAdvancedUiPars(uipars=None):
   uiobjs={}
   if not uipars:
     uiobjs = {
-      'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), margin=(5, 5, 0, 5)),
+      'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), \
+                                  disabled= not is_mixed_precision_compatible(), margin=(5, 5, 0, 5)),
       'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
       'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
     }
@@ -184,7 +185,7 @@ def getUiParams( keraspars, advkeraspars ):
   scale = getUiScaler(advkerasgrp)
   transform = getUiTransforms(advkerasgrp)
   withtensorboard = True if len(advkerasgrp['tensorboardfld'].active)!=0 else False
-  tofp16 = True if len(advkerasgrp['tofp16fld'].active)!=0 else False
+  tofp16 = bool(advkerasgrp['tofp16fld'].active) and not advkerasgrp['tofp16fld'].disabled
   return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \
                              nbchunk=kerasgrp['chunkfld'].value, \
                              epochs=kerasgrp['epochfld'].value, \

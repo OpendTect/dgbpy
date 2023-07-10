@@ -989,6 +989,11 @@ def is_gpu_ready():
   cc = compute_capability_from_device_desc( devs[0] )
   return tf.test.is_gpu_available(True,cc)
 
+def is_mixed_precision_compatible():
+  devs = getDevicesInfo()
+  minimum_version = (8, 0)
+  return compute_capability_from_device_desc(devs[0]) >= minimum_version
+
 def need_channels_last():
   import tensorflow as tf
   if tf.test.is_built_with_cuda():
