@@ -52,6 +52,7 @@ def getCubeLetNamesByGroupByItem( info, groupnm, collnm, idx ):
   if collnm in dsetnms:
     ret = np.arange(len(group[collnm][xdatadictstr]))
   else:
+    dsetnms = list(map(str, dsetnms))
     dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
     ret = np.extract( dsetwithinp, dsetnms )
   h5file.close()
