@@ -89,14 +89,16 @@ def apply( model, samples, scaler, isclassification, withpred, withprobs, withco
         for _ in pred:
             predictions.append(_)
 
+    predictions = np.array(predictions)
     if withpred:
         if isclassification:
             if not (doprobabilities or withconfidence):
-                res = np.argmax(np.array(predictions), axis=1)
+                if predictions.shape[1] > 1:
+                    res = np.argmax(predictions, axis=1)
                 ret.update({dgbkeys.preddictstr: res})
 
         if not isinstance(res, np.ndarray):
-            res = np.array(predictions)
+            res = predictions
             ret.update({dgbkeys.preddictstr: res})
 
     if isclassification and (doprobabilities or withconfidence or withpred):
