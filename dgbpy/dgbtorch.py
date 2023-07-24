@@ -268,7 +268,9 @@ def save( model, outfnm, infos, save_type=defsavetype ):
   if save_type == savetypes[0]:
     joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
     retmodel, dummies = onnx_from_torch(model, infos)
-    torch.onnx.export(retmodel, dummies, joutfnm)
+    input_name = ['input']
+    dynamic_axes = {'input': {0: 'batch_size'}}
+    torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes)
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == savetypes[1]:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
