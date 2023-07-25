@@ -196,13 +196,6 @@ def check_apply_res(condition, pred):
         else:
             assert key not in pred, f'{key} should not be in the output result'
 
-def getCurrentConditions(conditions, step):
-    current_conditions = {}
-    for key, value in conditions.items():
-        current_conditions[key] = value[step]
-    return current_conditions
-
-
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
 def test_apply(data):
     info = data[dbk.infodictstr]

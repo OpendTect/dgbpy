@@ -54,6 +54,13 @@ def train_model(trainpars=default_pars(), data=None):
 def is_model_trained(initial, current):
     return any(not tc.torch.equal(initial[key], current[key]) for key in initial)
 
+def check_apply_res(condition, pred):
+    for key, value in condition.items():
+        if isinstance(value, bool) and value or isinstance(value, list) and len(value)>0:
+            assert key in pred, f'{key} should be in the output result'
+            assert isinstance(pred[key], np.ndarray), f'{key} should be a numpy array'
+        else:
+            assert key not in pred, f'{key} should not be in the output result'
 
 def save_model(model, filename, info):
     dgbtorch.save(model, filename, info)
@@ -212,3 +219,44 @@ def test_train_multiple_chunks(data):
     modelarch = get_model_arch(info, model, 0)
     trained_model = dgbtorch.train(modelarch, data, pars)
     assert isinstance(trained_model, nn.Module), 'model should be a nn.Module'
+
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_apply(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbtorch.train(modelarch, data, pars, silent=True)
+
+    filename = 'torchmodel'
+    save_model(model, f'{filename}.h5', info)
+    trained_model = load_model(f'{filename}.h5')	
+
+    samples = data[dbk.xvaliddictstr]
+    print(samples.shape)
+    isclassification = info[dbk.classdictstr]
+    if isclassification and dgbhdf5.isLogInput(info):
+        withprobs = list(range(dgbhdf5.getNrClasses(info)))
+    else:
+        withprobs = []
+
+    doprobabilities = len(withprobs) > 0
+
+    nsteps = 4
+    conditions = {
+        dbk.preddictstr: [True, True, False, False],
+        dbk.confdictstr: [False, True, True, False] if isclassification and dgbhdf5.isLogInput(info) else [False]*nsteps,
+        dbk.probadictstr: [withprobs]*nsteps
+    }
+
+    for step in range(nsteps):
+        withpred = conditions[dbk.preddictstr][step]
+        withconfidence = conditions[dbk.confdictstr][step]
+        current_conditions = getCurrentConditions(conditions, step)
+        pred = dgbtorch.apply(trained_model, info, samples, None, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+        check_apply_res(current_conditions, pred)
+
+    os.remove(f'{filename}.h5')
+    os.remove(f'{filename}.onnx')
+
+

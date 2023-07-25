@@ -72,6 +72,11 @@ def get_dataset_dict_multiple(nrpts):
     }
     return retinfo
 
+def getCurrentConditions(conditions, step):
+    current_conditions = {}
+    for key, value in conditions.items():
+        current_conditions[key] = value[step]
+    return current_conditions
 
 def get_default_info():
     retinfo = {
