@@ -447,7 +447,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   if doprobabilities:
     res = np.transpose( np.array(predictions_prob) )
     ret.update({dgbkeys.probadictstr: res})
-  if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+  if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr and withpred:
     if ndims==3:
       if isclassification:
         ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)
