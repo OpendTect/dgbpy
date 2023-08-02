@@ -186,3 +186,56 @@ def test_train_multiple_chunks(data):
     kc.TrainingSequence = TCase_TrainSequence
     model = dgbkeras.train(modelarch, data, pars, silent=True)
     assert isinstance(model, keras.models.Model), 'model should be a keras Module'
+
+def check_apply_res(condition, pred):
+    for key, value in condition.items():
+        if isinstance(value, bool) and value or isinstance(value, list) and len(value)>0:
+            assert key in pred, f'{key} should be in the output result'
+            assert isinstance(pred[key], np.ndarray), f'{key} should be a numpy array'
+        else:
+            assert key not in pred, f'{key} should not be in the output result'
+
+@pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
+def test_apply(data):
+    info = data[dbk.infodictstr]
+    models = get_default_model(info)
+    modelarch = get_model_arch(info, models, 0)
+    model = dgbkeras.train(modelarch, data, default_pars(), silent=True)
+
+    inpshape = info[dbk.inpshapedictstr]
+    if isinstance(inpshape, int):
+        inpshape = [inpshape]
+    dictinpshape = tuple( inpshape )
+
+    samples = data[dbk.xvaliddictstr]
+    if not dgbhdf5.isLogInput(info):
+        nrdims = len(inpshape) - inpshape.count(1)
+        if nrdims == 2:
+            samples = np.squeeze(samples, axis=1)
+
+    isclassification = info[dbk.classdictstr]
+
+    # Get probabilities and confidence only if isLogInput
+    if isclassification and dgbhdf5.isLogInput(info):
+        withprobs = list(range(dgbhdf5.getNrClasses(info)))
+    else:
+        withprobs = []
+
+    doprobabilities = len(withprobs) > 0
+
+    nsteps = 4
+    conditions = {
+        dbk.preddictstr: [True, True, False, False],
+        dbk.confdictstr: [False, True, True, False] if isclassification and dgbhdf5.isLogInput(info) else [False]*nsteps,
+        dbk.probadictstr: [withprobs]*nsteps
+    }
+    
+    for step in range(nsteps):
+        withpred = conditions[dbk.preddictstr][step]
+        withconfidence = conditions[dbk.confdictstr][step]
+        current_conditions = getCurrentConditions(conditions, step)
+        
+        pred = dgbkeras.apply(model, samples, isclassification, withpred=withpred, withprobs=withprobs, withconfidence=withconfidence, doprobabilities=doprobabilities, \
+                                dictinpshape=dictinpshape, scaler=None, batch_size=4)
+        
+        check_apply_res(current_conditions, pred)
