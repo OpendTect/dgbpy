@@ -51,5 +51,5 @@ def model_info_dict( onnx_model ):
     minfo['output_names'] = __output_names(onnx_model)
     minfo['input_shape'] = [shp if shp else 1 for shp in __input_shape(onnx_model)]
     minfo['output_shape'] = [shp if shp else 1 for shp in __output_shape(onnx_model)]
-    minfo['data_format'] = 'channels_first' if minfo['input_shape'][0]==minfo['num_inputs'] else 'channels_last'
+    minfo['data_format'] = 'channels_first' if minfo['input_shape'][1]==minfo['num_inputs'] else 'channels_last'
     return minfo
