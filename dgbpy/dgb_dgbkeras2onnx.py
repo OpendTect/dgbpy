@@ -13,6 +13,7 @@ import argparse
 import sys
 import datetime
 import tempfile
+import traceback
 import onnx
 import tensorflow as tf 
 import tf2onnx
@@ -35,19 +36,29 @@ parser.add_argument('-o', '--output', dest='outfile',
 parser.add_argument('--opset', type=int, default=15, dest='opset',
 		    help='Target ONNX opset version')
 args = parser.parse_args()
+if not args.infile or not args.outfile:
+    parser.print_help()
+    sys.exit(1)
 
 try:
+
     info = dgbmlio.getInfo(args.infile)
     numin = dgbhdf5.getNrAttribs(info)
     numout = dgbhdf5.getNrOutputs(info)
     inshape = info[dgbkeys.inpshapedictstr]
+    if inshape[0]==1:
+        inshape = inshape[1:]
+
     inshape += [numin]
     inshape.insert(0, 1)
     outshape = info[dgbkeys.outshapedictstr]
     dgb_model = tf.keras.models.load_model(args.infile)
     input_sig = [tf.TensorSpec(inshape, tf.float32, name="input")]
     onnx_model, _ = tf2onnx.convert.from_keras(dgb_model, input_sig, opset=args.opset)
-    onnx_model.doc_string = info[dgbkeys.namedictstr] + "exported from OpendTect"
+    if info[dgbkeys.namedictstr]:
+        onnx_model.doc_string = info[dgbkeys.namedictstr] + " "
+    
+    onnx_model.doc_string += "exported from OpendTect"
     onnx_model.model_version = int(info[dgbkeys.versiondictstr])
     meta = onnx_model.metadata_props.add()
     meta.key = "creation_date"
@@ -58,9 +69,8 @@ try:
     onnx.checker.check_model(onnx_model)
     onnx.save(onnx_model, args.outfile)
     print(f'Converted: {args.infile}\nto ONNX model: {args.outfile}')
-except Exception as e:
-    print(e)
-    sys.exit(1)
+except Exception:
+    traceback.print_exc()
 
 import onnxruntime as ort
 import numpy as np

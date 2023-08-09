@@ -6,7 +6,6 @@ import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
 import dgbpy.onnx_classes as oc
 
-
 def get_model_shape( shape, nrattribs, attribfirst=True ):
     ret = ()
     if attribfirst:
@@ -64,6 +63,7 @@ class OnnxModel():
     def __init__(self, filepath : str):
         self.name = filepath
         self.onnx_mdl = onnx.load(self.name)
+        self.data_format = 'channels_first' if self.input_shape()[1]==self.num_inputs() else 'channels_last'
         providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
         try:
             self.session = rt.InferenceSession(self.name, providers=providers)
@@ -71,10 +71,54 @@ class OnnxModel():
             self.session = rt.InferenceSession(self.name, providers=[dgbkeys.onnxcpustr])
 
     def __call__(self, inputs):
-        self.inputs = inputs
+        self.inputs = self.adaptInput(inputs)
         ort_inputs = {self.session.get_inputs()[0].name: self.inputs}
         ort_outs = np.array(self.session.run(None, ort_inputs))[-1]
+        ort_outs = self.adaptOutput(ort_outs)
         return ort_outs
+
+    def adaptInput(self, samples, sample_data_format='channels_first'):
+        if self.data_format == 'channels_first':
+            if sample_data_format == 'channels_last':
+                ret = np.moveaxis(samples, -1, 1)
+                if ret.shape[2]==1:
+                    ret = np.squeeze(ret, 2)
+            elif samples.shape[2]==1:
+                ret = np.squeeze(samples, 2)
+            else:
+                return samples
+        else:
+            if sample_data_format == 'channels_first':
+                ret = np.moveaxis(samples, 1, -1)
+                if ret.shape[1]==1:
+                    ret = np.squeeze(ret, 1)
+            elif samples.shape[1]==1:
+                ret = np.squeeze(samples, 1)
+            else:
+                return samples
+
+        return ret
+
+    def adaptOutput(self, samples, sample_data_format='channels_first'):
+        if self.data_format == 'channels_first':
+            if sample_data_format == 'channels_last':
+                ret = np.moveaxis(samples, 1, -1)
+            else:
+                return samples
+        else:
+            if sample_data_format == 'channels_last':
+                return samples
+            else:
+                ret = np.moveaxis(samples, -1, 1)
+
+        return ret
+
+    def input_shape(self):
+        inp = self.onnx_mdl.graph.input
+        return [dim.dim_value if dim.dim_value else 1 for dim in inp[0].type.tensor_type.shape.dim]
+
+    def num_inputs(self):
+        return len(self.onnx_mdl.graph.input)
 
 def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs):
     ret = {}
