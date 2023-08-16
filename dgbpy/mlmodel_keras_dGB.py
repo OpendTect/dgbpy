@@ -163,7 +163,7 @@ class dGB_UnetReg(UserModel):
   uidescription = 'dGBs Unet image regression'
   predtype = DataPredType.Continuous
   outtype = OutputType.Image
-  dimtype = (DimType.D1, DimType.D2)
+  dimtype = (DimType.D1, DimType.D3)
   
   def _make_model(self, model_shape, nroutputs, learnrate):
     model = dGBUNet(model_shape, nroutputs, self.predtype)
