@@ -538,8 +538,13 @@ def scale( samples, scaler ):
   elif scaler.n_samples_seen_ == 1:
     samples = transform( samples, scaler.mean_[0], scaler.scale_[0] )
   else:
-    for i in range(scaler.n_samples_seen_):
-      samples[:,i] = transform( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
+    mean = 0.0
+    scale = 1.0
+    for i in range(samples.shape[1]):
+      if i<scaler.n_samples_seen_:
+        mean = scaler.mean_[i]
+        scale = scaler.scale_[i]
+      samples[:,i] = transform( samples[:,i], mean, scale )
 
   return samples
 
@@ -562,8 +567,13 @@ def unscale( samples, scaler ):
   elif scaler.n_samples_seen_ == 1:
     samples = transformBack( samples, scaler.mean_[0], scaler.scale_[0] )
   else:
-    for i in range(scaler.n_samples_seen_):
-      samples[:,i] = transformBack( samples[:,i], scaler.mean_[i], scaler.scale_[i] )
+    mean = 0.0
+    scale = 1.0
+    for i in range(samples.shape[1]):
+      if i<scaler.n_samples_seen_:
+        mean = scaler.mean_[i]
+        scale = scaler.scale_[i]
+      samples[:,i] = transformBack( samples[:,i], mean, scale )
 
   return samples
 

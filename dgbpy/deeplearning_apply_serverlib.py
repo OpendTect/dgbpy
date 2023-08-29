@@ -162,7 +162,7 @@ class ModelApplier:
             samples = samples[:,:,samples.shape[2]//2,:,:]
         elif self.swapaxes_:
             samples = samples.swapaxes(2, 3)
-        
+
         if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
                 samples = dgbscikit.unscale( samples, self.scaler_ )
@@ -171,7 +171,8 @@ class ModelApplier:
 
     def flatModelApply(self, inp, samples, samples_shape):
         inpshape = self.info_[dgbkeys.inpshapedictstr]
-        outshape = (1,) + inp.shape
+        nrout = dgbhdf5.getNrOutputs(self.info_)
+        outshape = (1, nrout, *inp.shape[1:])
         outdata = np.zeros(outshape, dtype=inp.dtype)
         applydata = np.empty(samples_shape, dtype=inp.dtype)
         for idx in range(max(inpshape[0], inpshape[1])):
@@ -226,8 +227,9 @@ class ModelApplier:
                     loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
                 allsamples.append( loc_samples )
             elif self.is2dinp_:
-                for zidz in range(nrzoutsamps):
-                  loc_samples[zidz] = inp[:,:,zidz:zidz+nrz]
+                for ich in range(inp.shape[0]):
+                    for zidz in range(nrzoutsamps):
+                        loc_samples[zidz] = inp[ich,:,zidz:zidz+nrz]
                 allsamples.append( loc_samples )
             else :
                 for zidz in range(nrzoutsamps):
@@ -269,6 +271,7 @@ class ModelApplier:
         for outkey in outkeys:
           if outkey in ret:
             res.append( ret[outkey] )
+
         return res
 
     def debug_msg(self,a,b=None,c=None,d=None,e=None,f=None,g=None,h=None):

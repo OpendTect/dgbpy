@@ -53,6 +53,11 @@ try:
     inshape.insert(0, 1)
     outshape = info[dgbkeys.outshapedictstr]
     dgb_model = tf.keras.models.load_model(args.infile)
+    data_format = 'channels_last'
+    for layer in dgb_model.layers:
+        if hasattr(layer, 'data_format'):
+            data_format = layer.data_format
+            break
     input_sig = [tf.TensorSpec(inshape, tf.float32, name="input")]
     onnx_model, _ = tf2onnx.convert.from_keras(dgb_model, input_sig, opset=args.opset)
     if info[dgbkeys.namedictstr]:
@@ -66,6 +71,9 @@ try:
     meta = onnx_model.metadata_props.add()
     meta.key = "scaling_type"
     meta.value = info[dgbkeys.inpscalingdictstr]
+    meta = onnx_model.metadata_props.add()
+    meta.key = "data_format"
+    meta.value = data_format
     onnx.checker.check_model(onnx_model)
     onnx.save(onnx_model, args.outfile)
     print(f'Converted: {args.infile}\nto ONNX model: {args.outfile}')

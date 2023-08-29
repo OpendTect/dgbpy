@@ -63,7 +63,9 @@ class OnnxModel():
     def __init__(self, filepath : str):
         self.name = filepath
         self.onnx_mdl = onnx.load(self.name)
-        self.data_format = 'channels_first' if self.input_shape()[1]==self.num_inputs() else 'channels_last'
+        self.metadata = {x.key: x.value for x in self.onnx_mdl.metadata_props}
+        inshape = self.input_shape()
+        self.data_format = self.metadata.get('data_format', 'channels_first' if inshape[1]<inshape[-1] else 'channels_last')
         providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
         try:
             self.session = rt.InferenceSession(self.name, providers=providers)
