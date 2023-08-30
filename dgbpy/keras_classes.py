@@ -10,6 +10,7 @@
 
 from datetime import datetime, timedelta
 import json
+import warnings
 from typing import Iterable
 import numpy as np
 import tensorflow as tf
@@ -20,6 +21,7 @@ from dgbpy import hdf5 as dgbhdf5
 
 def model_info( modelfnm ):
   from dgbpy.dgbkeras import load
+  warnings.filterwarnings('ignore')
   model = load( modelfnm, False )
   mi = model_info_dict( model )
   return json.dumps(mi)
@@ -32,7 +34,11 @@ def model_info_dict( keras_model ):
   minfo['output_names'] = keras_model.output_names
   minfo['input_shape'] = [shp if shp else 1 for shp in keras_model.input_shape]
   minfo['output_shape'] = [shp if shp else 1 for shp in keras_model.output_shape]
-  minfo['data_format'] = next((layer.data_format if hasattr(layer, 'data_format') else 'channels_last' for layer in keras_model.layers))
+  minfo['data_format'] = 'channels_last'
+  for layer in keras_model.layers:
+    if hasattr(layer, 'data_format'):
+      minfo['data_format'] = layer.data_format
+      break
   return minfo
 
 class TrainingSequence(Sequence):
