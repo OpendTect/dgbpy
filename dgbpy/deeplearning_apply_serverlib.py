@@ -244,7 +244,8 @@ class ModelApplier:
 
         ret = {}
         if self.info_[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr and not self.is2dinp_ and \
-            (self.isflat_inlinemodel_ or self.isflat_xlinemodel_):
+            (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and \
+            self.applydir_ in [dgbkeys.averagestr, dgbkeys.minstr, dgbkeys.maxstr]:
             ret[dgbkeys.preddictstr] = self.flatModelApply(inp, samples, samples_shape)
             if self.applydir_ in [dgbkeys.averagestr, dgbkeys.minstr, dgbkeys.maxstr]:
                 samples = samples.swapaxes(2, 3)
@@ -260,6 +261,11 @@ class ModelApplier:
             ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                       scaler=None, applyinfo=self.applyinfo_, \
                                       batchsize=self.batchsize_ )
+            if dgbkeys.preddictstr in ret and not self.is2dinp_ and \
+               ((self.isflat_inlinemodel_ and self.applydir_ in [dgbkeys.crosslinestr]) or \
+                (self.isflat_xlinemodel_ and self.applydir_ in [dgbkeys.inlinestr])):
+                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].swapaxes(2, 3)
+
         if dgbkeys.preddictstr in ret:
             ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
     
