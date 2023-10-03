@@ -21,7 +21,7 @@ class dGB_UnetSeg(TorchUserModel):
     model = UNet(in_channels=nrattribs, n_blocks=1, out_channels=nroutputs, dim=ndim)
     return model
 
-from dgbpy.torch_classes import Net, create_resnet_block, UNet, dGBLeNet, UNet_VGG19
+from dgbpy.torch_classes import Net, create_resnet_block, UNet, dGBLeNet, UNet_VGG19, dGBUNet
 import torch.nn as nn
 
 class dGB_Simple_Net_Classifier(TorchUserModel):
@@ -47,7 +47,7 @@ class dGB_UnetReg(TorchUserModel):
   def _make_model(self, model_shape, nroutputs, nrattribs):
     from dgbpy.dgbtorch import getModelDims
     ndim = getModelDims(model_shape, 'channels_first')
-    model = UNet(in_channels=nrattribs, n_blocks=1, out_channels=nroutputs, dim=ndim)
+    model = dGBUNet(nrattribs, model_shape, nroutputs, self.predtype)
     return model
 
 class dGB_ResNet18(TorchUserModel):
