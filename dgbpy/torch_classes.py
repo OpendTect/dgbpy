@@ -1008,6 +1008,93 @@ class UpBlock(nn.Module):
             y = self.norm2(y)  # normalization 2
         return y
 
+class dGBUNet(nn.Module):
+    def __init__(self, in_channels,  model_shape, out_channels, predtype):
+        super(dGBUNet, self).__init__()
+
+        from dgbpy.dgbtorch import getModelDims
+        self.ndim = getModelDims(model_shape, 'channels_first')
+
+        if self.ndim == 3:
+            Conv = nn.Conv3d
+            BatchNorm = nn.BatchNorm3d
+            self.MaxPool = nn.MaxPool3d
+            ConvTranspose = nn.ConvTranspose3d
+        elif self.ndim == 2:
+            Conv = nn.Conv2d
+            BatchNorm = nn.BatchNorm2d
+            self.MaxPool = nn.MaxPool2d
+            ConvTranspose = nn.ConvTranspose2d
+        elif self.ndim == 1:
+            Conv = nn.Conv1d
+            BatchNorm = nn.BatchNorm1d
+            self.MaxPool = nn.MaxPool1d
+            ConvTranspose = nn.ConvTranspose1d
+        else:
+            raise ValueError("Unsupported number of dimensions")
+        
+        def conv_block(in_channels, out_channels, with_pooling=True):
+            return nn.Sequential(
+                Conv(in_channels, out_channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                Conv(out_channels, out_channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True)
+            )
+
+        def upsample_block(in_channels, out_channels):
+            return nn.Sequential(
+                ConvTranspose(in_channels, out_channels, kernel_size=2, stride=2),
+                nn.ReLU(inplace=True)
+            )
+
+        self.conv1 = conv_block(in_channels, 16)
+        self.conv2 = conv_block(16, 32)
+        self.conv3 = conv_block(32, 64)
+        self.conv4 = conv_block(64, 512, with_pooling=False)
+        self.upconv1 = conv_block(128, 64, with_pooling=False)
+        self.upconv2 = conv_block(64, 32, with_pooling=False)
+        self.upconv3 = conv_block(32, 16, with_pooling=False)
+
+        # create conv layers for the upsampling block
+        self.upsample1 = upsample_block( 512, 64)
+        self.upsample2 = upsample_block( 64, 32)
+        self.upsample3 = upsample_block( 32, 16)
+
+        self.final_conv = Conv(16, out_channels, kernel_size=1)
+
+        if predtype == DataPredType.Continuous:
+            self.activation = nn.Identity()
+        else:
+            if out_channels == 2:
+                self.activation = nn.Sigmoid()
+            else:
+                self.activation = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        conv1 = self.conv1(x)
+        pool1 = self.MaxPool(kernel_size=2, stride=2)(conv1)
+        conv2 = self.conv2(pool1)
+        pool2 = self.MaxPool(kernel_size=2, stride=2)(conv2)
+        conv3 = self.conv3(pool2)
+        pool3 = self.MaxPool(kernel_size=2, stride=2)(conv3)
+        conv4 = self.conv4(pool3)
+
+        upsample1 = self.upsample1(conv4)
+        concat1 = torch.cat([upsample1, conv3], dim=1)
+        upconv1 = self.upconv1(concat1)
+
+        upsample2 = self.upsample2(upconv1)
+        concat2 = torch.cat([upsample2, conv2], dim=1)
+        upconv2 = self.upconv2(concat2)
+
+        upsample3 = self.upsample3(upconv2)
+        concat3 = torch.cat([upsample3, conv1], dim=1)
+        upconv3 = self.upconv3(concat3)
+
+        final_conv = self.final_conv(upconv3)
+        # output = self.activation(final_conv)
+        return final_conv
+
 class UNet(nn.Module):
     """
     activation: 'relu', 'leaky', 'elu'
