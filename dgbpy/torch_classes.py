@@ -1092,7 +1092,6 @@ class dGBUNet(nn.Module):
         upconv3 = self.upconv3(concat3)
 
         final_conv = self.final_conv(upconv3)
-        # output = self.activation(final_conv)
         return final_conv
 
 class UNet(nn.Module):
