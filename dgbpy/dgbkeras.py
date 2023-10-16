@@ -605,21 +605,50 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   return ret
 
 def transfer( model ):
+  """
+    Transfer learning utility function for fine-tuning a Keras model.
+
+    This function takes a Keras model and prepares it for transfer learning by selectively
+    setting layers to be trainable. The layers to be made trainable are determined as follows:
+
+    1. All layers before the first Conv1D, Conv2D, or Conv3D layer (or a Sequential containing such layers)
+       are set to trainable.
+
+    2. All layers after the last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential containing
+       such layers) are set to trainable.
+
+    3. All layers between the first and last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential
+        containing such layers) are set to non-trainable.
+  """
+
   from keras.layers import (Conv1D,Conv2D,Conv3D,Dense)
+  from keras.models import Sequential
   layers = model.layers
-  for layer in layers:
-    layer.trainable = False
+  for layer in range(len(layers)):
+    model.layers[layer].trainable = False
+    
+  for ilay, layer in enumerate(model.layers):
+    model.layers[ilay].trainable = True
+    laytype = type( layer )
+    if laytype in ( Conv3D, Conv2D, Conv1D ):
+      break
+    elif laytype is Sequential:
+      for sublayers in layer.layers:
+        laytype = type( sublayers )
+        if laytype in ( Conv3D, Conv2D, Conv1D ):
+          break
+      break
 
-  for ilay in range(len(layers)):
-    layers[ilay].trainable = True
+  for ilay in range(len(layers) - 1, 0, -1):
+    model.layers[ilay].trainable = True
     laytype = type( layers[ilay] )
-    if laytype == Conv3D or laytype == Conv2D or laytype == Conv1D:
-       break
-
-  for ilay in range(len(layers)-1,0,-1):
-    layers[ilay].trainable = True
-    laytype = type( layers[ilay] )
-    if laytype == Conv3D or laytype == Conv2D or laytype == Conv1D or laytype == Dense:
+    if laytype in ( Conv3D, Conv2D, Conv1D, Dense ):
+      break
+    elif laytype is Sequential:
+      for sublayers in model.layers[ilay].layers:
+        laytype = type( sublayers )
+        if laytype in ( Conv3D, Conv2D, Conv1D ):
+          break
       break
 
   return model
