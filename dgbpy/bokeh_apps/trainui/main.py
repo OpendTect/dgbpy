@@ -85,7 +85,6 @@ def training_app(doc):
           trainingpars['Input Model File'] = val
         else:
           trainingpars['Input Model File'] = None
-          trainingpars['Training Type'] = dgbmlapply.TrainType.New
       elif key=='ProcLog File':
         odcommon.log_msg(f'Change log file name to "{val}".')
         trainingpars['Proc Log File'] = val
