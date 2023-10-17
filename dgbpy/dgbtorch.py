@@ -317,25 +317,48 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     return model
 
 def transfer(model):
-  from dgbpy.torch_classes import OnnxTorchModel
-  if isinstance(model, OnnxTorchModel):
-    model = model.convert_to_torch()
+  """
+    Transfer learning utility function for fine-tuning a Torch model.
 
-  for param in model.parameters():
-    param.requires_grad = False
+    This function takes a Torch model and prepares it for transfer learning by selectively
+    setting layers to be trainable. The layers to be made trainable are determined as follows:
 
-  for name, child in model.named_children():
-    for param in child.parameters():
-        param.requires_grad = True
-    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
-        break
+    1. All layers before the first Conv1D, Conv2D, or Conv3D layer (or a Sequential containing such layers)
+       are set to trainable.
 
-  for name, child in reversed(list(model.named_children())):
-      for param in child.parameters():
-          param.requires_grad = True
-      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
-          break
-  
+    2. All layers after the last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential containing
+       such layers) are set to trainable.
+
+    3. All layers between the first and last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential
+        containing such layers) are set to non-trainable.
+  """
+  def getTrainableLayers(model):
+    first_lyr = None
+    last_lyr = None
+
+    for name, layer in model.named_modules():
+        if isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+            if first_lyr is None:
+                first_lyr = name
+            last_lyr = name
+        elif isinstance(layer, nn.Linear) and first_lyr:
+          last_lyr = name
+    return first_lyr, last_lyr
+
+  first_conv_layer, last_layer = getTrainableLayers(model)
+  found_first, found_last = False, False
+
+  for name, param in model.named_parameters():
+    if first_conv_layer and name.startswith(first_conv_layer):
+      param.requires_grad = True
+      found_first = True
+    elif last_layer and name.startswith(last_layer):
+      param.requires_grad = True
+      found_last = True
+    elif found_first and not found_last:
+      param.requires_grad = False
+    else:
+      param.requires_grad = True
   return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
