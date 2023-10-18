@@ -249,33 +249,36 @@ def getLogDir( withtensorboard, examplenm, platform, basedir, clearlogs, args ):
   logdir = logdir / Path(jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ))
   return logdir
 
-def getOutdType( classinfo ):
-  max = classinfo.max()
-  min = classinfo.min()
-  min_abs = np.abs(min)
-  max_abs = np.abs(max)
-  if max_abs>min_abs:
-    pass
+def getOutdType( classinfo, withunlabaled='No' ):
+  if withunlabaled == 'Yes':
+    return np.int16
   else:
-    max_abs = min_abs
-  if min < 0 and max > 0:
-    if max_abs < 129:
-      return np.int8
-    elif max_abs > 128 and max_abs < 32769:
-      return np.int16
-    elif max_abs > 32768 and max_abs < int(2.2e10):
-      return np.int32
+    max = classinfo.max()
+    min = classinfo.min()
+    min_abs = np.abs(min)
+    max_abs = np.abs(max)
+    if max_abs>min_abs:
+      pass
     else:
-      return np.int64
-  else:
-    if max_abs < 256:
-      return np.uint8
-    elif max_abs > 255 and max_abs < int(6.5e4):
-      return np.uint16
-    elif max_abs > int(6.5e4) and max_abs < int(4.4e10):
-      return np.uint32
+      max_abs = min_abs
+    if min < 0 and max > 0:
+      if max_abs < 129:
+        return np.int8
+      elif max_abs > 128 and max_abs < 32769:
+        return np.int16
+      elif max_abs > 32768 and max_abs < int(2.2e10):
+        return np.int32
+      else:
+        return np.int64
     else:
-      return np.uint64
+      if max_abs < 256:
+        return np.uint8
+      elif max_abs > 255 and max_abs < int(6.5e4):
+        return np.uint16
+      elif max_abs > int(6.5e4) and max_abs < int(4.4e10):
+        return np.uint32
+      else:
+        return np.uint64
 
 def getCubeLets( infos, collection, groupnm ):
   if len(collection)< 1:
@@ -288,12 +291,12 @@ def getCubeLets( infos, collection, groupnm ):
   img2img = isImg2Img( infos )
   iscluster = isSegmentation( infos )
   examples = infos[exampledictstr]
+  h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   if img2img:
     outnrattribs = 1
   outdtype = np.float32
   if isclass:
-    outdtype = getOutdType(np.array(infos[classesdictstr]))
-  h5file = odhdf5.openFile( infos[filedictstr], 'r' )
+    outdtype = getOutdType(np.array(infos[classesdictstr]), odhdf5.getText(h5file["++info++"], 'Withunlabeled'))
   group = h5file[groupnm]
 
   firstcollnm = next(iter(collection))
@@ -760,7 +763,7 @@ def getClassIndicesFromData( info ):
   for groupnm in groups:
     grp = h5file[groupnm]
     for inpnm in grp:
-      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]))
+      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]), odhdf5.getText(h5file["++info++"], 'Withunlabeled'))
       sublist = list(set(np.array(grp[inpnm][ydatadictstr]).astype(outdtype).ravel()))
       sublist.extend( ret )
       ret = list(set(sublist))
