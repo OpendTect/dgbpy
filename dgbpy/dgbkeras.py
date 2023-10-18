@@ -623,32 +623,40 @@ def transfer( model ):
 
   from keras.layers import (Conv1D,Conv2D,Conv3D,Dense)
   from keras.models import Sequential
+
+  def check_sequential(layer, reverse=False):
+    if type(layer) is not Sequential:
+      return
+    if reverse:
+      layer = layer.layers[::-1]
+    for sublayers in layer.layers:
+      laytype = type( sublayers )
+      if laytype in ( Conv3D, Conv2D, Conv1D ):
+        return True
+      elif laytype is Sequential:
+        return check_sequential(sublayers)
+    return False    
+
   layers = model.layers
-  for layer in range(len(layers)):
-    model.layers[layer].trainable = False
+  for layer in layers:
+    layer.trainable = False
     
   for ilay, layer in enumerate(model.layers):
-    model.layers[ilay].trainable = True
+    layer.trainable = True
     laytype = type( layer )
     if laytype in ( Conv3D, Conv2D, Conv1D ):
       break
-    elif laytype is Sequential:
-      for sublayers in layer.layers:
-        laytype = type( sublayers )
-        if laytype in ( Conv3D, Conv2D, Conv1D ):
-          break
+    found = check_sequential(layer)
+    if found:
       break
 
   for ilay in range(len(layers) - 1, 0, -1):
-    model.layers[ilay].trainable = True
+    layers[ilay].trainable = True
     laytype = type( layers[ilay] )
     if laytype in ( Conv3D, Conv2D, Conv1D, Dense ):
       break
-    elif laytype is Sequential:
-      for sublayers in model.layers[ilay].layers:
-        laytype = type( sublayers )
-        if laytype in ( Conv3D, Conv2D, Conv1D ):
-          break
+    found = check_sequential(layers[ilay], reverse=True)
+    if found:
       break
 
   return model
