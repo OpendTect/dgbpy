@@ -345,6 +345,10 @@ def transfer(model):
           last_lyr = name
     return first_lyr, last_lyr
 
+  from dgbpy.torch_classes import OnnxTorchModel
+  if isinstance(model, OnnxTorchModel):
+    model = model.convert_to_torch()
+
   first_conv_layer, last_layer = getTrainableLayers(model)
   found_first, found_last = False, False
 
