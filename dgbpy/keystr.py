@@ -65,6 +65,7 @@ ytraindictstr = 'y_train'
 yvaliddictstr = 'y_validate'
 ypreddictstr = 'y_pred'
 zstepdictstr = 'zstep'
+withunlabeleddictstr = 'withunlabeled'
 
 
 # Value keys
@@ -109,6 +110,7 @@ torchplfnm = 'torch'
 typestr = 'Type'
 valuestr = 'Value'
 versionstr = 'Version'
+withunlabeledstr = 'withunlabeled'
 
 # Others
 ndimstr = 'ndims'
