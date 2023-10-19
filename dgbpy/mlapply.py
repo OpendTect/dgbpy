@@ -307,10 +307,10 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     (model,infos) = (None,None)
     if type == None:
       type = TrainType.New
-    print( f'Initiating a {type.name} training process on the {platform} platform' )
+    log_msg( f'Initiating a {type.name} training process on the {platform} platform' )
 
     if type != TrainType.New:
-      print(f"Loading input model from file: {modelin}")
+      log_msg(f"Loading input model from file: {modelin}")
       (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
 
     trainingdp = None
@@ -336,9 +336,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                         type=params['type'],
                                         learnrate=params['learnrate'])
-        print('Using a default keras model architecture')
+        log_msg('Using a default keras model architecture')
       elif type == TrainType.Transfer:
-        print( 'Setting up the keras model for transfer training')
+        log_msg( 'Setting up the keras model for transfer training')
         model = dgbkeras.transfer( model )
 
       tempmodelnm = None
@@ -378,9 +378,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
 
       if type == TrainType.New:
         model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'])
-        print('Using a default torch model architecture')
+        log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
-        print( 'Setting up the torch model for transfer training')
+        log_msg( 'Setting up the torch model for transfer training')
         model = dgbtorch.transfer( model )
 
       print('--Training Started--', flush=True)
