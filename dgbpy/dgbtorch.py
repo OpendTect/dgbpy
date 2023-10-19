@@ -36,6 +36,8 @@ withtensorboard = dgbkeys.getDefaultTensorBoard()
 
 default_transforms = []
 
+defbatchstr = 'defaultbatchsz'
+
 torch_dict = {
     dgbkeys.decimkeystr: False,
     'nbchunk': 10,
@@ -76,6 +78,15 @@ def set_compute_device(prefercpu):
   if not prefercpu:
     prefercpu = not can_use_gpu()
   device = torch.device('cuda:0' if not prefercpu else 'cpu')
+
+def get_torch_infos():
+  ret = {
+    'hastorchgpu': can_use_gpu(),
+    dgbkeys.prefercpustr: not can_use_gpu(),
+    'batchsizes': cudacores,
+    defbatchstr: torch_dict['batch']
+  }
+  return json.dumps( ret )
 
 def getParams( 
     nntype=torch_dict['type'],
