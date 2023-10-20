@@ -121,6 +121,7 @@ def isSeisClass( info ):
 def hasUnlabeled( info ):
   if isinstance(info, dict):
     return info[withunlabeleddictstr]
+  return info == withunlabeleddictstr
 
 def isLogInput( info ):
   if isinstance(info,dict):
@@ -260,7 +261,6 @@ def getOutdType( classinfo, hasunlabels=False ):
   max_abs = np.abs(max)
   if hasunlabels:
     min = np.min([min, -1])
-    min_abs = np.min([min, -1])
   if max_abs>min_abs:
     pass
   else:
@@ -300,7 +300,7 @@ def getCubeLets( infos, collection, groupnm ):
     outnrattribs = 1
   outdtype = np.float32
   if isclass:
-    outdtype = getOutdType(np.array(infos[classesdictstr]), infos[withunlabeledstr])
+    outdtype = getOutdType(np.array(infos[classesdictstr]), infos[withunlabeleddictstr])
   group = h5file[groupnm]
 
   firstcollnm = next(iter(collection))
@@ -447,7 +447,7 @@ def getInfo( filenm, quick ):
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
-  hasunlabels = hasUnlabeled( info )
+  hasunlabels = False
   if odhdf5.hasAttr(info, withunlabeledstr):
     hasunlabels = odhdf5.getBoolValue( info, withunlabeledstr )
 
@@ -589,7 +589,7 @@ def getInfo( filenm, quick ):
     exampledictstr: examples,
     inputdictstr: inputs,
     filedictstr: filenm,
-    withunlabeledstr: hasunlabels
+    withunlabeleddictstr: hasunlabels
   }
 
   if not quick:
@@ -772,7 +772,7 @@ def getClassIndicesFromData( info ):
   for groupnm in groups:
     grp = h5file[groupnm]
     for inpnm in grp:
-      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]), infos[withunlabeledstr])
+      outdtype = getOutdType(np.array(grp[inpnm][ydatadictstr]), hasUnlabeled( info ))
       sublist = list(set(np.array(grp[inpnm][ydatadictstr]).astype(outdtype).ravel()))
       sublist.extend( ret )
       ret = list(set(sublist))
