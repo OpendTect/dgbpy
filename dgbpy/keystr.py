@@ -110,7 +110,7 @@ torchplfnm = 'torch'
 typestr = 'Type'
 valuestr = 'Value'
 versionstr = 'Version'
-withunlabeledstr = 'withunlabeled'
+withunlabeledstr = 'Withunlabeled'
 
 # Others
 ndimstr = 'ndims'
