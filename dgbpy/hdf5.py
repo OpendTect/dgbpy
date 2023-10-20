@@ -300,7 +300,7 @@ def getCubeLets( infos, collection, groupnm ):
     outnrattribs = 1
   outdtype = np.float32
   if isclass:
-    outdtype = getOutdType(np.array(infos[classesdictstr]), infos[withunlabeleddictstr])
+    outdtype = getOutdType(np.array(infos[classesdictstr]), hasUnlabeled( infos ))
   group = h5file[groupnm]
 
   firstcollnm = next(iter(collection))
