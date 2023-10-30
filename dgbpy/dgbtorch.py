@@ -38,6 +38,8 @@ default_transforms = []
 
 defbatchstr = 'defaultbatchsz'
 
+torch_infos = None
+
 torch_dict = {
     dgbkeys.decimkeystr: False,
     'nbchunk': 10,
@@ -80,13 +82,17 @@ def set_compute_device(prefercpu):
   device = torch.device('cuda:0' if not prefercpu else 'cpu')
 
 def get_torch_infos():
+  global torch_infos
+  if torch_infos:
+    return torch_infos
   ret = {
     'hastorchgpu': can_use_gpu(),
     dgbkeys.prefercpustr: not can_use_gpu(),
     'batchsizes': cudacores,
     defbatchstr: torch_dict['batch']
   }
-  return json.dumps( ret )
+  torch_infos = json.dumps( ret )
+  return torch_infos
 
 def getParams( 
     nntype=torch_dict['type'],

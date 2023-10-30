@@ -65,6 +65,14 @@ def training_app(doc):
     uitorch.info = info
     uisklearn.info = info
 
+  def getPlatformInfo( platform ):
+      if platform==dgbkeys.torchplfnm:
+        from dgbpy.dgbtorch import get_torch_infos
+        return get_torch_infos()
+      elif platform==dgbkeys.kerasplfnm:
+        from dgbpy.dgbkeras import get_keras_infos
+        return get_keras_infos()
+
   def trainingParChgCB( paramobj ):
     nonlocal trainingpars
     nonlocal info
@@ -520,6 +528,7 @@ def training_app(doc):
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
+    this_service.addAction('GetInfos', getPlatformInfo)
     mh = MsgHandler()
     mh.add_servmgr(this_service)
     mh.add('--Training Started--', 'bokeh_app_msg', {'training_started': ''})
