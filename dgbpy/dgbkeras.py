@@ -58,6 +58,8 @@ def getUIMLPlatform():
 
 defbatchstr = 'defaultbatchsz'
 
+keras_infos = None
+
 default_transforms = []
 keras_dict = {
   dgbkeys.decimkeystr: False,
@@ -86,13 +88,17 @@ def get_cpu_preference():
   return len(tfconfig.list_physical_devices('GPU')) < 1
 
 def get_keras_infos():
+  global keras_infos
+  if keras_infos:
+    return keras_infos
   ret = {
     'haskerasgpu': can_use_gpu(),
     dgbkeys.prefercpustr: get_cpu_preference(),
     'batchsizes': cudacores,
     defbatchstr: keras_dict['batch']
    }
-  return json.dumps( ret )
+  keras_infos = json.dumps( ret )
+  return keras_infos
 
 def set_compute_device( prefercpu ):
   if not prefercpu:

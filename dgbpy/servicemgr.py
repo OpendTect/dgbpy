@@ -81,7 +81,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
           port += 1
         else:
           raise ex
-    raise Exception("Failed to find available port");
+    raise Exception("Failed to find available port")
 
   def _register(self, port, address):
     odcommon.std_msg( 'Registering with port', port, 'and address', address )
