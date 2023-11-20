@@ -302,7 +302,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
-    criterion = torch_dict['criterion']
+    criterion = params['criterion']
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
