@@ -214,9 +214,10 @@ def load( modelfnm ):
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
   
-  modeltype = odhdf5.getText(h5file, 'type')
-  if modeltype=='Sequential' or modeltype=='Net':
-    savetype = savetypes[1]
+  if odhdf5.hasAttr( h5file, 'type' ):
+    modeltype = odhdf5.getText(h5file, 'type')
+    if modeltype=='Sequential' or modeltype=='Net':
+      savetype = savetypes[1]
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
