@@ -206,6 +206,14 @@ class dGBLeNet(nn.Module):
         x = self.final(x)
         return x   
 
+def ignore_index( out, target, ignore_index = -1):
+    if ignore_index is not None:
+        valid = (target != ignore_index)
+        out = out * valid
+        target = target * valid
+        return out, target
+    return out, target
+
 def flatten(out, target):
     out = out.cpu().numpy().flatten()
     target = target.cpu().numpy().flatten()
@@ -213,14 +221,17 @@ def flatten(out, target):
 
 def jaccard(out, target):
     pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
     return jaccard_score(pred, target, average='weighted')
 
 def accuracy(out, target):
     pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
     return accuracy_score(pred, target)
 
 def f1(out, target):
     pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
     return f1_score(pred, target, average='weighted')
 
 def mae(out, target):
