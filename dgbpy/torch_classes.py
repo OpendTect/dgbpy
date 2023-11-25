@@ -20,7 +20,7 @@ from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d, Dropout, Dropout2d, Dropout3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
 from torch.optim.lr_scheduler import _LRScheduler
-from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
+from sklearn.metrics import accuracy_score, f1_score, jaccard_score, mean_absolute_error
 from dgbpy.dgbonnx import OnnxModel
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -210,6 +210,10 @@ def flatten(out, target):
     out = out.cpu().numpy().flatten()
     target = target.cpu().numpy().flatten()
     return out,target
+
+def jaccard(out, target):
+    pred, target = flatten(out.detach(), target)
+    return jaccard_score(pred, target, average='weighted')
 
 def accuracy(out, target):
     pred, target = flatten(out.detach(), target)
@@ -469,7 +473,7 @@ class LRSchedulerCallback(Callback):
         if not self.scheduler:
             return
         self.scheduler.step()
-        
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -498,8 +502,9 @@ class Trainer:
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
 
-        self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
-        if self.classification: self.metrics = [accuracy, f1]
+        info = self.imgdp[dgbkeys.infodictstr]
+        self.classification = dgbhdf5.isClassification(info)
+        if self.classification: self.metrics = [accuracy, f1]+[jaccard] if dgbhdf5.isImg2Img(info) else []
         else: self.metrics = [mae]
             
         self.tofp16 = tofp16 and torch.cuda.is_available()
