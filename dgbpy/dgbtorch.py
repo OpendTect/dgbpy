@@ -213,7 +213,7 @@ def load( modelfnm ):
   h5file = odhdf5.openFile( modelfnm, 'r' )
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
-  
+
   if odhdf5.hasAttr( h5file, 'type' ):
     modeltype = odhdf5.getText(h5file, 'type')
     if modeltype=='Sequential' or modeltype=='Net':
@@ -270,6 +270,11 @@ def onnx_from_torch(model, infos):
     model_instance = UNet_VGG19(model_shape, nroutputs, attribs)
   elif model.__class__.__name__ == 'GraphModule':
     model_instance = torch.jit.trace(model.cpu(), dummy_input)
+  elif model.__class__.__name__ == 'OnnxTorchModel':
+    model = model.convert_to_torch()
+    model = torch.jit.trace(model.cpu(), dummy_input)
+  elif model.__class__.__name__ == 'RecursiveScriptModule':
+    model_instance = model.cpu()
   model_instance.load_state_dict(model.state_dict())
   return model_instance, dummy_input
 
@@ -429,8 +434,8 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       else:
         dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
       dfdm.load_state_dict(model)
-  elif model.__class__.__name__ == 'OnnxTorchModel':
-    dfdm = model
+  elif model.__class__.__name__ in ['OnnxTorchModel', 'RecursiveScriptModule']:
+    dfdm = model 
 
   predictions = []
   predictions_prob = []
