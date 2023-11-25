@@ -515,7 +515,8 @@ class Trainer:
 
         info = self.imgdp[dgbkeys.infodictstr]
         self.classification = dgbhdf5.isClassification(info)
-        if self.classification: self.metrics = [accuracy, f1]+[jaccard] if dgbhdf5.isImg2Img(info) else []
+        if self.classification: self.metrics = [accuracy, f1]
+        if dgbhdf5.isImg2Img(info): self.metrics.append(jaccard)
         else: self.metrics = [mae]
             
         self.tofp16 = tofp16 and torch.cuda.is_available()
