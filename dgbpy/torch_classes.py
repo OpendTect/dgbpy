@@ -532,7 +532,6 @@ class Trainer:
         self.add_cbs(cbs)
 
     def set_metrics(self, custom_metrics):
-        custom_metrics = dgbkeys.listify(custom_metrics)
         self.classification = dgbhdf5.isClassification(self.info)
 
         if self.classification: self.metrics = [accuracy, f1]
