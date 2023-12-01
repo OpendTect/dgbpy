@@ -305,7 +305,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
+def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     criterion = params['criterion']
@@ -329,6 +329,7 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
         device = device,
         training_DataLoader=trainloader,
         validation_DataLoader=testloader,
+        metrics=metrics,
         tensorboard=tensorboard,
         epochs=params['epochs'],
         earlystopping = params['patience'],

@@ -498,6 +498,7 @@ class Trainer:
                  device: torch.device,
                  training_DataLoader: torch.utils.data.Dataset,
                  validation_DataLoader: torch.utils.data.Dataset = None,
+                 metrics = None,
                  tensorboard = None,
                  epochs: int = 100,
                  earlystopping: int = 5,
@@ -513,11 +514,8 @@ class Trainer:
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
 
-        info = self.imgdp[dgbkeys.infodictstr]
-        self.classification = dgbhdf5.isClassification(info)
-        if self.classification: self.metrics = [accuracy, f1]
-        if dgbhdf5.isImg2Img(info): self.metrics.append(jaccard)
-        else: self.metrics = [mae]
+        self.info = self.imgdp[dgbkeys.infodictstr]
+        self.set_metrics(metrics)
             
         self.tofp16 = tofp16 and torch.cuda.is_available()
         self.gradScaler = torch.cuda.amp.GradScaler() if self.tofp16 else None
@@ -532,6 +530,18 @@ class Trainer:
         if hasFastprogress() and not self.silent: defaultCBS.append(ProgressBarCallback())
         self.add_cbs(defaultCBS)
         self.add_cbs(cbs)
+
+    def set_metrics(self, custom_metrics):
+        self.classification = dgbhdf5.isClassification(self.info)
+
+        if self.classification: self.metrics = [accuracy, f1]
+        if dgbhdf5.isImg2Img(self.info): self.metrics.append(jaccard)
+        else: self.metrics = [mae]
+
+        custom_metrics = dgbkeys.listify(custom_metrics if custom_metrics else [])
+        for metric in custom_metrics:
+            if not callable(metric): raise TypeError("custom metric must be a valid function")
+            self.metrics.append(metric)
 
     def add_cbs(self, cbs):
         for cb in dgbkeys.listify(cbs):
