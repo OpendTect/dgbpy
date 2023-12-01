@@ -539,7 +539,7 @@ class Trainer:
         if dgbhdf5.isImg2Img(self.info): self.metrics.append(jaccard)
         else: self.metrics = [mae]
 
-        custom_metrics = dgbkeys.listify(custom_metrics)
+        custom_metrics = dgbkeys.listify(custom_metrics if custom_metrics else [])
         for metric in custom_metrics:
             if not callable(metric): raise TypeError("custom metric must be a valid function")
             self.metrics.append(metric)
