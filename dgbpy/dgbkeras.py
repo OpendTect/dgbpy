@@ -1034,6 +1034,8 @@ def is_gpu_ready():
 
 def is_mixed_precision_compatible(min_version=(7,0)):
   devs = getDevicesInfo()
+  if len(devs) < 1:
+    return False
   return compute_capability_from_device_desc(devs[0]) >= min_version if devs else False
 
 def need_channels_last():
