@@ -448,8 +448,8 @@ def getInfo( filenm, quick ):
   logoutp = isLogOutput(learntype)
 
   hasunlabels = False
-  if odhdf5.hasAttr(info, withunlabeledstr):
-    hasunlabels = odhdf5.getBoolValue( info, withunlabeledstr )
+  if odhdf5.hasAttr(info, withunlabeleddictstr):
+    hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
 
   arrayorder = carrorderstr
   arrorderstr = 'Examples.ArrayOrder'
