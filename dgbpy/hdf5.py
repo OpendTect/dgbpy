@@ -479,10 +479,7 @@ def getInfo( filenm, quick ):
     exidxstr  = extxt+str(idx)+'.'
     targetnmstr = exidxstr+'Target'
     example_sz = odhdf5.getIntValue( info, exidxstr+'Size' )
-    if odhdf5.hasAttr(info, modeloutstr + 'Size') and odhdf5.getIArray( info, modeloutstr+'Size' ) > 1:
-      targetnms = odhdf5.getText( info, targetnmstr)
-    else:
-      targetnms = odhdf5.getAttr( info, targetnmstr)
+    targetnms = odhdf5.getText( info, targetnmstr)
     exxobj = {
       targetdictstr: targetnms,
       iddictstr: idx
