@@ -30,11 +30,54 @@ def hasTorch():
     return False
   return True
 
+def update_slices(tensor):
+  array = tensor.numpy()
+  all_zeros = np.all(array[:, :, :, :, :] == 0, axis=(3, 4))
+  array[all_zeros] = -1
+  array[:, :, np.arange(array.shape[2]) % 10 != 0, :, :] = -1
+  return torch.from_numpy(array)
+
+class DiceLoss(nn.Module):
+    def __init__(self, ignore_index=-1, smooth=0.7):
+        super(DiceLoss, self).__init__()
+        self.ignore_index = ignore_index
+        self.smooth = smooth
+
+    def forward(self, inputs, targets):
+        targets = targets.unsqueeze(1)
+
+        targets_ = targets.clone()
+        inputs_ = inputs.clone()
+        inputs_ = update_slices(inputs_)
+        targets_ = update_slices(targets_)
+
+        if self.ignore_index is not None:
+            valid = (targets_ != self.ignore_index).float()
+            inputs_ = inputs_ * valid
+            targets_ = torch.abs(targets_ * valid)
+            
+        inputs_ = inputs_.reshape(-1)
+        targets_ = targets_.reshape(-1)
+        intersection = (inputs_ * targets_).sum()
+        dice = intersection / (  ( (1 - self.smooth)*inputs_.sum() ) + (self.smooth*targets_.sum()))
+        return 1 - dice
+
+def fda(out, target):
+  pred, target = tc.flatten(out.detach(), target)
+  pred, target = tc.ignore_index(pred, target)
+  intersection = np.logical_and(pred, target)
+  score = np.sum(intersection) / (np.sum(target)+0.00001)
+  return score
+
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 
 withtensorboard = dgbkeys.getDefaultTensorBoard()
 
 default_transforms = []
+
+defbatchstr = 'defaultbatchsz'
+
+torch_infos = None
 
 torch_dict = {
     dgbkeys.decimkeystr: False,
@@ -44,8 +87,9 @@ torch_dict = {
     'epochdrop': 5,
     'split': 0.2,
     'nbfold': 5,
-    'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
-    'batch': 8,
+    'criterion': 'cross_entropy' if hasTorch() else None,
+    'optimizer': 'adam',
+    'batch': 4,
     'learnrate': 1e-4,
     'type': None,
     'prefercpu': None,
@@ -77,9 +121,24 @@ def set_compute_device(prefercpu):
     prefercpu = not can_use_gpu()
   device = torch.device('cuda:0' if not prefercpu else 'cpu')
 
+def get_torch_infos():
+  global torch_infos
+  if torch_infos:
+    return torch_infos
+  ret = {
+    'hastorchgpu': can_use_gpu(),
+    dgbkeys.prefercpustr: not can_use_gpu(),
+    'batchsizes': cudacores,
+    defbatchstr: torch_dict['batch']
+  }
+  torch_infos = json.dumps( ret )
+  return torch_infos
+
 def getParams( 
     nntype=torch_dict['type'],
     dodec = torch_dict[dgbkeys.decimkeystr],
+    criterion = torch_dict['criterion'],
+    optimizer = torch_dict['optimizer'],
     nbchunk = torch_dict['nbchunk'],
     learnrate=torch_dict['learnrate'],
     epochdrop = torch_dict['epochdrop'],
@@ -96,6 +155,8 @@ def getParams(
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
+    'criterion': criterion,
+    'optimizer': optimizer,
     'nbchunk': nbchunk,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
@@ -124,7 +185,7 @@ def getDefaultModel(setup,type=torch_dict['type']):
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
-    nroutputs = dgbhdf5.getNrOutputs( setup )
+    nroutputs = dgbhdf5.getNrOutputs( setup ) 
   if len(tc.TorchUserModel.mlmodels) < 1:
     tc.TorchUserModel.mlmodels = tc.TorchUserModel.findModels()
   if type==None:
@@ -196,10 +257,11 @@ def load( modelfnm ):
   h5file = odhdf5.openFile( modelfnm, 'r' )
   modelgrp = h5file['model']
   savetype = odhdf5.getText( modelgrp, 'type' )
-  
-  modeltype = odhdf5.getText(h5file, 'type')
-  if modeltype=='Sequential' or modeltype=='Net':
-    savetype = savetypes[1]
+
+  if odhdf5.hasAttr( h5file, 'type' ):
+    modeltype = odhdf5.getText(h5file, 'type')
+    if modeltype=='Sequential' or modeltype=='Net':
+      savetype = savetypes[1]
   if savetype == savetypes[0]:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -252,15 +314,21 @@ def onnx_from_torch(model, infos):
     model_instance = UNet_VGG19(model_shape, nroutputs, attribs)
   elif model.__class__.__name__ == 'GraphModule':
     model_instance = torch.jit.trace(model.cpu(), dummy_input)
+  elif model.__class__.__name__ == 'OnnxTorchModel':
+    model = model.convert_to_torch()
+    model = torch.jit.trace(model.cpu(), dummy_input)
+  elif model.__class__.__name__ == 'RecursiveScriptModule':
+    model_instance = model.cpu()
   model_instance.load_state_dict(model.state_dict())
   return model_instance, dummy_input
 
-def save( model, outfnm, infos, save_type=defsavetype ):
+def save( model, outfnm, infos, params=torch_dict, save_type=defsavetype):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
+  odhdf5.setAttr( h5file, 'training_config', json.dumps((str(params)) ))
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if model.__class__.__name__ == 'Sequential' or model.__class__.__name__ == "Net":
@@ -285,10 +353,14 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
-    criterion = torch_dict['criterion']
+    criterion = params['criterion']
+    print(model.parameters())
+    if criterion == 'cross_entropy':
+      criterion = nn.CrossEntropyLoss()
     if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
       criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
+    if params['optimizer'] == 'adam':
+      optimizer = torch.optim.Adam(model.parameters(),lr=params['learnrate'])
     if params['epochdrop'] < 1:
       scheduler = None
     else:
@@ -317,25 +389,52 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False):
     return model
 
 def transfer(model):
+  """
+    Transfer learning utility function for fine-tuning a Torch model.
+
+    This function takes a Torch model and prepares it for transfer learning by selectively
+    setting layers to be trainable. The layers to be made trainable are determined as follows:
+
+    1. All layers before the first Conv1D, Conv2D, or Conv3D layer (or a Sequential containing such layers)
+       are set to trainable.
+
+    2. All layers after the last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential containing
+       such layers) are set to trainable.
+
+    3. All layers between the first and last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential
+        containing such layers) are set to non-trainable.
+  """
+  def getTrainableLayers(model):
+    first_lyr = None
+    last_lyr = None
+
+    for name, layer in model.named_modules():
+        if isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+            if first_lyr is None:
+                first_lyr = name
+            last_lyr = name
+        elif isinstance(layer, nn.Linear) and first_lyr:
+          last_lyr = name
+    return first_lyr, last_lyr
+
   from dgbpy.torch_classes import OnnxTorchModel
   if isinstance(model, OnnxTorchModel):
     model = model.convert_to_torch()
 
-  for param in model.parameters():
-    param.requires_grad = False
+  first_conv_layer, last_layer = getTrainableLayers(model)
+  found_first, found_last = False, False
 
-  for name, child in model.named_children():
-    for param in child.parameters():
-        param.requires_grad = True
-    if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d):
-        break
-
-  for name, child in reversed(list(model.named_children())):
-      for param in child.parameters():
-          param.requires_grad = True
-      if isinstance(child, nn.Conv1d) or isinstance(child, nn.Conv2d) or isinstance(child, nn.Conv3d) or isinstance(child, nn.Linear):
-          break
-  
+  for name, param in model.named_parameters():
+    if first_conv_layer and name.startswith(first_conv_layer):
+      param.requires_grad = True
+      found_first = True
+    elif last_layer and name.startswith(last_layer):
+      param.requires_grad = True
+      found_last = True
+    elif found_first and not found_last:
+      param.requires_grad = False
+    else:
+      param.requires_grad = True
   return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
@@ -386,13 +485,21 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       dfdm.load_state_dict(model)
   elif model.__class__.__name__ == 'OnnxTorchModel':
     dfdm = model
+  elif model.__class__.__name__ == 'RecursiveScriptModule':
+    dfdm = model  
+  # if hasattr(model, 'z_first'):
+  #   import dgbpy.dgbonnx as dgbonnx
+  #   outshape = info[dgbkeys.outshapedictstr]
+  #   return dgbonnx.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, None, outshape, nroutputs)
 
   predictions = []
   predictions_prob = []
   dfdm.eval()
   for input in dataloader:
       with torch.no_grad():
+        # input = input.permute(0, 1, 4, 2, 3)
         out = dfdm(input)
+        # out = out.permute(0, 1, 3, 4, 2)        
         pred = out.detach().numpy()
         pred_prob = pred.copy()
         if isclassification:

@@ -307,9 +307,11 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     (model,infos) = (None,None)
     if type == None:
       type = TrainType.New
-    if type != TrainType.New:
-      (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
+    log_msg( f'Initiating a {type.name} training process on the {platform} platform' )
 
+    if type != TrainType.New:
+      log_msg(f"Loading input model from file: {modelin}")
+      (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
     trainingdp = None
     validation_split = 0.2 #Params?
     if platform == dgbkeys.kerasplfnm:
@@ -333,7 +335,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                         type=params['type'],
                                         learnrate=params['learnrate'])
+        log_msg('Using a default keras model architecture')
       elif type == TrainType.Transfer:
+        log_msg( 'Setting up the keras model for transfer training')
         model = dgbkeras.transfer( model )
 
       tempmodelnm = None
@@ -370,11 +374,13 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
-
+      if type != TrainType.New and dgbkeys.criteriondictstr in infos:
+        params[dgbkeys.criteriondictstr] = infos[dgbkeys.criteriondictstr]
       if type == TrainType.New:
-        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type']
-                                        )
+        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'])
+        log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
+        log_msg( 'Setting up the torch model for transfer training')
         model = dgbtorch.transfer( model )
 
       print('--Training Started--', flush=True)

@@ -20,7 +20,7 @@ from torch.utils.data import Dataset
 from torch.nn import Linear, ReLU, Sequential, Conv1d, Conv2d, Conv3d, Dropout, Dropout2d, Dropout3d
 from torch.nn import MaxPool1d, MaxPool2d, MaxPool3d, Softmax, BatchNorm1d, BatchNorm2d, BatchNorm3d
 from torch.optim.lr_scheduler import _LRScheduler
-from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error
+from sklearn.metrics import accuracy_score, f1_score, jaccard_score, mean_absolute_error
 from dgbpy.dgbonnx import OnnxModel
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -206,17 +206,39 @@ class dGBLeNet(nn.Module):
         x = self.final(x)
         return x   
 
+def ignore_index( out, target, ignore_index = -1):
+    if ignore_index is not None:
+        valid = (target != ignore_index)
+        out = out * valid
+        target = target * valid
+        return out, target
+    return out, target
+
 def flatten(out, target):
     out = out.cpu().numpy().flatten()
     target = target.cpu().numpy().flatten()
     return out,target
 
+def jaccard(out, target):
+    pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
+    return jaccard_score(pred, target, average='weighted')
+
+def fda(out, target):
+    pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
+    intersection = np.logical_and(pred, target)
+    score = np.sum(intersection) / np.sum(target)
+    return score
+
 def accuracy(out, target):
     pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
     return accuracy_score(pred, target)
 
 def f1(out, target):
     pred, target = flatten(out.detach(), target)
+    pred, target = ignore_index(pred, target)
     return f1_score(pred, target, average='weighted')
 
 def mae(out, target):
@@ -469,7 +491,7 @@ class LRSchedulerCallback(Callback):
         if not self.scheduler:
             return
         self.scheduler.step()
-        
+
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
@@ -498,8 +520,11 @@ class Trainer:
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
 
-        self.classification = self.imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]
+        info = self.imgdp[dgbkeys.infodictstr]
+        self.classification = dgbhdf5.isClassification(info)
         if self.classification: self.metrics = [accuracy, f1]
+        if dgbhdf5.isImg2Img(info): self.metrics.append(jaccard)
+        if dgbhdf5.isImg2Img(info): self.metrics.append(fda)
         else: self.metrics = [mae]
             
         self.tofp16 = tofp16 and torch.cuda.is_available()
@@ -1709,7 +1734,7 @@ class TorchUserModel(ABC):
        DimType.is_valid(dim_type) :
        return [model for model in TorchUserModel.mlmodels \
           if (model.predtype == pred_type or pred_type == DataPredType.Any) and\
-	         (model.outtype == out_type or out_type == OutputType.Any) and\
+             (model.outtype == out_type or out_type == OutputType.Any) and\
              (model.dimtype == dim_type or model.dimtype == DimType.Any or \
                 (isinstance(model.dimtype, Iterable) and dim_type in model.dimtype))]
     
