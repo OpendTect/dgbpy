@@ -435,7 +435,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       else:
         dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
       dfdm.load_state_dict(model)
-  elif model.__class__.__name__ in ['OnnxTorchModel', 'RecursiveScriptModule']:
+  elif model.__class__.__name__ in ['OnnxTorchModel', 'RecursiveScriptModule', 'OnnxModel']:
     dfdm = model 
 
   predictions = []
