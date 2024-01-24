@@ -84,7 +84,7 @@ def test_training_parameters():
         elif key in ['split', 'learnrate']:
             assert isinstance(value, (float, int))
         elif key in ['criterion']:
-            assert isinstance(value, nn.modules.loss._Loss)
+            assert isinstance(value, (nn.modules.loss._Loss, nn.Module))
         elif key in ['scale']:
             assert isinstance(value, str)
         elif key in ['type']:
