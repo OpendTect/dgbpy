@@ -207,10 +207,10 @@ def getModelDims( model_shape, data_format ):
     return 0
   return len(ret)
 
-def get_criterion( imgdp, params ):
+def get_criterion( info, params ):
   criterion = params['criterion']
   if not criterion:
-    if dgbhdf5.isRegression(imgdp):
+    if dgbhdf5.isRegression(info):
       return nn.MSELoss()
     return nn.CrossEntropyLoss()
   if hasattr(nn, criterion):
@@ -322,7 +322,8 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
-    criterion = get_criterion(imgdp, params)
+    info = imgdp[dgbkeys.infodictstr]
+    criterion = get_criterion(info, params)
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
     if params['epochdrop'] < 1:
       scheduler = None
