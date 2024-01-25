@@ -48,7 +48,7 @@ torch_dict = {
     'epochdrop': 5,
     'split': 0.2,
     'nbfold': 5,
-    'criterion': 'CrossEntropyLoss',
+    'criterion': None,
     'batch': 8,
     'learnrate': 1e-4,
     'type': None,
