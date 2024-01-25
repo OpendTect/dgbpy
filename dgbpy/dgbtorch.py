@@ -30,6 +30,45 @@ def hasTorch():
     return False
   return True
 
+def update_slices(tensor):
+  array = tensor.numpy()
+  all_zeros = np.all(array[:, :, :, :, :] == 0, axis=(3, 4))
+  array[all_zeros] = -1
+  array[:, :, np.arange(array.shape[2]) % 10 != 0, :, :] = -1
+  return torch.from_numpy(array)
+
+class DiceLoss(nn.Module):
+    def __init__(self, ignore_index=-1, smooth=0.7):
+        super(DiceLoss, self).__init__()
+        self.ignore_index = ignore_index
+        self.smooth = smooth
+
+    def forward(self, inputs, targets):
+        targets = targets.unsqueeze(1)
+
+        targets_ = targets.clone()
+        inputs_ = inputs.clone()
+        inputs_ = update_slices(inputs_)
+        targets_ = update_slices(targets_)
+
+        if self.ignore_index is not None:
+            valid = (targets_ != self.ignore_index).float()
+            inputs_ = inputs_ * valid
+            targets_ = torch.abs(targets_ * valid)
+            
+        inputs_ = inputs_.reshape(-1)
+        targets_ = targets_.reshape(-1)
+        intersection = (inputs_ * targets_).sum()
+        dice = intersection / (  ( (1 - self.smooth)*inputs_.sum() ) + (self.smooth*targets_.sum()))
+        return 1 - dice 
+
+def fda(out, target):
+  pred, target = tc.flatten(out.detach(), target)
+  pred, target = tc.ignore_index(pred, target)
+  intersection = np.logical_and(pred, target)
+  score = np.sum(intersection) / (np.sum(target)+0.00001)
+  return score
+
 platform = (dgbkeys.torchplfnm, 'PyTorch')
 
 withtensorboard = dgbkeys.getDefaultTensorBoard()
@@ -99,6 +138,7 @@ def get_torch_infos():
 def getParams( 
     nntype=torch_dict['type'],
     dodec = torch_dict[dgbkeys.decimkeystr],
+    criterion = torch_dict['criterion'],
     nbchunk = torch_dict['nbchunk'],
     learnrate=torch_dict['learnrate'],
     epochdrop = torch_dict['epochdrop'],
@@ -115,6 +155,7 @@ def getParams(
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
+    'criterion': criterion,
     'nbchunk': nbchunk,
     'learnrate': learnrate,
     'epochdrop': epochdrop,
@@ -292,12 +333,13 @@ def onnx_from_torch(model, infos):
   model_instance.load_state_dict(model.state_dict())
   return model_instance, dummy_input
 
-def save( model, outfnm, infos, save_type=defsavetype ):
+def save( model, outfnm, infos, params=torch_dict, save_type=defsavetype ):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
+  odhdf5.setAttr( h5file, 'training_config', json.dumps((str(params)) ))
   modelgrp = h5file.create_group( 'model' )
   odhdf5.setAttr( modelgrp, 'type', save_type )
   if model.__class__.__name__ == 'Sequential' or model.__class__.__name__ == "Net":
