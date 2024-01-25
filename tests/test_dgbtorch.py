@@ -84,7 +84,7 @@ def test_training_parameters():
         elif key in ['split', 'learnrate']:
             assert isinstance(value, (float, int))
         elif key in ['criterion']:
-            assert isinstance(value, str)
+            assert isinstance(value, (str, None))
         elif key in ['scale']:
             assert isinstance(value, str)
         elif key in ['type']:
@@ -94,6 +94,28 @@ def test_training_parameters():
         elif key in ['transform']:
             assert isinstance(value, list)
 
+@pytest.mark.parametrize('data', (get_2d_seismic_imgtoimg_data(),))
+def test_criterion_with_data(data):
+
+    # Test for None paramter and pytorch loss class names
+    test_criterion_params = {None: nn.CrossEntropyLoss, 'MSELoss': nn.MSELoss, 'CrossEntropyLoss': nn.CrossEntropyLoss}
+    for params, criterion_class in test_criterion_params.items():
+        pars = default_pars()
+        pars['criterion'] = params
+        info = data[dbk.infodictstr]
+        criterion = dgbtorch.get_criterion(info, pars)
+        assert isinstance(criterion, criterion_class), f'criterion should be a {criterion.__name__}'
+
+    # Test for custom loss classes in dgbtorch
+    class DummyCriterion(nn.Module): pass
+    dgbtorch.DummyCriterion = DummyCriterion
+    pars['criterion'] = 'DummyCriterion'
+    criterion = dgbtorch.get_criterion(info, pars)
+    assert isinstance(criterion, DummyCriterion), f'criterion should be a DummyCriterion'
+
+    # Test for unsupported loss classes
+    pars['criterion'] = 'MSE'
+    with pytest.raises(ValueError): dgbtorch.get_criterion(info, pars)
 
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
 def test_default_model(data):
