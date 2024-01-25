@@ -48,7 +48,7 @@ torch_dict = {
     'epochdrop': 5,
     'split': 0.2,
     'nbfold': 5,
-    'criterion': nn.CrossEntropyLoss() if hasTorch() else None,
+    'criterion': 'CrossEntropyLoss',
     'batch': 8,
     'learnrate': 1e-4,
     'type': None,
@@ -58,6 +58,8 @@ torch_dict = {
     'withtensorboard': withtensorboard,
     'tofp16': True,
 }
+
+
 
 def getMLPlatform():
   return platform[0]
@@ -205,6 +207,18 @@ def getModelDims( model_shape, data_format ):
     return 0
   return len(ret)
 
+def get_criterion( imgdp, params ):
+    criterion = params['criterion']
+    if not criterion:
+      if dgbhdf5.isRegression(imgdp):
+        return nn.MSELoss()
+      return nn.CrossEntropyLoss()
+    if hasattr(nn, criterion):
+      return getattr(nn, criterion)()
+    if criterion in globals():
+      return globals()[criterion]()
+    raise ValueError('Unsupported loss function: %s' % criterion)
+
 savetypes = ( 'onnx', 'joblib', 'pickle' )
 defsavetype = savetypes[0]
 
@@ -308,9 +322,7 @@ def save( model, outfnm, infos, save_type=defsavetype ):
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
-    criterion = params['criterion']
-    if imgdp[dgbkeys.infodictstr][dgbkeys.classdictstr]==False:
-      criterion = nn.MSELoss()
+    criterion = get_criterion(imgdp, params)
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learnrate'])
     if params['epochdrop'] < 1:
       scheduler = None
