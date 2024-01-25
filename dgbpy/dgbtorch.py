@@ -207,17 +207,17 @@ def getModelDims( model_shape, data_format ):
     return 0
   return len(ret)
 
-  def get_criterion( imgdp, params ):
-      criterion = params['criterion']
-      if not criterion:
-        if dgbhdf5.isRegression(imgdp):
-          return nn.MSELoss()
-        return nn.CrossEntropyLoss()
-      if hasattr(nn, criterion):
-        return getattr(nn, criterion)()
-      if criterion in globals():
-        return globals()[criterion]()
-      raise ValueError('Unsupported loss function: %s' % criterion)
+def get_criterion( imgdp, params ):
+  criterion = params['criterion']
+  if not criterion:
+    if dgbhdf5.isRegression(imgdp):
+      return nn.MSELoss()
+    return nn.CrossEntropyLoss()
+  if hasattr(nn, criterion):
+    return getattr(nn, criterion)()
+  if criterion in globals():
+    return globals()[criterion]()
+  raise ValueError('Unsupported loss function: %s' % criterion)
 
 savetypes = ( 'onnx', 'joblib', 'pickle' )
 defsavetype = savetypes[0]
