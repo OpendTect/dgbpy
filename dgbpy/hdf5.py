@@ -100,6 +100,13 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
     ret += (i,)
   return ret
 
+def getTrainingConfig( h5file_or_grp ):
+  try:
+    return ast.literal_eval(np.bytes_(h5file_or_grp.attrs['training_config']).decode("UTF-8")[1:-1])
+  except KeyError:
+    print( "Input Error: HDF5 file probably not created by OpendTect (no ++info++ attribute)" )
+    raise
+
 def isRegression( info ):
   return not isClassification( info )
 
@@ -598,6 +605,13 @@ def getInfo( filenm, quick ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
+  try:
+    trainingconfig = getTrainingConfig( h5file )
+    if odhdf5.getText(info, 'Model.Type') == 'torch':
+      if 'criterion' in trainingconfig.keys():
+        retinfo.update({criteriondictstr: trainingconfig['criterion']})
+  except:
+    pass
   h5file.close()
 
   if isLogOutput(learntype):
