@@ -114,36 +114,52 @@ def getUiPars(uipars=None):
   decimateCB( uiobjs['chunkfld'],uiobjs['sizefld'], None, None ,uiobjs['dodecimatefld'].active )
   return uipars
 
+def createAdvanedUiLeftPane():
+  uiobjs = {
+    'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), \
+                                disabled= not is_mixed_precision_compatible(), margin=(5, 5, 0, 5)),
+    'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
+    'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
+  }
+
+  if not dgbhdf5.isLogOutput(info):
+    aug_labels = uibokeh.set_augment_mthds(info)
+    transformUi = {
+      'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
+      'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
+                              active=0, margin = [5, 5, 5, 25]),
+      'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
+      'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
+      }
+    uiobjs = {**transformUi, **uiobjs}
+
+  parsgrp = column(*list(uiobjs.values()))
+  return parsgrp, uiobjs
+
+def createAdvanedUiRightPane():
+  uiobjs = {
+    'savetypehead': Div(text="""<strong>Save Format</strong>""", height = 10),
+    'savetypefld': RadioGroup(labels=[_type.name for _type in SaveType], active=0, margin = [5, 5, 5, 25]),
+  }
+  parsgrp = column(*list(uiobjs.values()))
+  return parsgrp, uiobjs
+
 def getAdvancedUiPars(uipars=None):
   dict = keras_dict
   uiobjs={}
   if not uipars:
-    uiobjs = {
-      'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), \
-                                  disabled= not is_mixed_precision_compatible(), margin=(5, 5, 0, 5)),
-      'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
-      'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
-    }
-
-    if not dgbhdf5.isLogOutput(info):
-      aug_labels = uibokeh.set_augment_mthds(info)
-      transformUi = {
-        'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
-        'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
-                                active=0, margin = [5, 5, 5, 25]),
-        'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
-        'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
-        }
-      uiobjs = {**transformUi, **uiobjs}
-
-    parsgrp = column(*list(uiobjs.values()))
+    parsgrp, uiobjs = createAdvanedUiLeftPane()
+    parsgrp2, uiobjs2 = createAdvanedUiRightPane()
+    parsgrp = row(parsgrp, parsgrp2)
+    uiobjs = {**uiobjs, **uiobjs2}
     uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
   else:
-    uiobjs=uipars['uiobjects']
+    uiobjs = uipars['uiobjects']
 
   uiobjs['tofp16fld'].active = [] if not dict['tofp16'] else [0]
   uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
+  uiobjs['savetypefld'].active = list(SaveType).index( SaveType(defsavetype) )
   return uipars
 
 def chunkfldCB(sizefld,attr,old,new):
@@ -175,6 +191,7 @@ def getUiParams( keraspars, advkeraspars ):
   epochdroprate = kerasgrp['edfld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
   validation_split = kerasgrp['validfld'].value
+  savetype = list(SaveType)[advkerasgrp['savetypefld'].active].value
   nbfold = keras_dict['nbfold']
   if kerasgrp['foldfld'].visible:
     nbfold = kerasgrp['foldfld'].value
@@ -194,6 +211,7 @@ def getUiParams( keraspars, advkeraspars ):
                              learnrate= 10 ** kerasgrp['lrfld'].value, \
                              epochdrop=epochdrop, \
                              validation_split = validation_split, \
+                             savetype=savetype, \
                              nbfold=nbfold, \
                              nntype=kerasgrp['modeltypfld'].value, \
                              prefercpu=runoncpu, scale=scale, transform=transform, \
