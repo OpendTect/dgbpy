@@ -17,6 +17,7 @@ import math
 from pathlib import Path
 from functools import partial
 import time
+from enum import Enum
 
 from odpy.common import log_msg, redirect_stdout, restore_stdout
 import odpy.hdf5 as odhdf5
@@ -50,6 +51,11 @@ cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '1
               '2560', '2688', '2816', '2880', '2944', '3072', '3584', '3840', \
               '4352', '4608', '4992', '5120' ]
 
+class SaveType(Enum):
+    HDF5 = 'HDF5'
+
+defsavetype = SaveType.HDF5.value
+
 def getMLPlatform():
   return platform[0]
 
@@ -71,6 +77,7 @@ keras_dict = {
   'epochdrop': 5,
   'split': 0.2,
   'nbfold': 5,
+  'savetype': defsavetype,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,
@@ -120,7 +127,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                batch=keras_dict['batch'], patience=keras_dict['patience'],
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
-               validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'],
+               validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
                scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16']):
   ret = {
     dgbkeys.decimkeystr: dodec,
@@ -132,6 +139,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'epochdrop': epochdrop,
     'split': validation_split,
     'nbfold': nbfold,
+    'savetype': savetype,
     'type': nntype,
     'transform': transform,
     'scale': scale,
