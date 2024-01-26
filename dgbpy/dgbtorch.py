@@ -30,12 +30,12 @@ def hasTorch():
     return False
   return True
 
-def update_slices(tensor):
-  array = tensor.numpy()
-  all_zeros = np.all(array[:, :, :, :, :] == 0, axis=(3, 4))
-  array[all_zeros] = -1
+def update_slices(array):
+  reshaped_array = array.reshape(array.shape[:-2] + (-1,))
+  all_zeros_mask = (reshaped_array == 0).all(dim=-1)
+  array[all_zeros_mask] = -1
   array[:, :, np.arange(array.shape[2]) % 10 != 0, :, :] = -1
-  return torch.from_numpy(array)
+  return array
 
 class DiceLoss(nn.Module):
     def __init__(self, ignore_index=-1, smooth=0.7):
