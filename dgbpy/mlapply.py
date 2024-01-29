@@ -409,7 +409,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     infos = trainingdp[dgbkeys.infodictstr]
     modtype = dgbmlio.getModelType( infos )
     outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
-    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm )
+    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm, params )
     return (outfnm != None and os.path.isfile( outfnm ))
   except Exception as e:
     dgbmlio.announceTrainingFailure()

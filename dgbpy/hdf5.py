@@ -157,6 +157,12 @@ def isCrossValidation( info ):
       return getNrGroupInputs(info) > 1
   return False
 
+def isHDF5File( filenm ):
+  return Path(filenm).suffix == '.'+hdf5ext
+
+def isTorchModelFile( filenm ):
+  return Path(filenm).suffix == '.pt' or Path(filenm).suffix == '.pth'
+
 def unscaleOutput( info ):
   if isinstance(info,dict) and outputunscaledictstr in info:
     return info[outputunscaledictstr]
