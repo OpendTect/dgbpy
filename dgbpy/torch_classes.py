@@ -731,14 +731,14 @@ class ResidualBlock(nn.Module):
         self.initialize_weights()
         
     def forward(self, X):
-        Y = F.relu(self.bn1(self.conv1(X)))
+        Y = self.relu(self.bn1(self.conv1(X)))
         Y = self.bn2(self.conv2(Y))
         
         if self.conv3:
             X = self.conv3(X)
         
         Y += X
-        return F.relu(Y)
+        return self.relu(Y)
     
     def shape_computation(self, X):
         Y = self.conv1(X)
@@ -1289,41 +1289,43 @@ class UNet_VGG19(nn.Module):
 
         self.activation = nn.Sigmoid() if out_channels == 1 else nn.Softmax(dim=1)
 
+        self.relu = nn.ReLU()
+
 
     def forward(self, x):
         # Encoder
-        conv1 = nn.ReLU()(self.conv1_1(x))
-        conv1 = nn.ReLU()(self.conv1_2(conv1))
+        conv1 = self.relu(self.conv1_1(x))
+        conv1 = self.relu(self.conv1_2(conv1))
         pool1 = self.pool1(conv1)
 
-        conv2 = nn.ReLU()(self.conv2_1(pool1))
-        conv2 = nn.ReLU()(self.conv2_2(conv2))
+        conv2 = self.relu(self.conv2_1(pool1))
+        conv2 = self.relu(self.conv2_2(conv2))
         pool2 = self.pool2(conv2)
 
-        conv3 = nn.ReLU()(self.conv3_1(pool2))
-        conv3 = nn.ReLU()(self.conv3_2(conv3))
-        conv3 = nn.ReLU()(self.conv3_3(conv3))
+        conv3 = self.relu(self.conv3_1(pool2))
+        conv3 = self.relu(self.conv3_2(conv3))
+        conv3 = self.relu(self.conv3_3(conv3))
         pool3 = self.pool3(conv3)
 
-        conv4 = nn.ReLU()(self.conv4_1(pool3))
-        conv4 = nn.ReLU()(self.conv4_2(conv4))
-        conv4 = nn.ReLU()(self.conv4_3(conv4))
+        conv4 = self.relu(self.conv4_1(pool3))
+        conv4 = self.relu(self.conv4_2(conv4))
+        conv4 = self.relu(self.conv4_3(conv4))
 
         # Decoder
         up5 = nn.functional.interpolate(conv4, scale_factor=2, mode='bilinear', align_corners=False)
         up5 = torch.cat([up5, conv3], dim=1)
-        conv5 = nn.ReLU()(self.conv5_1(up5))
-        conv5 = nn.ReLU()(self.conv5_2(conv5))
+        conv5 = self.relu(self.conv5_1(up5))
+        conv5 = self.relu(self.conv5_2(conv5))
 
         up6 = nn.functional.interpolate(conv5, scale_factor=2, mode='bilinear', align_corners=False)
         up6 = torch.cat([up6, conv2], dim=1)
-        conv6 = nn.ReLU()(self.conv6_1(up6))
-        conv6 = nn.ReLU()(self.conv6_2(conv6))
+        conv6 = self.relu(self.conv6_1(up6))
+        conv6 = self.relu(self.conv6_2(conv6))
 
         up7 = nn.functional.interpolate(conv6, scale_factor=2, mode='bilinear', align_corners=False)
         up7 = torch.cat([up7, conv1], dim=1)
-        conv7 = nn.ReLU()(self.conv7_1(up7))
-        conv7 = nn.ReLU()(self.conv7_2(conv7))
+        conv7 = self.relu(self.conv7_1(up7))
+        conv7 = self.relu(self.conv7_2(conv7))
 
         conv8 = self.conv8(conv7)
         output = self.activation(conv8)
