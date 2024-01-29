@@ -34,7 +34,7 @@ def __output_names( onnx_model ):
     return [out.name for out in onnx_model.graph.output]
 
 def __num_outputs( onnx_model ):
-    return len(onnx_model.graph.input)
+    return len(onnx_model.graph.output)
 
 def model_info( modelfnm ):
     model = onnx.load( modelfnm )
