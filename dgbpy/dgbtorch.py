@@ -80,6 +80,7 @@ defbatchstr = 'defaultbatchsz'
 
 class SaveType(Enum):
     Onnx = 'onnx'
+    TorchScript = 'torchscript'
     Joblib = 'joblib'
     Pickle = 'pickle'
 
@@ -268,6 +269,13 @@ def get_criterion( info, params ):
     return globals()[criterion]()
   raise ValueError('Unsupported loss function: %s' % criterion)
 
+def load_torchscript_model( modelfnm ):
+  try:
+    model = torch.jit.load( modelfnm )
+  except RuntimeError:
+    raise RuntimeError('Unsupported model, only torch scripted models are supported')
+  return model
+
 def load( modelfnm ):
   model = None
   h5file = odhdf5.openFile( modelfnm, 'r' )
@@ -284,6 +292,10 @@ def load( modelfnm ):
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     from dgbpy.torch_classes import OnnxTorchModel
     model = OnnxTorchModel(str(modfnm))
+  if savetype == SaveType.TorchScript:
+    modfnm = odhdf5.getText( modelgrp, 'path' )
+    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+    model = load_torchscript_model( str(modfnm) )
   elif savetype == SaveType.Joblib:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -350,7 +362,7 @@ def save( model, outfnm, infos, params=torch_dict ):
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   odhdf5.setAttr( h5file, 'training_config', json.dumps((str(params)) ))
   modelgrp = h5file.create_group( 'model' )
-  save_type = SaveType( torch_dict['savetype'] )
+  save_type = SaveType( params['savetype'] )
   odhdf5.setAttr( modelgrp, 'type', save_type.value )
   if save_type == SaveType.Onnx:
     joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
@@ -358,6 +370,11 @@ def save( model, outfnm, infos, params=torch_dict ):
     input_name = ['input']
     dynamic_axes = {'input': {0: 'batch_size'}}
     torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes)
+    odhdf5.setAttr( modelgrp, 'path', joutfnm )
+  elif save_type == SaveType.TorchScript:
+    joutfnm = os.path.splitext( outfnm )[0] + '.pth'
+    model = torch.jit.script(model)
+    model.save(joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Joblib:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'

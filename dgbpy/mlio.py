@@ -331,7 +331,7 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
-def saveModel( model, inpfnm, platform, infos, outfnm ):
+def saveModel( model, inpfnm, platform, infos, outfnm, params ):
   """ Saves trained model for any platform workflow
 
   Parameters:
@@ -340,6 +340,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
     * platform (str): machine learning platform (options; keras, Scikit-learn, torch)
     * infos (dict): example file info
     * outfnm (str): name of model to be saved
+    * params (dict): parameters to be used when saving the model
   """
 
   from odpy.common import log_msg
@@ -359,7 +360,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm ):
     dgbscikit.save( model, outfnm )
   elif platform == dgbkeys.torchplfnm or platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    dgbtorch.save( model, outfnm, infos )
+    dgbtorch.save( model, outfnm, infos, params )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError
