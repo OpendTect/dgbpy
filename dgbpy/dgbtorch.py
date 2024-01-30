@@ -80,7 +80,7 @@ defbatchstr = 'defaultbatchsz'
 
 class SaveType(Enum):
     Onnx = 'onnx'
-    Torch = 'torch'
+    TorchScript = 'torchscript'
     Joblib = 'joblib'
     Pickle = 'pickle'
 
@@ -269,7 +269,7 @@ def get_criterion( info, params ):
     return globals()[criterion]()
   raise ValueError('Unsupported loss function: %s' % criterion)
 
-def _load_torch_pt_model( modelfnm ):
+def load_torchscript_model( modelfnm ):
   try:
     model = torch.jit.load( modelfnm )
   except RuntimeError:
@@ -278,10 +278,6 @@ def _load_torch_pt_model( modelfnm ):
 
 def load( modelfnm ):
   model = None
-  if dgbhdf5.isTorchModelFile( modelfnm ) and not dgbhdf5.isHDF5File( modelfnm ):
-    model = _load_torch_pt_model( modelfnm )
-    return model
-
   h5file = odhdf5.openFile( modelfnm, 'r' )
   modelgrp = h5file['model']
   savetypestr = odhdf5.getText( modelgrp, 'type' )
@@ -296,10 +292,10 @@ def load( modelfnm ):
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     from dgbpy.torch_classes import OnnxTorchModel
     model = OnnxTorchModel(str(modfnm))
-  if savetype == SaveType.Torch:
+  if savetype == SaveType.TorchScript:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    model = _load_torch_pt_model( str(modfnm) )
+    model = load_torchscript_model( str(modfnm) )
   elif savetype == SaveType.Joblib:
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
@@ -375,8 +371,8 @@ def save( model, outfnm, infos, params=torch_dict ):
     dynamic_axes = {'input': {0: 'batch_size'}}
     torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes)
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
-  elif save_type == SaveType.Torch:
-    joutfnm = os.path.splitext( outfnm )[0] + '.pt'
+  elif save_type == SaveType.TorchScript:
+    joutfnm = os.path.splitext( outfnm )[0] + '.pth'
     model = torch.jit.script(model)
     model.save(joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
