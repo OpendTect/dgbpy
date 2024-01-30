@@ -12,6 +12,18 @@ import torch
 def __model_type( torch_model ):
     return 'Torch Model'
 
+def __model_impl( torch_model ):
+    if torch_model.__class__.__name__ == 'RecursiveScriptModule':
+        return 'torchscript'
+    elif torch_model.__class__.__name__ == 'OrderedDict':
+        return 'torch'
+    return ''
+
+def __model_classname( torch_model ):
+    if hasattr(torch_model, 'original_name'):
+        return torch_model.original_name
+    return ''
+
 def __input_shape( torch_model: str ) ->list[int]:
     return [None,None]
 
@@ -31,13 +43,18 @@ def __num_outputs( torch_model ):
     return len(__output_names(torch_model))
 
 def model_info( modelfnm ):
-    model = torch.load( modelfnm )
+    try:
+        model = torch.jit.load( modelfnm )
+    except RuntimeError:
+        model = torch.load( modelfnm )
     mi = model_info_dict( model )
     return json.dumps(mi)
 
 def model_info_dict( torch_model ):
     minfo = {}
     minfo['model_type'] = __model_type(torch_model)
+    minfo['model_impl'] = __model_impl(torch_model)
+    minfo['model_classname'] = __model_classname(torch_model)
     minfo['version'] = 1.0
     minfo['num_inputs'] = __num_inputs(torch_model)
     minfo['num_outputs'] = __num_outputs(torch_model)
