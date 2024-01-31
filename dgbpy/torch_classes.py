@@ -736,8 +736,7 @@ class ResidualBlock(nn.Module):
         Y = self.relu(self.bn1(self.conv1(X)))
         Y = self.bn2(self.conv2(Y))
         
-        if self.conv3:
-            X = self.conv3(X)
+        if self.conv3 is not None: X = self.conv3(X)
         
         Y += X
         return self.relu(Y)
@@ -922,8 +921,7 @@ class DownBlock(nn.Module):
                                     bias=True, dim=self.dim)
 
         # pooling layer
-        if self.pooling:
-            self.pool = get_maxpool_layer(kernel_size=2, stride=2, padding=0, dim=self.dim)
+        self.pool = get_maxpool_layer(kernel_size=2, stride=2, padding=0, dim=self.dim)
 
         # activation layers
         self.act1 = get_activation(self.activation)
@@ -1220,7 +1218,7 @@ class UNet(nn.Module):
             self.weight_init(module, method_weights, **kwargs_weights)  # initialize weights
             self.bias_init(module, method_bias, **kwargs_bias)  # initialize bias
 
-    def forward(self, x: torch.tensor):
+    def forward(self, x):
         encoder_output = []
 
         # Encoder pathway
@@ -1314,17 +1312,17 @@ class UNet_VGG19(nn.Module):
         conv4 = self.relu(self.conv4_3(conv4))
 
         # Decoder
-        up5 = nn.functional.interpolate(conv4, scale_factor=2, mode='bilinear', align_corners=False)
+        up5 = nn.functional.interpolate(conv4, scale_factor=2.0, mode='bilinear', align_corners=False)
         up5 = torch.cat([up5, conv3], dim=1)
         conv5 = self.relu(self.conv5_1(up5))
         conv5 = self.relu(self.conv5_2(conv5))
 
-        up6 = nn.functional.interpolate(conv5, scale_factor=2, mode='bilinear', align_corners=False)
+        up6 = nn.functional.interpolate(conv5, scale_factor=2.0, mode='bilinear', align_corners=False)
         up6 = torch.cat([up6, conv2], dim=1)
         conv6 = self.relu(self.conv6_1(up6))
         conv6 = self.relu(self.conv6_2(conv6))
 
-        up7 = nn.functional.interpolate(conv6, scale_factor=2, mode='bilinear', align_corners=False)
+        up7 = nn.functional.interpolate(conv6, scale_factor=2.0, mode='bilinear', align_corners=False)
         up7 = torch.cat([up7, conv1], dim=1)
         conv7 = self.relu(self.conv7_1(up7))
         conv7 = self.relu(self.conv7_2(conv7))
