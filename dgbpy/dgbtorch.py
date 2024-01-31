@@ -276,37 +276,50 @@ def load_torchscript_model( modelfnm ):
     raise RuntimeError('Unsupported model, only torch scripted models are supported')
   return model
 
-def load( modelfnm ):
+def load( modelfnm, infos = False ):
   model = None
-  h5file = odhdf5.openFile( modelfnm, 'r' )
-  modelgrp = h5file['model']
-  savetypestr = odhdf5.getText( modelgrp, 'type' )
-  savetype = SaveType( savetypestr )
+  try:
+    h5file = odhdf5.openFile( modelfnm, 'r' )
+    modelname = odhdf5.getText( h5file, 'type' )
+    modelgrp = h5file['model']
+    savetypestr = odhdf5.getText( modelgrp, 'type' )
+    savetype = SaveType( savetypestr )
 
-  if odhdf5.hasAttr( h5file, 'type' ):
-    modeltype = odhdf5.getText(h5file, 'type')
-    if modeltype=='Sequential' or modeltype=='Net':
-      savetype = SaveType.Joblib
-  if savetype == SaveType.Onnx:
-    modfnm = odhdf5.getText( modelgrp, 'path' )
-    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    from dgbpy.torch_classes import OnnxTorchModel
-    model = OnnxTorchModel(str(modfnm))
-  if savetype == SaveType.TorchScript:
-    modfnm = odhdf5.getText( modelgrp, 'path' )
-    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    model = load_torchscript_model( str(modfnm) )
-  elif savetype == SaveType.Joblib:
-    modfnm = odhdf5.getText( modelgrp, 'path' )
-    modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-    model = joblib.load( modfnm )
-  elif savetype == SaveType.Pickle:
-    modeldata = modelgrp['object']
-    model = pickle.loads( modeldata[:].tostring() )
-  h5file.close()
+    if savetype == SaveType.Onnx:
+      modfnm = odhdf5.getText( modelgrp, 'path' )
+      modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      from dgbpy.torch_classes import OnnxTorchModel
+      model = OnnxTorchModel(str(modfnm))
+    elif savetype == SaveType.TorchScript:
+      modfnm = odhdf5.getText( modelgrp, 'path' )
+      modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      model = load_torchscript_model( str(modfnm) )
+    elif savetype == SaveType.Joblib:
+      modfnm = odhdf5.getText( modelgrp, 'path' )
+      modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      model_state_dict = joblib.load( modfnm )
+      model, _ = get_model_architecture( model_state_dict, modelname, infos )
+    elif savetype == SaveType.Pickle:
+      modeldata = modelgrp['object']
+      model_state_dict = pickle.loads( modeldata[:].tostring() )
+      model, _ = get_model_architecture( model_state_dict, modelname, infos )
+  except Exception as e:
+    raise e
+  finally:
+    h5file.close()
   return model
 
-def onnx_from_torch(model, infos):
+def get_model_architecture(model, model_classname, infos):
+  # Add documentation
+  """
+  This function returns the model architecture and a dummy input for the model.
+
+  Parameters
+  ----------
+  model(any) :  The model architecture or the model state dictionary.
+  model_classname(str) : The model class name.
+  infos(dict) : The info dictionary.
+  """
   attribs = dgbhdf5.getNrAttribs(infos)
   isclassification = infos[dgbhdf5.classdictstr]
   model_shape = get_model_shape(infos[dgbkeys.inpshapedictstr], attribs, True)
@@ -318,7 +331,7 @@ def onnx_from_torch(model, infos):
     predtype = tc.DataPredType.Continuous
     nroutputs = dgbhdf5.getNrOutputs( infos )
   input_size = torch_dict['batch']
-  if model.__class__.__name__ == 'UNet' or 'UNet_VGG19': 
+  if model_classname == 'UNet' or 'UNet_VGG19': 
     input_size = 1
   if dims  == 3:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
@@ -326,32 +339,38 @@ def onnx_from_torch(model, infos):
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
   elif dims == 1 or dims == 0:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
-  if model.__class__.__name__ == 'Sequential':
+  if model_classname == 'Sequential':
     from dgbpy.mlmodel_torch_dGB import ResNet18
     model_instance = ResNet18(nroutputs, dims, attribs)
-  elif model.__class__.__name__ == 'Net':
+  elif model_classname == 'Net':
     from dgbpy.torch_classes import Net
-    model_instance = Net(nroutputs, dims, attribs)
-  elif model.__class__.__name__ == "dGBLeNet":
+    model_instance = Net(model_shape, nroutputs, dims, attribs)
+  elif model_classname == "dGBLeNet":
     from dgbpy.torch_classes import dGBLeNet
     model_instance = dGBLeNet(model_shape, nroutputs, dims, attribs, predtype)
-  elif model.__class__.__name__ == 'dGBUNet':
+  elif model_classname == 'dGBUNet':
     from dgbpy.torch_classes import dGBUNet
     model_instance = dGBUNet(attribs, model_shape, nroutputs, predtype)
-  elif model.__class__.__name__ == 'UNet':
+  elif model_classname == 'UNet':
     from dgbpy.torch_classes import UNet
-    model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=model.n_blocks)
-  elif model.__class__.__name__ == 'UNet_VGG19':
+    model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=1)
+  elif model_classname == 'UNet_VGG19':
     from dgbpy.torch_classes import UNet_VGG19
     model_instance = UNet_VGG19(model_shape, nroutputs, attribs)
-  elif model.__class__.__name__ == 'GraphModule':
+  elif model_classname == 'GraphModule':
     model_instance = torch.jit.trace(model.cpu(), dummy_input)
-  elif model.__class__.__name__ == 'OnnxTorchModel':
+  elif model_classname == 'OnnxTorchModel':
     model = model.convert_to_torch()
     model = torch.jit.trace(model.cpu(), dummy_input)
-  elif model.__class__.__name__ == 'RecursiveScriptModule':
+  elif model_classname == 'RecursiveScriptModule':
     model_instance = model.cpu()
-  model_instance.load_state_dict(model.state_dict())
+  else:
+    raise ValueError('Unsupported model type: %s' % model_classname)
+  
+  if hasattr(model, 'state_dict'):
+    model_instance.load_state_dict(model.state_dict())
+  else:
+    model_instance.load_state_dict(model)
   return model_instance, dummy_input
 
 def save( model, outfnm, infos, params=torch_dict ):
@@ -366,7 +385,7 @@ def save( model, outfnm, infos, params=torch_dict ):
   odhdf5.setAttr( modelgrp, 'type', save_type.value )
   if save_type == SaveType.Onnx:
     joutfnm = os.path.splitext( outfnm )[0] + '.onnx'
-    retmodel, dummies = onnx_from_torch(model, infos)
+    retmodel, dummies = get_model_architecture(model, model.__class__.__name__, infos)
     input_name = ['input']
     dynamic_axes = {'input': {0: 'batch_size'}}
     torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes)
@@ -378,7 +397,7 @@ def save( model, outfnm, infos, params=torch_dict ):
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Joblib:
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
-    joblib.dump( model.state_dict(), joutfnm )
+    joblib.dump(model.state_dict(), joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Pickle:
     exported_modelstr = pickle.dumps(model.state_dict())

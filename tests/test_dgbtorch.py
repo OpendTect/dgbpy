@@ -6,6 +6,7 @@ import fnmatch, shutil, copy, pytest
 from functools import partial
 import dgbpy.keystr as dbk
 import dgbpy.dgbtorch as dgbtorch
+from dgbpy.dgbtorch import SaveType
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.torch_classes as tc
 import torch
@@ -29,6 +30,7 @@ def default_pars():
     pars['batch'] = 2
     pars[dbk.prefercpustr] = True
     pars['tofp16'] = False
+    pars['nbfold'] = 1
     return pars
 
 
@@ -62,13 +64,13 @@ def check_apply_res(condition, pred):
         else:
             assert key not in pred, f'{key} should not be in the output result'
 
-def save_model(model, filename, info):
-    dgbtorch.save(model, filename, info)
+def save_model(model, filename, info, params):
+    dgbtorch.save(model, filename, info, params)
     return model, filename, info
 
 
-def load_model(filename):
-    model = dgbtorch.load(filename)
+def load_model(filename, info=None):
+    model = dgbtorch.load(filename, info)
     return model
 
 
@@ -185,19 +187,52 @@ def test_train_with_augmentation(data):
 
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
 def test_saving_and_loading_model(data):
-    filename = 'torchmodel'
     trainpars = default_pars()
-    model, info = train_model(data=data, trainpars=trainpars)
-    save_model(model, f'{filename}.h5', info)
+    savetypes = list(SaveType)
+    info = data[dbk.infodictstr]
+    filename = 'torchmodel'
 
-    assert os.path.exists(f'{filename}.h5'), 'model h5 file not found'
-    assert os.path.exists(f'{filename}.onnx'), 'model onnx file not found'
-    loaded_model = load_model(f'{filename}.h5')
-    assert isinstance(
-        loaded_model, dgbtorch.tc.OnnxTorchModel
-    ), 'loaded model should be an onnx model'
-    os.remove(f'{filename}.h5')
-    os.remove(f'{filename}.onnx')
+    models = get_default_model(info)
+    for imodel, _ in enumerate(models):
+        modelarch = get_model_arch(info, models, imodel)
+        modelarch = copy.deepcopy(modelarch)
+        model = dgbtorch.train(modelarch, data, default_pars())
+        for savetype in savetypes:            
+            trainpars['savetype'] = savetype.value
+            save_model(model, f'{filename}.h5', info, trainpars)
+            assert os.path.exists(f'{filename}.h5'), 'model h5 file not found'
+
+            if savetype == SaveType.Onnx:
+                assert os.path.exists(f'{filename}.onnx'), 'model onnx file not found'
+                loaded_model = load_model(f'{filename}.h5', info)
+                assert isinstance(
+                    loaded_model, dgbtorch.tc.OnnxTorchModel
+                ), 'loaded model should be an onnx model'
+                os.remove(f'{filename}.onnx')
+
+            elif savetype == SaveType.TorchScript:
+                assert os.path.exists(f'{filename}.pth'), 'model pth file not found'
+                loaded_model = load_model(f'{filename}.h5', info)
+                assert isinstance(
+                    loaded_model, torch.jit.RecursiveScriptModule
+                ), 'loaded model should be a pytorch script model'
+                os.remove(f'{filename}.pth')
+
+            elif savetype == SaveType.Joblib:
+                assert os.path.exists(f'{filename}.joblib'), 'model joblib file not found'
+                loaded_model = load_model(f'{filename}.h5', info)
+                assert isinstance(
+                    loaded_model, nn.Module
+                ), f'loaded joblib model{model.__class__.__name__} should be a torch Module'
+                os.remove(f'{filename}.joblib')
+
+            elif savetype == SaveType.Pickle:
+                loaded_model = load_model(f'{filename}.h5', info)
+                assert isinstance(
+                    loaded_model, nn.Module
+                ), 'loaded pickle model should be a torch Module'
+
+            os.remove(f'{filename}.h5')
 
 class TCase_TrainDataset(tc.TrainDatasetClass):
     def set_fold(self, ichunk, ifold):
@@ -251,7 +286,7 @@ def test_apply(data):
     model = dgbtorch.train(modelarch, data, pars, silent=True)
 
     filename = 'torchmodel'
-    save_model(model, f'{filename}.h5', info)
+    save_model(model, f'{filename}.h5', info, pars)
     trained_model = load_model(f'{filename}.h5')	
 
     samples = data[dbk.xvaliddictstr]
