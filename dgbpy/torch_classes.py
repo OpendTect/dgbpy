@@ -534,8 +534,10 @@ class Trainer:
     def set_metrics(self, custom_metrics):
         self.classification = dgbhdf5.isClassification(self.info)
 
-        if self.classification: self.metrics = [accuracy, f1]
-        if dgbhdf5.isImg2Img(self.info): self.metrics.append(jaccard)
+        if self.classification:
+            self.metrics = [accuracy, f1]
+            if dgbhdf5.isImg2Img(self.info):
+                self.metrics.append(jaccard)
         else: self.metrics = [mae]
 
         custom_metrics = dgbkeys.listify(custom_metrics if custom_metrics else [])
