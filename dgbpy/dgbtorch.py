@@ -510,40 +510,23 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   dataloader = getDataLoader(sampleDataset, batch_size=batch_size, drop_last=drop_last)
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
-    predtype = tc.DataPredType.Classification
   else:
     nroutputs = dgbhdf5.getNrOutputs(info)
-    predtype = tc.DataPredType.Continuous
-  
-  if model.__class__.__name__ == "OrderedDict":
-    from dgbpy.mlmodel_torch_dGB import ResNet18
-    from dgbpy.torch_classes import dGBLeNet, Net
-    seis_log_arch = [ResNet18, dGBLeNet, Net]
-    if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
-      info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr or info[dgbkeys.learntypedictstr] == dgbkeys.seisproptypestr:
-      for arch in seis_log_arch:
-        try:
-          if arch.__name__ == 'dGBLeNet': dfdm = arch(nroutputs, dim=ndims, nrattribs=attribs, predtype=predtype)
-          else: dfdm = arch(nroutputs, dim=ndims, nrattribs=attribs)
-          dfdm.load_state_dict(model)
-        except RuntimeError: pass
-    elif info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-      from dgbpy.torch_classes import UNet
-      if isclassification:
-        dfdm = UNet(out_channels=nroutputs, n_blocks=1, dim=ndims)
-      else:
-        dfdm = UNet(out_channels=1,  n_blocks=1, dim=ndims)
-      dfdm.load_state_dict(model)
-  elif model.__class__.__name__ in ['OnnxTorchModel', 'RecursiveScriptModule', 'OnnxModel']:
-    dfdm = model 
+
+  if isinstance(model, tc.OnnxTorchModel):
+    device = torch.device('cpu')
+  else:
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
 
   predictions = []
   predictions_prob = []
-  dfdm.eval()
+  model.eval()
   for input in dataloader:
       with torch.no_grad():
-        out = dfdm(input)
-        pred = out.detach().numpy()
+        input = input.to(device)
+        out = model(input)
+        pred = out.detach().cpu().numpy()
         pred_prob = pred.copy()
         if isclassification:
           pred = np.argmax(pred, axis=1)
