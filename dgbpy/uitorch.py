@@ -145,10 +145,13 @@ def createAdvanedUiLeftPane():
   parsgrp = column(*list(uiobjs.values()))
   return parsgrp, uiobjs
 
+def getSaveTypes( exclude=['pickle'] ):
+  return [ _type.name for _type in SaveType if _type.value not in exclude]
+
 def createAdvanedUiRightPane():
   uiobjs = {
     'savetypehead': Div(text="""<strong>Save Format</strong>""", height = 10),
-    'savetypefld': RadioGroup(labels=[_type.name for _type in SaveType], active=0, margin = [5, 5, 5, 25]),
+    'savetypefld': RadioGroup(labels=getSaveTypes(), active=0, margin = [5, 5, 5, 25]),
   }
   parsgrp = column(*list(uiobjs.values()))
   return parsgrp, uiobjs
