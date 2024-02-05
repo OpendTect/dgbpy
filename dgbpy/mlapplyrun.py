@@ -81,7 +81,7 @@ if __name__ == '__main__':
   except Exception as e:
     exc_type, exc_obj, exc_tb = sys.exc_info()
     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
+    stackstr = ''.join(tb.extract_tb(exc_tb,limit=20).format())
     odcommon.log_msg( 'Training error exception:' )
     odcommon.log_msg( repr(e), 'on line', exc_tb.tb_lineno, 'of script', fname )
     odcommon.log_msg( stackstr )
