@@ -376,7 +376,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
       if type != TrainType.New and dgbkeys.criteriondictstr in infos:
-        params[dgbkeys.criteriondictstr] = infos[dgbkeys.criteriondictstr]
+        params[dgbkeys.criteriondictstr] = infos[dgbkeys.trainconfigdictstr][dgbkeys.criteriondictstr]
       if type == TrainType.New:
         model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'])
         log_msg('Using a default torch model architecture')
