@@ -379,7 +379,7 @@ def save( model, outfnm, infos, params=torch_dict ):
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
-  odhdf5.setAttr( h5file, 'training_config', json.dumps((str(params)) ))
+  odhdf5.setAttr( h5file, dgbkeys.trainconfigdictstr, json.dumps((str(params)) ))
   modelgrp = h5file.create_group( 'model' )
   save_type = SaveType( params['savetype'] )
   odhdf5.setAttr( modelgrp, 'type', save_type.value )
