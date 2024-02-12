@@ -495,11 +495,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   sampleDataset = tc.DatasetApply(samples, info, isclassification, 1, ndims=ndims)
   ret = {}
   res = None
-  try:
-    img2img = info[dgbkeys.seisimgtoimgtypestr]
-    img2img = True
-  except KeyError:
-    img2img = False
+  img2img = dgbhdf5.isImg2Img(info)
   
   if info[dgbkeys.learntypedictstr] == dgbkeys.seisclasstypestr or \
       info[dgbkeys.learntypedictstr] == dgbkeys.loglogtypestr:
@@ -520,30 +516,27 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
     model = model.to(device)
 
   predictions = []
-  predictions_prob = []
   model.eval()
   for input in dataloader:
       with torch.no_grad():
         input = input.to(device)
         out = model(input)
         pred = out.detach().cpu().numpy()
-        pred_prob = pred.copy()
-        if isclassification:
-          pred = np.argmax(pred, axis=1)
         for _ in pred:
           predictions.append(_)
-        for _prob in pred_prob:
-          predictions_prob.append(_prob)
 
+  predictions = np.array(predictions)
   if withpred:
     if isclassification:
       if not (doprobabilities or withconfidence):
-        try:
-          res = np.array(predictions_prob)
-          res = np.transpose(np.array(predictions))
-        except AttributeError:
-          pass
-    
+        if predictions.shape[1] > 1:
+            res = np.argmax(predictions, axis=1)
+        ret.update({dgbkeys.preddictstr: res})
+        
+    if not isinstance(res, np.ndarray):
+       res = predictions
+       ret.update({dgbkeys.preddictstr: res})
+
   if isclassification and (doprobabilities or withconfidence or withpred):
     if len(ret)<1:
       allprobs = (np.array(predictions)).transpose()
@@ -566,31 +559,15 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       ret.update({dgbkeys.probadictstr: res})
     if withconfidence:
       N = 2
-      predictions_prob = np.array(predictions_prob)
+      predictions_prob = np.array(predictions)
       x = predictions_prob.shape[0]
       indices = np.argpartition(predictions_prob.transpose(),-N,axis=0)[-N:].transpose()
       sortedprobs = predictions_prob.transpose()[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
       res = np.diff(sortedprobs,axis=0)
       ret.update({dgbkeys.confdictstr: res})
   
-  if withpred:
-    res = np.transpose(np.array(predictions))
-    ret.update({dgbkeys.preddictstr: res})
-  
   if doprobabilities:
-    res = np.transpose( np.array(predictions_prob) )
-    ret.update({dgbkeys.probadictstr: res})
-  if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr and withpred:
-    if ndims==3:
-      if isclassification:
-        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)
-      else:
-        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(4, 3, 2, 1, 0)
-    elif ndims==2:
-      if isclassification:
-        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(2, 1, 0)
-      else:
-        ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].transpose(3, 2, 1, 0)  
+    ret.update({dgbkeys.probadictstr: predictions[withprobs]})  
   return ret
 
 def getDataLoader(dataset, batch_size=torch_dict['batch'], drop_last=False):
