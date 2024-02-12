@@ -246,7 +246,7 @@ def get_3d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfold
     }
 
 
-def get_seismic_classification_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
+def get_seismic_classification_data(nrpts=40, nbchunks=1, seed=0, split=0.2, nbfolds=0):
     info = get_seismic_classification_info()
     dataset = get_dataset_dict(nrpts)
     info[dbk.datasetdictstr] = dataset
