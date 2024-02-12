@@ -529,13 +529,11 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   if withpred:
     if isclassification:
       if not (doprobabilities or withconfidence):
-        if predictions.shape[1] > 1:
-            res = np.argmax(predictions, axis=1)
-        ret.update({dgbkeys.preddictstr: res})
+        if nroutputs > 2:
+            predictions = np.argmax(predictions, axis=1)
+        ret.update({dgbkeys.preddictstr: predictions})
         
-    if not isinstance(res, np.ndarray):
-       res = predictions
-       ret.update({dgbkeys.preddictstr: res})
+    else: ret.update({dgbkeys.preddictstr: predictions})
 
   if isclassification and (doprobabilities or withconfidence or withpred):
     if len(ret)<1:
@@ -565,9 +563,13 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       sortedprobs = predictions_prob.transpose()[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
       res = np.diff(sortedprobs,axis=0)
       ret.update({dgbkeys.confdictstr: res})
+
+  if withpred:
+    ret.update({dgbkeys.preddictstr: predictions})
   
   if doprobabilities:
     ret.update({dgbkeys.probadictstr: predictions[withprobs]})  
+
   return ret
 
 def getDataLoader(dataset, batch_size=torch_dict['batch'], drop_last=False):
