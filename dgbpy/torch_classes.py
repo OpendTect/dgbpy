@@ -1044,23 +1044,17 @@ class dGBUNet(nn.Module):
 
         if self.ndim == 3:
             Conv = nn.Conv3d
-            BatchNorm = nn.BatchNorm3d
-            self.MaxPool = nn.MaxPool3d
             ConvTranspose = nn.ConvTranspose3d
         elif self.ndim == 2:
             Conv = nn.Conv2d
-            BatchNorm = nn.BatchNorm2d
-            self.MaxPool = nn.MaxPool2d
             ConvTranspose = nn.ConvTranspose2d
         elif self.ndim == 1:
             Conv = nn.Conv1d
-            BatchNorm = nn.BatchNorm1d
-            self.MaxPool = nn.MaxPool1d
             ConvTranspose = nn.ConvTranspose1d
         else:
             raise ValueError("Unsupported number of dimensions")
         
-        def conv_block(in_channels, out_channels, with_pooling=True):
+        def conv_block(in_channels, out_channels):
             return nn.Sequential(
                 Conv(in_channels, out_channels, kernel_size=3, padding=1),
                 nn.ReLU(inplace=True),
@@ -1077,10 +1071,10 @@ class dGBUNet(nn.Module):
         self.conv1 = conv_block(in_channels, 16)
         self.conv2 = conv_block(16, 32)
         self.conv3 = conv_block(32, 64)
-        self.conv4 = conv_block(64, 512, with_pooling=False)
-        self.upconv1 = conv_block(128, 64, with_pooling=False)
-        self.upconv2 = conv_block(64, 32, with_pooling=False)
-        self.upconv3 = conv_block(32, 16, with_pooling=False)
+        self.conv4 = conv_block(64, 512)
+        self.upconv1 = conv_block(128, 64)
+        self.upconv2 = conv_block(64, 32)
+        self.upconv3 = conv_block(32, 16)
 
         # create conv layers for the upsampling block
         self.upsample1 = upsample_block( 512, 64)
@@ -1099,11 +1093,11 @@ class dGBUNet(nn.Module):
 
     def forward(self, x):
         conv1 = self.conv1(x)
-        pool1 = self.MaxPool(kernel_size=2, stride=2)(conv1)
+        pool1 = F.max_pool3d(conv1, kernel_size=2, stride=2)
         conv2 = self.conv2(pool1)
-        pool2 = self.MaxPool(kernel_size=2, stride=2)(conv2)
+        pool2 = F.max_pool3d(conv2, kernel_size=2, stride=2)
         conv3 = self.conv3(pool2)
-        pool3 = self.MaxPool(kernel_size=2, stride=2)(conv3)
+        pool3 = F.max_pool3d(conv3, kernel_size=2, stride=2)
         conv4 = self.conv4(pool3)
 
         upsample1 = self.upsample1(conv4)
