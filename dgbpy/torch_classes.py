@@ -1045,12 +1045,15 @@ class dGBUNet(nn.Module):
         if self.ndim == 3:
             Conv = nn.Conv3d
             ConvTranspose = nn.ConvTranspose3d
+            self.maxpool = F.max_pool3d
         elif self.ndim == 2:
             Conv = nn.Conv2d
             ConvTranspose = nn.ConvTranspose2d
+            self.maxpool = F.max_pool2d
         elif self.ndim == 1:
             Conv = nn.Conv1d
             ConvTranspose = nn.ConvTranspose1d
+            self.maxpool = F.max_pool1d
         else:
             raise ValueError("Unsupported number of dimensions")
         
@@ -1093,11 +1096,11 @@ class dGBUNet(nn.Module):
 
     def forward(self, x):
         conv1 = self.conv1(x)
-        pool1 = F.max_pool3d(conv1, kernel_size=2, stride=2)
+        pool1 = self.maxpool(conv1, kernel_size=2, stride=2)
         conv2 = self.conv2(pool1)
-        pool2 = F.max_pool3d(conv2, kernel_size=2, stride=2)
+        pool2 = self.maxpool(conv2, kernel_size=2, stride=2)
         conv3 = self.conv3(pool2)
-        pool3 = F.max_pool3d(conv3, kernel_size=2, stride=2)
+        pool3 = self.maxpool(conv3, kernel_size=2, stride=2)
         conv4 = self.conv4(pool3)
 
         upsample1 = self.upsample1(conv4)
