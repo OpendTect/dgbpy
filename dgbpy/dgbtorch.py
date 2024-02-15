@@ -8,6 +8,7 @@
 # various tools machine learning using PyTorch platform
 #
 import os, json, pickle, joblib
+import warnings
 import numpy as np
 from enum import Enum
 import dgbpy.keystr as dgbkeys
@@ -309,6 +310,19 @@ def load( modelfnm, infos = False ):
     h5file.close()
   return model
 
+def get_dummy_input(infos):
+  attribs = dgbhdf5.getNrAttribs(infos)
+  model_shape = get_model_shape(infos[dgbkeys.inpshapedictstr], attribs, True)
+  dims = getModelDims(model_shape, True)
+  input_size = 1
+  if dims  == 3:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
+  elif dims == 2:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
+  elif dims == 1 or dims == 0:
+    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
+  return dummy_input
+
 def get_model_architecture(model, model_classname, infos):
   # Add documentation
   """
@@ -330,15 +344,8 @@ def get_model_architecture(model, model_classname, infos):
   else:
     predtype = tc.DataPredType.Continuous
     nroutputs = dgbhdf5.getNrOutputs( infos )
-  input_size = torch_dict['batch']
-  if model_classname == 'UNet' or 'UNet_VGG19': 
-    input_size = 1
-  if dims  == 3:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2], model_shape[3])
-  elif dims == 2:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1], model_shape[2])
-  elif dims == 1 or dims == 0:
-    dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
+
+  dummy_input = get_dummy_input(infos)
   if model_classname == 'Sequential':
     from dgbpy.mlmodel_torch_dGB import ResNet18
     model_instance = ResNet18(nroutputs, dims, attribs)
@@ -392,7 +399,14 @@ def save( model, outfnm, infos, params=torch_dict ):
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.TorchScript:
     joutfnm = os.path.splitext( outfnm )[0] + '.pth'
-    model = torch.jit.script(model)
+    try:
+      with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = torch.jit.script(model)
+    except Exception:
+      dummy_input = get_dummy_input(infos)
+      model = torch.jit.trace(model, dummy_input)
+      model = torch.jit.script(model)
     model.save(joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Joblib:
