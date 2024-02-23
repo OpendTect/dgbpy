@@ -312,6 +312,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if type != TrainType.New:
       log_msg(f"Loading input model from file: {modelin}")
       (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
+      scaler = dgbhdf5.getScalerStr(infos)
+      scaler, useDefault = dgbhdf5.isDefaultScaler(scaler, infos, False)
 
     trainingdp = None
     validation_split = 0.2 #Params?
@@ -325,7 +327,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         dgbkeras.use_mixed_precision()
 
       trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                          scaler=params[dgbkeys.scaledictstr],
+                                          scaler=scaler if useDefault else None,
                                           force=False,
                                           nbchunks=params['nbchunk'],
                                           split=params['split'],nbfolds=params['nbfold'] )
@@ -371,7 +373,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       if 'withtensorboard' in params and params['withtensorboard']:
         tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
       trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                          scaler=params[dgbkeys.scaledictstr],
+                                          scaler=scaler if useDefault else None,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
@@ -382,6 +384,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the torch model for transfer training')
+        params['transform'] = scaler 
         model = dgbtorch.transfer( model )
 
       print('--Training Started--', flush=True)
