@@ -382,7 +382,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the torch model for transfer training')
-        model = dgbtorch.transfer( model )
+        model = dgbtorch.transfer( model, infos )
 
       print('--Training Started--', flush=True)
       cbfn = None
