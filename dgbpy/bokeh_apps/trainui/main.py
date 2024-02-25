@@ -91,6 +91,11 @@ def training_app(doc):
         odcommon.log_msg(f'Change pretrained input model to "{val}".')
         if os.path.isfile(val):
           trainingpars['Input Model File'] = val
+          model_info = dgbmlio.getInfo( val, quick=True )
+          info['disable_scaling'] = True # Disable scaling for pretrained models
+          info[dgbkeys.inpscalingdictstr] = model_info[dgbkeys.inpscalingdictstr]
+          set_info()
+          doc.add_next_tick_callback(partial(updateUI))
         else:
           trainingpars['Input Model File'] = None
       elif key=='ProcLog File':
@@ -262,7 +267,9 @@ def training_app(doc):
   def updateUI():
     nonlocal platformfld
     if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
-      platformfld.options.remove( uisklearn.getPlatformNm(True) )
+      sklearnplatform = uisklearn.getPlatformNm(True)
+      if sklearnplatform in platformfld.options:
+        platformfld.options.remove( sklearnplatform )
       if platformfld.value == uisklearn.getPlatformNm(False):
         platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     else:
