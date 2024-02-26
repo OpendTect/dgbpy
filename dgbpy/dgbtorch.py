@@ -453,26 +453,21 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
     model = trainer.fit(cbs = cbfn)
     return model
 
-def transfer(model):
+def transfer(model, info=None ):
   """
     Transfer learning utility function for fine-tuning a Torch model.
-
     This function takes a Torch model and prepares it for transfer learning by selectively
     setting layers to be trainable. The layers to be made trainable are determined as follows:
-
     1. All layers before the first Conv1D, Conv2D, or Conv3D layer (or a Sequential containing such layers)
        are set to trainable.
-
     2. All layers after the last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential containing
        such layers) are set to trainable.
-
     3. All layers between the first and last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential
         containing such layers) are set to non-trainable.
   """
   def getTrainableLayers(model):
     first_lyr = None
     last_lyr = None
-
     for name, layer in model.named_modules():
         if isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
             if first_lyr is None:
@@ -481,14 +476,16 @@ def transfer(model):
         elif isinstance(layer, nn.Linear) and first_lyr:
           last_lyr = name
     return first_lyr, last_lyr
-
+  
   from dgbpy.torch_classes import OnnxTorchModel
   if isinstance(model, OnnxTorchModel):
     model = model.convert_to_torch()
+  
+  if isinstance(info, dict) and info.get(dgbkeys.namedictstr) == 'Fault-Net':
+    return finetune_faultnet(model)  
 
   first_conv_layer, last_layer = getTrainableLayers(model)
   found_first, found_last = False, False
-
   for name, param in model.named_parameters():
     if first_conv_layer and name.startswith(first_conv_layer):
       param.requires_grad = True
@@ -499,6 +496,14 @@ def transfer(model):
     elif found_first and not found_last:
       param.requires_grad = False
     else:
+      param.requires_grad = True
+  return model
+
+def finetune_faultnet( model ):
+  for name, param in model.named_parameters():
+    param.requires_grad = False
+  for name, param in model.named_parameters():
+    if name.split('/')[1] == 'last_layer':
       param.requires_grad = True
   return model
 
