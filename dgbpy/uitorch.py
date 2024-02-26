@@ -125,7 +125,20 @@ def getUiPars(uipars=None):
   decimateCB( uiobjs['chunkfld'],uiobjs['sizefld'], None,None,uiobjs['dodecimatefld'].active )
   return uipars
 
+def setup_scaler_ui(info):
+  scaler = dgbhdf5.getScalerStr(info)
+  if 'disable_scaling' in info and info['disable_scaling']:
+    return True, scaler
+  return False, scaler
+
+def get_scaler_ui_option(scaler):
+  scalers = [dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr]
+  if not scaler:
+    return scalers.index(dgbkeys.globalstdtypestr)
+  return scalers.index(scaler)
+
 def createAdvanedUiLeftPane():
+  disable_scaling, scaler = setup_scaler_ui(info)
   uiobjs = {
     'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), margin=(5, 5, 0, 5)),
     'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
@@ -136,7 +149,7 @@ def createAdvanedUiLeftPane():
     transformUi = {
       'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
       'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
-                              active=0, margin = [5, 5, 5, 25]),
+                            active=get_scaler_ui_option(scaler), margin = [5, 5, 5, 25], disabled=disable_scaling),
       'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
       'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
     }
