@@ -260,6 +260,7 @@ class MinMaxScaler(ScaleTransform, BaseTransform):
         return self.scale(arr, self.scaler)        
 
 
+all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
 
 scale_transforms = {
     dgbkeys.localstdtypestr: StandardScaler,
