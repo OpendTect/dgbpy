@@ -11,6 +11,7 @@ from dgbpy.transforms import hasOpenCV
 import dgbpy.keystr as dgbkeys
 from dgbpy import uibokeh
 from dgbpy.dgbtorch import *
+from dgbpy.transforms import all_scalers
 
 info = None
 
@@ -201,11 +202,10 @@ def getUiTransforms(advtorchgrp):
   return transforms
 
 def getUiScaler(advtorchgrp):
-  scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
   selectedOption = 0
   if 'scalingfld' in advtorchgrp:
     selectedOption = advtorchgrp['scalingfld'].active
-  return scalers[selectedOption]
+  return all_scalers[selectedOption]
 
 def getUiParams( torchpars, advtorchpars ):
   torchgrp = torchpars['uiobjects']     

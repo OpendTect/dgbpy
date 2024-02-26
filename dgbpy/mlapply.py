@@ -17,6 +17,7 @@ from odpy.oscommand import printProcessTime
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import dgbpy.mlio as dgbmlio
+from dgbpy.transforms import all_scalers
 
 TrainType = Enum( 'TrainType', 'New Resume Transfer', module=__name__ )
 
@@ -312,6 +313,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     if type != TrainType.New:
       log_msg(f"Loading input model from file: {modelin}")
       (model,infos) = dgbmlio.getModel( modelin, fortrain=True, pars=params )
+      scaler, useDefault = dgbhdf5.getScalerStr(infos)
 
     trainingdp = None
     validation_split = 0.2 #Params?
@@ -325,7 +327,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         dgbkeras.use_mixed_precision()
 
       trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                          scaler=params[dgbkeys.scaledictstr],
+                                          scaler=scaler if useDefault else None,
                                           force=False,
                                           nbchunks=params['nbchunk'],
                                           split=params['split'],nbfolds=params['nbfold'] )
@@ -371,7 +373,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       if 'withtensorboard' in params and params['withtensorboard']:
         tblogdir = dgbhdf5.getLogDir(dgbtorch.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
       trainingdp = getScaledTrainingData( examplefilenm, flatten=False,
-                                          scaler=params[dgbkeys.scaledictstr],
+                                          scaler=scaler if useDefault else None,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
@@ -382,6 +384,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the torch model for transfer training')
+        params = check_scaler( params, scaler )
         model = dgbtorch.transfer( model, infos )
 
       print('--Training Started--', flush=True)
@@ -414,6 +417,31 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   except Exception as e:
     dgbmlio.announceTrainingFailure()
     raise e
+  
+def check_scaler(params, scaler):
+  """ Checks if the required scaler is present in the transform list
+
+  Parameters:
+    * params (dict): machine learning hyperparameters or parameters options
+    * scaler (str): name of scaler to be used
+
+  Returns:
+    * params: machine learning hyperparameters or parameters options
+  """
+
+  transform = params['transform']
+  if scaler in transform:
+    return params
+  for tr in range(len(transform)):
+    if transform[tr] in all_scalers and transform[tr] != scaler:
+      transform[tr] = scaler
+      params['transform'] = transform
+      return params
+  transform.append(scaler)
+  params['transform'] = transform
+  return params
+
+
 
 def reformat( res, applyinfo ):
   """ For reformatting prediction result type(s)

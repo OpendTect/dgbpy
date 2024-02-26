@@ -193,8 +193,9 @@ class Scaler(Enum):
   Normalization = normalizetypestr
   MinMaxScaler = minmaxtypestr
 
-def isDefaultScaler(scaler, info):
-  if isLogOutput(info) or scaler == globalstdtypestr:
+def isDefaultScaler(scaler, info, uselearntype=True):
+  _isLogOutput = isLogOutput(info) and uselearntype
+  if _isLogOutput or scaler == globalstdtypestr:
     return scaler, True
   return scaler, False
 
@@ -204,6 +205,13 @@ def updateScaleInfo( scaler, info ):
   info[inpscalingdictstr] = scaler
   info[outputunscaledictstr] = doOutputScaling(info)
   return info
+
+def getScalerStr( info ):
+  if isinstance(info,dict):
+    if inpscalingdictstr in info:
+      return info[inpscalingdictstr]
+    return globalstdtypestr
+  return info == inpscalingdictstr 
 
 def doOutputScaling( info ):
   if isImg2Img(info) and isRegression(info):
