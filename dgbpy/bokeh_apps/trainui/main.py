@@ -66,12 +66,19 @@ def training_app(doc):
     uisklearn.info = info
 
   def getPlatformInfo( platform ):
-      if platform==dgbkeys.torchplfnm:
+      infos = {}
+      if platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform:
         from dgbpy.dgbtorch import get_torch_infos
-        return get_torch_infos()
-      elif platform==dgbkeys.kerasplfnm:
+        infos = get_torch_infos()
+      elif platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform:
         from dgbpy.dgbkeras import get_keras_infos
-        return get_keras_infos()
+        infos = get_keras_infos()
+
+      if this_service:
+        this_service.sendObject('bokeh_app_msg', {'GetInfos': json.loads(infos)})
+
+      return infos
+
 
   def trainingParChgCB( paramobj ):
     nonlocal trainingpars
