@@ -73,7 +73,8 @@ def get_default_info():
     dbk.exampledictstr: get_default_examples(),
     dbk.inputdictstr: get_default_input(),
     dbk.filedictstr: 'dummy',
-    dbk.estimatedsizedictstr: 1
+    dbk.estimatedsizedictstr: 1,
+    dbk.inpscalingdictstr : dbk.globalstdtypestr
   }
   return retinfo
 
