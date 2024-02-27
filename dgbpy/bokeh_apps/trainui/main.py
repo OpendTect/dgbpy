@@ -90,6 +90,10 @@ def training_app(doc):
         if val == dgbmlapply.TrainType.New.name:
           trainingpars['Training Type'] = dgbmlapply.TrainType.New
           trainingpars['Input Model File'] = None
+          if trainingpars['Examples File']:
+            info = dgbmlio.getInfo( trainingpars['Examples File'], quick=True )
+            set_info()
+            doc.add_next_tick_callback(partial(updateUI))
         elif val == dgbmlapply.TrainType.Resume.name:
           trainingpars['Training Type'] = dgbmlapply.TrainType.Resume
         elif val == dgbmlapply.TrainType.Transfer.name:
