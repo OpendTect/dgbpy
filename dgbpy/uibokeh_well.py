@@ -24,12 +24,12 @@ import copy
 from odpy.ranges import niceRange, niceNumber
 
 class Well:
-    def __init__(self,wellname, args=None):
+    def __init__(self,wellname, args={}):
         self.survargs = args
         if wellname:
             self.wellname = wellname
         else:
-            self.wellname = odwm.getNames()[0]
+            self.wellname = odwm.getNames(self.survargs)[0]
         self.track = None
         self.markers = None
         self.logcache = None
@@ -39,18 +39,18 @@ class Well:
         self.limits = {}
 
     def getLogIdxStr(self):
-        nlog = len(odwm.getLogNames(self.wellname, reload=True, args=self.survargs))
+        nlog = len(odwm.getLogNames(self.wellname, args=self.survargs))
         logidxs = [str(n) for n in range(nlog)]
         return ','.join(logidxs)
 
     def getLogNames(self):
         if not self.logdata:
-            return odwm.getLogNames(self.wellname, reload=True, args=self.survargs)
+            return odwm.getLogNames(self.wellname, args=self.survargs)
         else:
             return self.logdata.column_names[1:]
 
     def getLogs(self, logidxs, resamp=0.5, undefval=1e30):
-        ld = pd.DataFrame.from_dict(odwm.getLogs(self.wellname, logidxs, reload=True,
+        ld = pd.DataFrame.from_dict(odwm.getLogs(self.wellname, logidxs,
 						zstep=resamp, args=self.survargs))
         ld = ld.replace(to_replace=undefval, value=float('Nan'))
         self.logdata = bm.ColumnDataSource(ld)
@@ -80,7 +80,7 @@ class Well:
 
     def getLog(self, lognm, undefval=1e30):
         if (not self.logcache) or (lognm not in self.logcache):
-            (depths,logvals) = odwm.getLog(self.wellname, lognm, reload=True, args=self.survargs)
+            (depths,logvals) = odwm.getLog(self.wellname, lognm, args=self.survargs)
             logarr = np.asarray(logvals, dtype=np.float32)
             logarr[logarr==undefval] = np.nan
             if not self.logcache:
@@ -90,12 +90,12 @@ class Well:
 
     def getTrack(self):
         if not self.track:
-            self.track = odwm.getTrack(self.wellname, reload=True, args=self.survargs)
+            self.track = odwm.getTrack(self.wellname, args=self.survargs)
         return self.track
 
     def getMarkers(self):
         if not self.markers:
-            (mrkrs, depths, colors) = odwm.getMarkers(self.wellname, reload=True, args=self.survargs)
+            (mrkrs, depths, colors) = odwm.getMarkers(self.wellname, args=self.survargs)
             self.markers = bm.ColumnDataSource({'name': mrkrs, 'depth': depths, 'color': colors})
         return self.markers
 

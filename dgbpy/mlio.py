@@ -516,7 +516,7 @@ def getSaveLoc( outnm, ftype, args ):
   try:
     dbkey = oddbman.getDBKeyForName( dblist, outnm )
   except ValueError:
-    return oddbman.getNewEntryFileName(outnm,nladbdirid,mltrlgrp,dgbtrl,\
+    return oddbman.getNewEntryFileName(outnm,mltrlgrp,dgbtrl,\
                                        dgbhdf5.hdf5ext,ftype=ftype,args=args)
   return oddbman.getFileLocation( dbkey, args )
 
