@@ -502,9 +502,8 @@ def transfer(model, info=None ):
 def finetune_faultnet( model ):
   for name, param in model.named_parameters():
     param.requires_grad = False
-  for name, param in model.named_parameters():
-    if name.split('/')[1] == 'last_layer':
-      param.requires_grad = True
+  for name, param in list(model.named_parameters())[-6:]:
+    param.requires_grad = True
   return model
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
