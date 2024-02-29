@@ -24,7 +24,7 @@ setup(
         'joblib>=1.0.1',
         'keras>=2.3.1',
         'numpy>=1.19.2',
-        'odpy>=1.0.0',
+        'odpy>=1.1.0',
         'scikit-learn>=0.24.2',
         'psutil>=5.7.0',
         'tensorflow>=2.1.4',
