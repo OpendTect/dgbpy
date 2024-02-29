@@ -11,7 +11,6 @@
 import os
 import numpy as np
 
-import odpy.dbman as oddbman
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 from odpy.common import restore_stdout, redirect_stdout
@@ -494,6 +493,7 @@ def modelNameExists( modnm, type, args, reload=True ):
   return (exists,sametrl,sameformat,sametyp)
 
 def dbInfoForModel( modnm, args, reload=True ):
+  import odpy.dbman as oddbman
   global dblistall
   if dblistall == None or reload:
     dblistall = oddbman.getDBList(mltrlgrp, alltrlsgrps=True, args=args)
@@ -512,6 +512,7 @@ def getModelType( infos ):
   return infos[dgbkeys.learntypedictstr]
 
 def getSaveLoc( outnm, ftype, args ):
+  import odpy.dbman as oddbman
   dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)
   try:
     dbkey = oddbman.getDBKeyForName( dblist, outnm )
