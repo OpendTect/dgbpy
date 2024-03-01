@@ -104,7 +104,7 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
 def getTrainingConfig( h5file ):
   if trainconfigdictstr in h5file.attrs:
     config = h5file.attrs[trainconfigdictstr]
-    return ast.literal_eval(json.loads(config))
+    return json.loads(config)
   return {}
 
 def isRegression( info ):
