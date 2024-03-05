@@ -512,15 +512,18 @@ def getModelType( infos ):
   return infos[dgbkeys.learntypedictstr]
 
 def getSaveLoc( outnm, ftype, args ):
-  import odpy.dbman as oddbman
-  dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)
   try:
-    dbkey = oddbman.getDBKeyForName( dblist, outnm )
-  except ValueError:
-    return oddbman.getNewEntryFileName(outnm,mltrlgrp,dgbtrl,\
-                                       dgbhdf5.hdf5ext,ftype=ftype,args=args)
-  return oddbman.getFileLocation( dbkey, args )
-
+    import odpy.dbman as oddbman
+    dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)
+    try:
+      dbkey = oddbman.getDBKeyForName( dblist, outnm )
+    except ValueError:
+      return oddbman.getNewEntryFileName(outnm,mltrlgrp,dgbtrl,\
+                                        dgbhdf5.hdf5ext,ftype=ftype,args=args)
+    return oddbman.getFileLocation( dbkey, args )
+  except Exception:
+    return os.path.join( os.getcwd(), outnm )
+  
 def announceShowTensorboard():
   restore_stdout()
   print('--ShowTensorboard--', flush=True)
