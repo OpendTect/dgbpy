@@ -52,6 +52,8 @@ def getCubeLetNamesByGroupByItem( info, groupnm, collnm, idx ):
   dsetnms = list(group.keys())
   if collnm in dsetnms:
     ret = np.arange(len(group[collnm][xdatadictstr]))
+  elif len(dsetnms)==1 and collnm in dsetnms[0].split('`'):  # img2img multi-target
+    ret = np.arange(len(group[dsetnms[0]][xdatadictstr]))
   else:
     dsetnms = list(map(str, dsetnms))
     dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
@@ -299,15 +301,61 @@ def getOutdType( classinfo, hasunlabels=False ):
     else:
       return np.uint64
 
+def getCubeLets_img2img_multitarget( infos, collection, groupnm ):
+  inpnrattribs = getNrAttribs( infos )
+  outnrattribs = getNrOutputs( infos )
+  inpshape = infos[inpshapedictstr]
+  outshape = infos[outshapedictstr]
+  examples = infos[exampledictstr]
+  h5file = odhdf5.openFile( infos[filedictstr], 'r' )
+  outdtype = np.float32
+  group = h5file[groupnm]
+  targetnm = '`'.join([colnm for colnm in collection])
+  if (not targetnm in group) or (not xdatadictstr in group[targetnm]) or (not ydatadictstr in group[targetnm]):
+    return {}
+
+  x_data = group[targetnm][xdatadictstr]
+  y_data = group[targetnm][ydatadictstr]
+  dsetnms = next(iter(collection.values()))
+  nrpts = len(dsetnms)
+  if nrpts < 1:
+    return {}
+    
+  inparrshape = get_np_shape(inpshape,nrpts,inpnrattribs)
+  outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
+  inputs = None
+  outputs = None
+  if len(x_data) == nrpts and len(y_data) == nrpts:
+    inputs = np.resize( x_data, inparrshape ).astype( np.float32 )
+    outputs = np.resize( y_data, outarrshape ).astype( outdtype )
+  else:
+    inputs = np.empty( inparrshape, np.float32 )
+    outputs = np.empty( outarrshape, outdtype )
+    for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
+      dset = x_data[dsetnm]
+      odset = y_data[dsetnm]
+      inputs[idx] = np.resize( dset, inputs[idx].shape )
+      outputs[idx] = np.resize( odset, outputs[idx].shape )
+
+  hasdata = len(inputs)>0 and len(outputs)>0
+  h5file.close()
+  return  {
+            xtraindictstr: inputs,
+            ytraindictstr: outputs
+          } if hasdata else {}
+
 def getCubeLets( infos, collection, groupnm ):
   if len(collection)< 1:
     return {}
+  img2img = isImg2Img( infos )
+  nroutputs = getNrOutputs( infos )
+  if img2img and nroutputs>1:
+    return getCubeLets_img2img_multitarget( infos, collection, groupnm )
+
   inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
   outshape = infos[outshapedictstr]
-  nroutputs = getNrOutputs( infos )
   isclass = infos[classdictstr]
-  img2img = isImg2Img( infos )
   iscluster = isSegmentation( infos )
   examples = infos[exampledictstr]
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
