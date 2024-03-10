@@ -572,8 +572,8 @@ class Trainer:
                     self.out = self.model(self.input)
                     self('after_pred')
                     self.compute_loss_func()
-                    self('after_loss')
-                    if not self.in_train: return
+                self('after_loss')
+                if not self.in_train: return
                 self.gradScaler.scale(self.loss).backward()
                 self('after_backward')
                 self.gradScaler.unscale_(self.optimizer)

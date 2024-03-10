@@ -119,16 +119,31 @@ cudacores = [ '1', '2', '4', '8', '16', '32', '48', '64', '96', '128', '144', '1
               '2560', '2688', '2816', '2880', '2944', '3072', '3584', '3840', \
               '4352', '4608', '4992', '5120' ]
 
+def hasCuda():
+  return torch.cuda.is_available()
+
+def hasMPS():
+  return torch.backends.mps.is_available()
+
 def can_use_gpu():
-  if torch.cuda.is_available():
+  if hasCuda() or hasMPS():
     return True
   return False
+
+def get_device_type(prefercpu=False):
+  if prefercpu:
+    return 'cpu'
+  elif hasCuda():
+    return 'cuda'
+  elif hasMPS():
+    return 'mps'
+  return 'cpu'
 
 def set_compute_device(prefercpu):
   global device
   if not prefercpu:
     prefercpu = not can_use_gpu()
-  device = torch.device('cuda:0' if not prefercpu else 'cpu')
+  device = torch.device(get_device_type(prefercpu))
 
 def get_torch_infos():
   global torch_infos
@@ -536,7 +551,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   if isinstance(model, tc.OnnxTorchModel):
     device = torch.device('cpu')
   else:
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = get_device_type()
     model = model.to(device)
 
   predictions = []
