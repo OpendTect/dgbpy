@@ -38,6 +38,7 @@ setup(
         'scikit-learn-intelex': ['scikit-learn-intelex>=1.0.0'],
         'skl2onnx': ['skl2onnx>=1.0.0'],
         'xgboost': ['xgboost>=1.1.1'],
+        'boto3': ['boto3>=1.34.60'],
     },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
