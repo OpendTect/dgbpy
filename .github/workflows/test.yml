@@ -24,14 +24,22 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install git+https://github.com/OpendTect/odpy.git
-    - name: Install  other dependencies
+    - name: Install  dgbpy
       run: |
         pip install flake8 pytest
-        # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        python -m pip install git+https://github.com/OpendTect/dgbpy.git
+        python -m pip install .
         python -m pip install onnxruntime
         python -m pip install onnx
-        python -m pip install opencv-python
+        python -m pip install onnx2torch
+        python -m pip install opencv-python    
+    - name: Get test examplefiles
+      run: |
+        cd tests
+        mkdir examples
+        wget "https://github.com/OpendTect/OpendTect-ML-Dev/raw/main/webinars/2021-04-22/Examples/data/Log_-_Lithology_supervised_prediction.h5" -O "examples/Log_-_Lithology_supervised_prediction.h5"
+        wget "https://github.com/OpendTect/OpendTect-ML-Dev/raw/main/webinars/2021-04-22/Examples/data/Layers_input_2D.h5" -O "examples/Layers_input_2D.h5"
+        wget "https://github.com/OpendTect/OpendTect-ML-Dev/raw/main/webinars/2021-04-22/Examples/data/malenov_input_8x8x16_subsample_dBG.h5" -O "examples/malenov_input_8x8x16_subsample_dBG.h5"
+        wget "https://github.com/OpendTect/OpendTect-ML-Dev/raw/main/webinars/2021-04-22/Examples/data/Log_-_density.h5" -O "examples/Log_-_density.h5"
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
