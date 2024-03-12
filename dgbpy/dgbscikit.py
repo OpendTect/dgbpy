@@ -110,6 +110,15 @@ savetypes = ( 'onnx', 'joblib', 'pickle' )
 defsavetype = savetypes[0]
 xgboostjson = 'xgboostjson'
 
+defstoragetype = dgbhdf5.StorageType.LOCAL.value
+
+scikit_dict = {
+  'storagetype': defstoragetype,
+  's3_bucket': None,
+  'savetype': defsavetype,
+  'scaler': None,
+}
+
 def getMLPlatform():
   return platform[0]
 
@@ -166,7 +175,7 @@ def getDefaultNNKernel( isclass, uiname=True ):
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
 if hasScikit():
-  scikit_dict = {
+  scikit_dict.update({
     'ensemblepars': {
       'xgdt': {
         'lr': 1,
@@ -221,9 +230,9 @@ if hasScikit():
         'n_init': SpectralClustering().n_init
         }
       }
-  }
+  })
 else:
-  scikit_dict = {
+  scikit_dict.update({
   'ensemblepars': {
     'xgdt': {
       'lr': 1,
@@ -278,7 +287,7 @@ else:
       'n_init': 1
       }
     }
-  }
+  })
 if hasXGBoost():
   from xgboost import XGBRegressor, XGBRFRegressor
   defdtregressor = XGBRegressor()

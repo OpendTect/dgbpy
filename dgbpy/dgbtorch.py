@@ -87,6 +87,8 @@ class SaveType(Enum):
 
 defsavetype = SaveType.Onnx.value
 
+defstoragetype = dgbhdf5.StorageType.LOCAL.value
+
 torch_infos = None
 
 torch_dict = {
@@ -103,6 +105,8 @@ torch_dict = {
     'type': None,
     'prefercpu': None,
     'savetype': defsavetype,
+    'storagetype': defstoragetype,
+    's3_bucket': None,
     'scale': dgbkeys.globalstdtypestr,
     'transform':default_transforms,
     'withtensorboard': withtensorboard,

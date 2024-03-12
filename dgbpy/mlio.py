@@ -9,7 +9,9 @@
 #
 
 import os
+import warnings
 import numpy as np
+from enum import Enum
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -330,7 +332,7 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
-def saveModel( model, inpfnm, platform, infos, outfnm, params ):
+def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
   """ Saves trained model for any platform workflow
 
   Parameters:
@@ -338,9 +340,18 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params ):
     * inpfnm (str): example file name in hdf5 format
     * platform (str): machine learning platform (options; keras, Scikit-learn, torch)
     * infos (dict): example file info
-    * outfnm (str): name of model to be saved
+    * outfnm (str): name of model to be saved or S3 folder URI
     * params (dict): parameters to be used when saving the model
   """
+
+  if dgbhdf5.shouldUseS3(outfnm, params, relaxed=True, kwargs=kwargs):
+    import dgbpy.dgb_boto as dgb_boto
+    if not dgbhdf5.hasboto3(auth=True):
+      warnings.warn('AWS S3 is not available or boto3 not installed. Saving to local storage.')
+      params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
+    else:
+      save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
+      return dgb_boto.handleS3FileSaving(save_function, outfnm, params['s3_bucket'])
 
   from odpy.common import log_msg
   if not outfnm.endswith('.h5'):

@@ -43,6 +43,7 @@ def training_app(doc):
     'Training Type': dgbmlapply.TrainType.New,
     'Input Model File': None,
     'Output Model File': None,
+    'Storage Type': {'type': 'LOCAL', 'bucket': None},
     'Proc Log File': None,
     'ComArgs': None
   }
@@ -109,6 +110,10 @@ def training_app(doc):
           doc.add_next_tick_callback(partial(updateUI))
         else:
           trainingpars['Input Model File'] = None
+      elif key=='Storage Type':
+        odcommon.log_msg(f'Change storage type to "{val}".')
+        trainingpars['Storage Type'] = val['type']
+        trainingpars['S3 Bucket'] = val['bucket']
       elif key=='ProcLog File':
         odcommon.log_msg(f'Change log file name to "{val}".')
         trainingpars['Proc Log File'] = val
@@ -330,6 +335,8 @@ def training_app(doc):
 
   def getProcArgs( platfmnm, pars, outnm ):
     nonlocal trainingpars
+    pars['storagetype'] = trainingpars['Storage Type']['type']
+    pars['s3_bucket'] = trainingpars['Storage Type']['bucket']
     ret = {
       'posargs': [trainingpars['Examples File']],
       'odargs': trainingpars['ComArgs'].copy(),

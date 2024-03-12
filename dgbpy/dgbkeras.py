@@ -56,6 +56,8 @@ class SaveType(Enum):
 
 defsavetype = SaveType.HDF5.value
 
+defstoragetype = dgbhdf5.StorageType.LOCAL.value
+
 def getMLPlatform():
   return platform[0]
 
@@ -78,6 +80,8 @@ keras_dict = {
   'split': 0.2,
   'nbfold': 5,
   'savetype': defsavetype,
+  'storagetype': defstoragetype,
+  's3_bucket': None,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,
