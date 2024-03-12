@@ -22,7 +22,7 @@ setup(
         'bokeh>=2.1.1',
         'h5py>=2.10.0',
         'joblib>=1.0.1',
-        'keras>=2.3.1',
+        'keras>=2.3.1,<=2.15.0',
         'numpy>=1.19.2',
         'odpy>=1.1.0',
         'scikit-learn>=0.24.2',

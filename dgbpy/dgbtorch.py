@@ -506,6 +506,12 @@ def finetune_faultnet( model ):
     param.requires_grad = True
   return model
 
+def resume( model, infos):
+  from dgbpy.torch_classes import OnnxTorchModel
+  if isinstance(model, OnnxTorchModel):
+    model = model.convert_to_torch()
+  return model
+
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
