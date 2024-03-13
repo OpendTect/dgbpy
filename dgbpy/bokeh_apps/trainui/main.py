@@ -277,6 +277,7 @@ def training_app(doc):
 
   def updateUI():
     nonlocal platformfld
+    selplatform = platformfld.value
     if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
       sklearnplatform = uisklearn.getPlatformNm(True)
       if sklearnplatform in platformfld.options:
@@ -285,7 +286,10 @@ def training_app(doc):
         platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     else:
       platformfld.options = get_platforms()
-    platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
+    if selplatform in [plf[0] for plf in platformfld.options]:
+      platformfld.value = selplatform
+    else:
+      platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     mlchgCB('value', 0, platformfld.value)
 
   makeUI( trainingpars['Examples File'] )
