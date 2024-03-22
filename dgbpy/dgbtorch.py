@@ -570,6 +570,8 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       if not (doprobabilities or withconfidence):
         if nroutputs > 2:
             predictions = np.argmax(predictions, axis=1)
+        if nroutputs == 2:
+            predictions = predictions[:, -1]
         ret.update({dgbkeys.preddictstr: predictions})
         
     else: ret.update({dgbkeys.preddictstr: predictions})
