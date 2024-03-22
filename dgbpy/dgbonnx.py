@@ -126,6 +126,7 @@ def apply( model, infos, samples, scaler, isclassification, withpred, withprobs,
     ret = {}
     res = None
     img2img = dgbhdf5.isImg2Img(infos)
+    nroutputs = dgbhdf5.getNrOutputs(infos)
 
     predictions = []
     for input in samples:
@@ -138,9 +139,10 @@ def apply( model, infos, samples, scaler, isclassification, withpred, withprobs,
     if withpred:
         if isclassification:
             if not (doprobabilities or withconfidence):
-                if predictions.shape[1] > 1:
-                    res = np.argmax(predictions, axis=1)
-                ret.update({dgbkeys.preddictstr: res})
+                if nroutputs > 2:
+                    predictions = np.argmax(predictions, axis=1)
+                if nroutputs == 2:
+                    predictions = predictions[:, -1]
 
         if not isinstance(res, np.ndarray):
             res = predictions
