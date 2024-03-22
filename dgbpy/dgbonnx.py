@@ -122,11 +122,10 @@ class OnnxModel():
     def num_inputs(self):
         return len(self.onnx_mdl.graph.input)
 
-def apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs):
+def apply( model, infos, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs):
     ret = {}
     res = None
-    out_shape = get_output_shape( dictoutshape )
-    img2img = len(out_shape) > 2
+    img2img = dgbhdf5.isImg2Img(infos)
 
     predictions = []
     for input in samples:
