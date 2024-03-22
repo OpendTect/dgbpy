@@ -505,7 +505,7 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
     res = numpyApply( samples )
   elif platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbonnx as dgbonnx
-    res = dgbonnx.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
+    res = dgbonnx.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
                         dictinpshape, dictoutshape, nroutputs )
   else:
     log_msg( 'Unsupported machine learning platform' )
