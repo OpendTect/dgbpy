@@ -37,6 +37,7 @@ def cross_entropy_balanced(y_true, y_pred):
   y_pred = tf.math.log(y_pred/ (1 - y_pred))
 
   y_true = tf.cast(y_true, tf.float32)
+  y_pred = tf.cast(y_pred, tf.float32)
   count_neg = tf.reduce_sum(input_tensor=1. - y_true)
   count_pos = tf.reduce_sum(input_tensor=y_true)
   beta = count_neg / (count_neg + count_pos)
