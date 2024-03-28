@@ -672,10 +672,12 @@ def getInfo( filenm, quick ):
               if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
                 hasunlabels = True
                 break
+            if hasunlabels:
+              break
         except:
           pass
-  if hasunlabels:
-    retinfo.update({withunlabeleddictstr: True})
+    if hasunlabels:
+      retinfo.update({withunlabeleddictstr: True})
   trainingconfig = getTrainingConfig( h5file )
   retinfo.update({trainconfigdictstr: trainingconfig})
   h5file.close()
