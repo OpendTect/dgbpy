@@ -376,10 +376,11 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
-      if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and dgbkeys.withunlabeleddictstr in dgbmlio.getInfo(examplefilenm):
+      hasUnlabels = dgbhdf5.hasUnlabeled(dgbmlio.getInfo(examplefilenm))
+      if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and hasUnlabels:
         params[dgbkeys.criteriondictstr] = 'DiceLoss'
       if type == TrainType.New:
-        if dgbkeys.withunlabeleddictstr in dgbmlio.getInfo(examplefilenm):
+        if hasUnlabels:
           params[dgbkeys.criteriondictstr] = 'DiceLoss'
         else:
           params[dgbkeys.criteriondictstr] = None
