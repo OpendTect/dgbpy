@@ -376,9 +376,13 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
-      if type != TrainType.New and dgbkeys.trainconfigdictstr in infos:
-        params[dgbkeys.criteriondictstr] = infos[dgbkeys.trainconfigdictstr][dgbkeys.criteriondictstr]
+      if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and dgbkeys.withunlabeleddictstr in dgbmlio.getInfo(examplefilenm):
+        params[dgbkeys.criteriondictstr] = 'DiceLoss'
       if type == TrainType.New:
+        if dgbkeys.withunlabeleddictstr in dgbmlio.getInfo(examplefilenm):
+          params[dgbkeys.criteriondictstr] = 'DiceLoss'
+        else:
+          params[dgbkeys.criteriondictstr] = None
         model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'])
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
