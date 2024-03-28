@@ -10,6 +10,7 @@
 
 import os
 import numpy as np
+from enum import Enum
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -19,6 +20,10 @@ nladbdirid = '100060'
 mlinpgrp = 'Deep Learning Example Data'
 mltrlgrp = 'Deep Learning Model'
 dgbtrl = 'dGB'
+
+class StorageType(Enum):
+  AWS = "AWS"
+  LOCAL = "LOCAL"
 
 def getInfo( filenm, quick=False ):
   """ Gets information from an example file
