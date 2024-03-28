@@ -128,9 +128,9 @@ def isSeisClass( info ):
   return info == seisclasstypestr
 
 def hasUnlabeled( info ):
-  if isinstance(info, dict):
+  if isinstance(info, dict) and withunlabeleddictstr in info:
     return info[withunlabeleddictstr]
-  return info == withunlabeleddictstr
+  return False
 
 def isLogInput( info ):
   if isinstance(info,dict):
@@ -271,7 +271,7 @@ def getLogDir( withtensorboard, examplenm, platform, basedir, clearlogs, args ):
   logdir = logdir / Path(jobnm+str(nrsavedruns+1)+'_'+'m'.join( datetime.now().isoformat().split(':')[:-1] ))
   return logdir
 
-def getOutdType( classinfo, hasunlabels=False ):
+def getOutdType( classinfo, hasunlabels ):
   max = classinfo.max()
   min = classinfo.min()
   min_abs = np.abs(min)
@@ -510,10 +510,6 @@ def getInfo( filenm, quick ):
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
-  hasunlabels = False
-  if odhdf5.hasAttr(info, withunlabeleddictstr):
-    hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
-
   arrayorder = carrorderstr
   arrorderstr = 'Examples.ArrayOrder'
   if odhdf5.hasAttr(info,arrorderstr):
@@ -649,7 +645,6 @@ def getInfo( filenm, quick ):
     exampledictstr: examples,
     inputdictstr: inputs,
     filedictstr: filenm,
-    withunlabeleddictstr: hasunlabels
   }
 
   if not quick:
@@ -661,6 +656,28 @@ def getInfo( filenm, quick ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
+  if img2img and isclassification:
+    hasunlabels = False
+    if odhdf5.hasAttr(info, withunlabeleddictstr):
+      hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
+    else:
+      groups = retinfo[exampledictstr].keys()
+      ret = list()
+      for groupnm in groups:
+        try:
+            grp = h5file[groupnm]
+            for inpnm in grp:
+              if ydatadictstr not in grp[inpnm]:
+                continue
+              if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
+                hasunlabels = True
+                break
+            if hasunlabels:
+              break
+        except:
+          pass
+    if hasunlabels:
+      retinfo.update({withunlabeleddictstr: True})
   trainingconfig = getTrainingConfig( h5file )
   retinfo.update({trainconfigdictstr: trainingconfig})
   h5file.close()
