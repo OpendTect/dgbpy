@@ -656,21 +656,26 @@ def getInfo( filenm, quick ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
-  hasunlabels = False
-  if odhdf5.hasAttr(info, withunlabeleddictstr):
-    hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
-  else:
-    if img2img and isclassification:
+  if img2img and isclassification:
+    hasunlabels = False
+    if odhdf5.hasAttr(info, withunlabeleddictstr):
+      hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
+    else:
       groups = retinfo[exampledictstr].keys()
       ret = list()
       for groupnm in groups:
         try:
             grp = h5file[groupnm]
             for inpnm in grp:
+              if ydatadictstr not in grp[inpnm]:
+                continue
               if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
-                retinfo.update({withunlabeleddictstr: True})
+                hasunlabels = True
+                break
         except:
           pass
+  if hasunlabels:
+    retinfo.update({withunlabeleddictstr: True})
   trainingconfig = getTrainingConfig( h5file )
   retinfo.update({trainconfigdictstr: trainingconfig})
   h5file.close()
