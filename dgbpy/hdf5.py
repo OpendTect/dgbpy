@@ -128,9 +128,8 @@ def isSeisClass( info ):
   return info == seisclasstypestr
 
 def hasUnlabeled( info ):
-  if isinstance(info, dict):
-    if withunlabeleddictstr in info:
-      return info[withunlabeleddictstr]
+  if isinstance(info, dict) and withunlabeleddictstr in info:
+    return info[withunlabeleddictstr]
   return False
 
 def isLogInput( info ):
@@ -657,17 +656,21 @@ def getInfo( filenm, quick ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
-  if img2img & isclassification:
-    groups = retinfo[exampledictstr].keys()
-    ret = list()
-    for groupnm in groups:
-      try:
-          grp = h5file[groupnm]
-          for inpnm in grp:
-            if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
-              retinfo.update({withunlabeleddictstr: True})
-      except:
-        pass
+  hasunlabels = False
+  if odhdf5.hasAttr(info, withunlabeleddictstr):
+    hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
+  else:
+    if img2img and isclassification:
+      groups = retinfo[exampledictstr].keys()
+      ret = list()
+      for groupnm in groups:
+        try:
+            grp = h5file[groupnm]
+            for inpnm in grp:
+              if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
+                retinfo.update({withunlabeleddictstr: True})
+        except:
+          pass
   trainingconfig = getTrainingConfig( h5file )
   retinfo.update({trainconfigdictstr: trainingconfig})
   h5file.close()
