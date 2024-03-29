@@ -377,7 +377,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
   dgbhdf5.addInfo( inpfnm, platform, outfnm, infos, model.__class__.__name__ )
   log_msg( 'Model saved.' )
 
-def getModel( modelfnm, fortrain=False, pars=None ):
+def getModel( modelfnm, fortrain=False, pars=None, **kwargs ):
   """ Get model and model information
 
   Parameters:
@@ -388,6 +388,10 @@ def getModel( modelfnm, fortrain=False, pars=None ):
   Returs:
     * tuple: (trained model and model/project info)
   """
+  if dgbhdf5.shouldUseS3(modelfnm, kwargs):
+    import dgbpy.dgb_boto as dgb_boto
+    load_function = lambda s3uri: getModel(s3uri, fortrain, pars, isHandled=True)
+    return dgb_boto.handleS3FileLoading(load_function, modelfnm)
 
   infos = getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
