@@ -12,17 +12,14 @@ import warnings
 import numpy as np
 from enum import Enum
 import dgbpy.keystr as dgbkeys
-from dgbpy.mlio import StorageType
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
-import dgbpy.dgb_boto as dgb_boto
 
 try:
   import torch
   import torch.nn as nn
   from torch.utils.data import DataLoader
   import dgbpy.torch_classes as tc
-  import dgbpy.dgb_boto as dgb_boto
   device = torch.device('cpu')
 except ModuleNotFoundError:
   device = None
@@ -90,7 +87,7 @@ class SaveType(Enum):
 
 defsavetype = SaveType.Onnx.value
 
-defstoragetype = StorageType.LOCAL.value
+defstoragetype = dgbhdf5.StorageType.LOCAL.value
 
 torch_infos = None
 
@@ -387,15 +384,7 @@ def get_model_architecture(model, model_classname, infos):
     model_instance.load_state_dict(model)
   return model_instance, dummy_input
 
-def save( model, outfnm, infos, params=torch_dict, **kwargs):
-  if params['storagetype'] == StorageType.AWS.value and not kwargs.get('isHandled'):
-    if not dgb_boto.canUseAwsS3(auth=True):
-      warnings.warn('AWS S3 is not available or boto3 not installed. Saving to local storage.')
-      params['storagetype'] = StorageType.LOCAL.value
-    else:
-      save_function = lambda modelfnm: save(model, modelfnm, infos, isHandled=True)
-      return dgb_boto.handleS3FileSaving(save_function, outfnm, params['s3_bucket'])
-  
+def save( model, outfnm, infos, params=torch_dict ):  
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
@@ -433,7 +422,6 @@ def save( model, outfnm, infos, params=torch_dict, **kwargs):
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
-
 
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR

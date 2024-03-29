@@ -9,25 +9,15 @@
 
 from datetime import datetime, timezone
 import boto3
+from botocore.exceptions import *
 import os, sys, threading
 import dgbpy.keystr as dbk
+import dgbpy.hdf5 as dgbhdf5
 import tempfile
+from pathlib import Path
 
 import odpy.hdf5 as odhdf5
-
-
-def canUseAwsS3(auth=False):
-    try:
-        import boto3
-        if auth:
-            s3 = boto3.client('s3')
-            s3.list_buckets()
-        return True
-    except Exception as e:
-        return False
-
-def isS3Uri(uri):
-    return uri.startswith('s3://')
+import odpy.common as odcommon
 
 def handleS3FileSaving(savefunc, hdf5nm, bucket_name):
     """ Handles function for saving model to S3 bucket. 
@@ -36,6 +26,7 @@ def handleS3FileSaving(savefunc, hdf5nm, bucket_name):
     hdf5nm: Output HDF5 filename or path
     bucket_name: S3 bucket name
     """
+    if dgbhdf5.isS3Uri(hdf5nm): hdf5nm = Path(hdf5nm).name
     filename = os.path.basename(hdf5nm)
     with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
         newhdf5nm = os.path.join(tmpdirname, filename) 
@@ -44,6 +35,7 @@ def handleS3FileSaving(savefunc, hdf5nm, bucket_name):
         s3_dest_folder = os.path.splitext(filename)[0] # Set s3 upload folder to model name
         s3_paths = createS3PathList(modelfiles, s3_dest_folder)
         upload_multiple_to_s3(modelfiles, s3_paths, bucket_name)
+        odcommon.log_msg('\nModel uploaded to S3 Bucket.')
 
 
 def handleS3FileLoading(loadfunc, s3Uri):
@@ -58,11 +50,11 @@ def handleS3FileLoading(loadfunc, s3Uri):
     local_paths = [os.path.basename(s3path) for s3path in s3paths]
     localhdf5path = getHdf5File(local_paths)
     s3hdf5path = getHdf5File(s3paths)
-    if os.path.exists(localhdf5path) and checkLocalS3FileValidity(localhdf5path, s3hdf5path):
+    if os.path.exists(localhdf5path) and checkLocalS3FileValidity(localhdf5path, s3hdf5path, bucket_name):
         return loadfunc(localhdf5path)
     
     download_multiple_from_s3(local_paths, bucket_name, s3paths)
-    AddValidityDateTimeToHDF5(localhdf5path, s3hdf5path, bucket_name)
+    AddS3InfoToHDF5(localhdf5path, s3hdf5path, bucket_name)
     return loadfunc(localhdf5path)
 
 
@@ -75,10 +67,14 @@ def getFilesInS3Folder(bucket_name, s3_folder):
     Returns:
     List of files in the S3 folder
     """
-    s3 = boto3.client('s3')
-    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_folder)
-    files = [obj['Key'] for obj in response['Contents']]
-    return files
+    try:
+        s3 = boto3.client('s3')
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_folder)
+        files = [obj['Key'] for obj in response['Contents']]
+        return files
+    except Exception as e:
+        odcommon.log_msg(f'Unable to access s3 metadata: {str(e)}')
+        raise e
 
 
 def parseS3Uri(s3Uri):
@@ -89,8 +85,8 @@ def parseS3Uri(s3Uri):
     Returns:
     Tuple of bucket name and path
     """
-    if not isS3Uri(s3Uri):
-        raise ValueError("Invalid S3 URI")
+    if not dgbhdf5.isS3Uri(s3Uri):
+        raise ValueError('Invalid S3 URI')
     s3Uri = s3Uri.replace('s3://', '')
     bucket_name, s3_path = s3Uri.split('/', 1)
     return bucket_name, s3_path
@@ -107,16 +103,23 @@ def checkLocalS3FileValidity(localhdf5, s3hdf5path, bucket_name):
     """
 
     h5file = odhdf5.openFile(localhdf5, 'r')
-    last_modified = odhdf5.getAttr(h5file, "s3_LastModified_Timestamp")
-    date_created = odhdf5.getAttr(h5file, "DateCreated")
+    if not odhdf5.hasAttr(h5file, 'S3_LastModified') or not odhdf5.hasAttr(h5file, 'DateCreated'):
+        return False
+    
+    last_modified = odhdf5.getAttr(h5file, 'S3_LastModified')
+    date_created_str = odhdf5.getAttr(h5file, 'DateCreated')
     h5file.close()
 
-    now = datetime.now(timezone.utc)
-    if date_created and (now - date_created).total_seconds() > 600:
-        return True
+    if date_created_str:
+        date_created = datetime.strptime(date_created_str, '%Y-%m-%dT%H:%M:%S%z')
+        now = datetime.now(timezone.utc)
+        if (now - date_created).total_seconds() > 600:
+            return True
     
     new_s3_last_modified = getS3ObjectLastModifiedDateTime(bucket_name, s3hdf5path)
-    if new_s3_last_modified and new_s3_last_modified > last_modified:
+    if last_modified:
+        last_modified = datetime.strptime(last_modified, '%Y-%m-%dT%H:%M:%S%z')
+    if new_s3_last_modified and new_s3_last_modified >= last_modified:
         return True
     
     return False
@@ -136,19 +139,26 @@ def getS3ObjectLastModifiedDateTime(bucket_name, s3_path):
     return response['LastModified']
 
 
-def AddValidityDateTimeToHDF5(localhdfpath, s3hdfpath, bucket_name):
-    """ Add validity datetime to the HDF5 file
+def AddS3InfoToHDF5(localhdfpath, s3hdfpath, bucket_name):
+    """ Add validity datetime and model path to the HDF5 file
     Parameters:
     localhdfpath: Local HDF5 file path
     s3hdfpath: S3 HDF5 file path
     bucket_name: S3 bucket names
     """
     last_modified = getS3ObjectLastModifiedDateTime(bucket_name, s3hdfpath).isoformat()
-    date_created = datetime.now(timezone.utc).isoformat()
+    date_created = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     h5file = odhdf5.openFile(localhdfpath, 'a')
-    odhdf5.setAttr(h5file, "s3_LastModified_Timestamp", last_modified )
-    odhdf5.setAttr(h5file, "DateCreated", date_created )
+    odhdf5.setAttr(h5file, 'S3_LastModified', last_modified )
+    odhdf5.setAttr(h5file, 'DateCreated', date_created )
+
+    if 'model' in h5file:
+        modelgrp = h5file['model']
+        if odhdf5.hasAttr(modelgrp, 'path'):
+            modelfnm = os.path.basename(odhdf5.getText(modelgrp, 'path'))
+            modelpth = os.path.join(os.path.dirname(localhdfpath), modelfnm)
+            odhdf5.setAttr(modelgrp, 'path', modelpth)
     h5file.close()
 
 
@@ -186,7 +196,7 @@ def createS3PathList(files, destinationfolder):
     Returns:
     List of path in s3 to upload files.
     """
-    return [os.path.join(destinationfolder, os.path.basename(f)) for f in files]
+    return [os.path.join(destinationfolder, os.path.basename(f)).replace('\\', '/') for f in files]
 
 
 def get_s3_object_size(s3, bucket_name, s3_path):
@@ -194,7 +204,7 @@ def get_s3_object_size(s3, bucket_name, s3_path):
         size = s3.head_object(Bucket=bucket_name, Key=s3_path)['ContentLength']
         return size
     except Exception as e:
-        print("Error fetching file size from S3")
+        print('Error downloading file from S3')
         raise e
 
 
@@ -206,7 +216,7 @@ def upload_to_s3(local_path, s3_path, bucket_name):
         progress.set_current_file()
         s3.upload_file(local_path, bucket_name, s3_path, Callback=progress)
     except Exception as e:
-        print("Error uploading file to S3")
+        print('Error uploading file to S3')
         raise e
 
 
@@ -219,7 +229,7 @@ def upload_multiple_to_s3(local_paths, s3_paths, bucket_name):
             progress.set_current_file()
             s3.upload_file(local_path,  bucket_name, s3_path, Callback=progress)
     except Exception as e:
-        print("Error uploading file to S3")
+        print('Error uploading file to S3')
         raise e
 
 
@@ -231,7 +241,7 @@ def download_from_s3(local_path, bucket_name, s3_path):
         progress.set_current_file()
         s3.download_file(bucket_name, s3_path, local_path, Callback=progress)
     except Exception as e:
-        print("Error downloading file from S3")
+        print('Error downloading file from S3')
         raise e
 
 
@@ -241,10 +251,10 @@ def download_multiple_from_s3(local_paths, bucket_name, s3_paths):
         total_size = sum([get_s3_object_size(s3, bucket_name, s3_path) for s3_path in s3_paths])
         progress = S3Progress(local_paths, total_size=total_size, download=True)
         for local_path, s3_path in zip(local_paths, s3_paths):
-            progress.set_ifile()
+            progress.set_current_file()
             s3.download_file(bucket_name, s3_path, local_path, Callback=progress)
     except Exception as e:
-        print("Error downloading file from S3")
+        print('Error downloading file from S3')
         raise e
 
 
@@ -273,7 +283,7 @@ class S3Progress:
         self.current_file_index = 0
         self.lock = threading.Lock()
         self.num_files = len(self.filenames)
-        self.process_name = "Downloading" if download else "Uploading"
+        self.process_repr = ['Downloading', 'from'] if download else ['Uploading', 'to']
 
     def __call__(self, bytes_amount):
         """
@@ -299,6 +309,6 @@ class S3Progress:
 
         :param percentage: The current progress percentage
         """
-        sys.stdout.write(f"\r{self.process_name} model to/from S3: {percentage:.2f}% ({self.current_file_index}/{self.num_files})")
+        sys.stdout.write(f'\r{self.process_repr[0]} model {self.process_repr[1]} S3: {percentage:.2f}% ({self.current_file_index}/{self.num_files})')
         sys.stdout.flush()
         
