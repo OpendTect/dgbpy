@@ -245,10 +245,19 @@ def hasboto3(auth=False):
 def isS3Uri(uri):
     return uri.startswith('s3://')
 
-def shouldUseS3(modelfnm, params=None, relaxed=True, kwargs=None):   
+def shouldUseS3(modelfnm, params=None, relaxed=False, kwargs=None):   
+  """
+  Check if the model file should be stored or retrieved from S3.
+  :param modelfnm: The model file name.
+  :param params: The parameters dictionary.
+  :param relaxed: If True, the function will not raise an exception if the model file is not an S3 URI.
+  :param kwargs: The keyword arguments dictionary.
+  """
   if not hasboto3(not relaxed):
     return
-  if not isS3Uri(modelfnm) and params and params.get('storagetype') != StorageType.AWS.value:
+  if not isS3Uri(modelfnm) and not relaxed:
+    return
+  if params and params.get('storagetype') != StorageType.AWS.value:
     return
   if kwargs and kwargs.get('isHandled'):
     return

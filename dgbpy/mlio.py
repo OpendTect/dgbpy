@@ -9,9 +9,7 @@
 #
 
 import os
-import warnings
 import numpy as np
-from enum import Enum
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -346,12 +344,8 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
 
   if dgbhdf5.shouldUseS3(outfnm, params, relaxed=True, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
-    if not dgbhdf5.hasboto3(auth=True):
-      warnings.warn('AWS S3 is not available or boto3 not installed. Saving to local storage.')
-      params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
-    else:
-      save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
-      return dgb_boto.handleS3FileSaving(save_function, outfnm, params['s3_bucket'])
+    save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
+    return dgb_boto.handleS3FileSaving(save_function, outfnm, params)
 
   from odpy.common import log_msg
   if not outfnm.endswith('.h5'):
@@ -388,7 +382,7 @@ def getModel( modelfnm, fortrain=False, pars=None, **kwargs ):
   Returs:
     * tuple: (trained model and model/project info)
   """
-  if dgbhdf5.shouldUseS3(modelfnm, kwargs):
+  if dgbhdf5.shouldUseS3(modelfnm, params=None, relaxed=False, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
     load_function = lambda s3uri: getModel(s3uri, fortrain, pars, isHandled=True)
     return dgb_boto.handleS3FileLoading(load_function, modelfnm)

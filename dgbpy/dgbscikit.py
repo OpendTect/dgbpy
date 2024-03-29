@@ -114,7 +114,6 @@ defstoragetype = dgbhdf5.StorageType.LOCAL.value
 
 scikit_dict = {
   'storagetype': defstoragetype,
-  's3_bucket': None,
   'savetype': defsavetype,
   'scaler': None,
 }

@@ -8,6 +8,7 @@
 #  This module sets up the boto3 client for AWS S3 operations.
 
 from datetime import datetime, timezone
+import warnings
 import boto3
 from botocore.exceptions import *
 import os, sys, threading
@@ -19,15 +20,43 @@ from pathlib import Path
 import odpy.hdf5 as odhdf5
 import odpy.common as odcommon
 
-def handleS3FileSaving(savefunc, hdf5nm, bucket_name):
+
+class InvalidS3Exception(Exception):
+    pass
+
+def parseS3Uri(s3Uri):
+    """ Parse s3 uri to get bucket name and path
+    Parameters:
+    s3Uri: S3 URI
+
+    Returns:
+    Tuple of bucket name and path
+    """
+    if not dgbhdf5.isS3Uri(s3Uri):
+        raise InvalidS3Exception('Invalid S3 URI')
+    if not dgbhdf5.hasboto3(auth=True):
+        raise InvalidS3Exception('AWS S3 is not available or boto3 not installed.')
+    
+    s3Uri = s3Uri.replace('s3://', '')
+    bucket_name, s3_path = s3Uri.split('/', 1)
+    filename = Path(s3Uri).name
+    return bucket_name, s3_path, filename
+
+def handleS3FileSaving(savefunc, s3Uri, params):
     """ Handles function for saving model to S3 bucket. 
     Parameters:
     savefunc: function to save model to a file(s)
     hdf5nm: Output HDF5 filename or path
     bucket_name: S3 bucket name
     """
-    if dgbhdf5.isS3Uri(hdf5nm): hdf5nm = Path(hdf5nm).name
-    filename = os.path.basename(hdf5nm)
+    s3Uri = cleanS3Uri(s3Uri)
+    try:
+        bucket_name, _, filename = parseS3Uri(s3Uri)
+    except InvalidS3Exception:
+        params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
+        warnings.warn('[Warning] AWS S3 is not available or boto3 not installed. Saving to local storage.')
+        return savefunc(s3Uri)
+      
     with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
         newhdf5nm = os.path.join(tmpdirname, filename) 
         if savefunc: savefunc(newhdf5nm) # Save model to tempdir
@@ -37,6 +66,7 @@ def handleS3FileSaving(savefunc, hdf5nm, bucket_name):
         upload_multiple_to_s3(modelfiles, s3_paths, bucket_name)
         odcommon.log_msg('\nModel uploaded to S3 Bucket.')
 
+
 def handleS3FileLoading(loadfunc, s3Uri):
     """ Handles function for loading model from S3 bucket. 
     Parameters:
@@ -44,18 +74,37 @@ def handleS3FileLoading(loadfunc, s3Uri):
     hdf5nm: Model HDF5 filepath
     bucket_name: S3 bucket name
     """
-    bucket_name, s3folder = parseS3Uri(s3Uri)
+    s3Uri = cleanS3Uri(s3Uri)
+    bucket_name, _, filename = parseS3Uri(s3Uri)
+    s3folder = os.path.splitext(filename)[0]
     s3paths = getFilesInS3Folder(bucket_name, s3folder)
     local_paths = [os.path.basename(s3path) for s3path in s3paths]
+    local_paths = [os.path.join(getLocalDownloadPath(), f) for f in local_paths]
     localhdf5path = getHdf5File(local_paths)
     s3hdf5path = getHdf5File(s3paths)
     if os.path.exists(localhdf5path) and checkLocalS3FileValidity(localhdf5path, s3hdf5path, bucket_name):
+        odcommon.log_msg('Loading up-to-date model from local storage.')
         return loadfunc(localhdf5path)
-    
+
     download_multiple_from_s3(local_paths, bucket_name, s3paths)
     AddS3InfoToHDF5(localhdf5path, s3hdf5path, bucket_name)
     return loadfunc(localhdf5path)
         
+
+def cleanS3Uri(s3Uri):
+    if not s3Uri.endswith('.h5'):
+        return s3Uri+'.h5'
+    return s3Uri
+
+def getLocalDownloadPath():
+    """ Get local download path for S3 file
+    Returns:
+    Local download path
+    """
+    try:
+        return os.path.join(odcommon.get_data_dir(), 'Proc')
+    except Exception as e:
+        return os.getcwd()
 
 def getFilenamesFromPath(path):
     """Get all the files in a path 
@@ -104,23 +153,8 @@ def getFilesInS3Folder(bucket_name, s3_folder):
         files = [obj['Key'] for obj in response['Contents']]
         return files
     except Exception as e:
-        odcommon.log_msg(f'Unable to access s3 metadata: {str(e)}')
+        odcommon.log_msg(f'Unable to access s3 data: {str(e)}')
         raise e
-
-
-def parseS3Uri(s3Uri):
-    """ Parse s3 uri to get bucket name and path
-    Parameters:
-    s3Uri: S3 URI
-
-    Returns:
-    Tuple of bucket name and path
-    """
-    if not dgbhdf5.isS3Uri(s3Uri):
-        raise ValueError('Invalid S3 URI')
-    s3Uri = s3Uri.replace('s3://', '')
-    bucket_name, s3_path = s3Uri.split('/', 1)
-    return bucket_name, s3_path
 
 
 def checkLocalS3FileValidity(localhdf5, s3hdf5path, bucket_name):

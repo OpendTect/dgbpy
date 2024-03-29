@@ -81,7 +81,6 @@ keras_dict = {
   'nbfold': 5,
   'savetype': defsavetype,
   'storagetype': defstoragetype,
-  's3_bucket': None,
   'type': None,
   'prefercpu': None,
   'transform': default_transforms,

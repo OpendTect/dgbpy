@@ -106,7 +106,6 @@ torch_dict = {
     'prefercpu': None,
     'savetype': defsavetype,
     'storagetype': defstoragetype,
-    's3_bucket': None,
     'scale': dgbkeys.globalstdtypestr,
     'transform':default_transforms,
     'withtensorboard': withtensorboard,
