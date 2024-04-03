@@ -206,19 +206,19 @@ def checkLocalS3FileValidity(localhdf5, s3hdf5path, bucket_name):
     date_created_str = odhdf5.getAttr(h5file, 'DateCreated')
     h5file.close()
 
+    new_s3_last_modified = getS3ObjectLastModifiedDateTime(bucket_name, s3hdf5path)
+    if last_modified:
+        last_modified = datetime.strptime(last_modified, '%Y-%m-%dT%H:%M:%S%z')
+    if new_s3_last_modified and new_s3_last_modified != last_modified:
+        return False
+
     if date_created_str:
         date_created = datetime.strptime(date_created_str, '%Y-%m-%dT%H:%M:%S%z')
         now = datetime.now(timezone.utc)
         if (now - date_created).total_seconds() > 600:
-            return True
+            return False
     
-    new_s3_last_modified = getS3ObjectLastModifiedDateTime(bucket_name, s3hdf5path)
-    if last_modified:
-        last_modified = datetime.strptime(last_modified, '%Y-%m-%dT%H:%M:%S%z')
-    if new_s3_last_modified and new_s3_last_modified >= last_modified:
-        return True
-    
-    return False
+    return True
 
     
 def getS3ObjectLastModifiedDateTime(bucket_name, s3_path):
