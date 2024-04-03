@@ -253,6 +253,8 @@ def shouldUseS3(modelfnm, params=None, relaxed=False, kwargs=None):
   :param relaxed: If True, the function will not raise an exception if the model file is not an S3 URI.
   :param kwargs: The keyword arguments dictionary.
   """
+  if isS3Uri(modelfnm) and params and params.get('storagetype') != StorageType.AWS.value:
+    params['storagetype'] = StorageType.AWS.value
   if not hasboto3(not relaxed):
     return
   if not isS3Uri(modelfnm) and not relaxed:
