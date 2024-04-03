@@ -20,9 +20,38 @@ from pathlib import Path
 import odpy.hdf5 as odhdf5
 import odpy.common as odcommon
 
+import time
+import functools
 
 class InvalidS3Exception(Exception):
     pass
+
+def retry(exceptions=Exception, tries=3, delay=1, backoff=2):
+    """
+    A retry decorator with exponential backoff.
+
+    Parameters:
+        exceptions: The exception or a tuple of exceptions to check.
+        tries: Number of times to try (not retry) before giving up.
+        delay: Initial delay between retries in seconds.
+        backoff: Multiplier applied to delay at each retry.
+    """
+    def decorator_retry(func):
+        @functools.wraps(func)
+        def wrapper_retry(*args, **kwargs):
+            _tries, _delay = tries, delay
+            while _tries > 1:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    time.sleep(_delay)
+                    _tries -= 1
+                    _delay *= backoff
+                    print(f"Retrying {func.__name__}. Exception -  {e}, {tries - _tries + 1}/{tries} attempts...")
+            return func(*args, **kwargs) 
+        return wrapper_retry
+    return decorator_retry
+
 
 def parseS3Uri(s3Uri):
     """ Parse s3 uri to get bucket name and path
@@ -42,6 +71,7 @@ def parseS3Uri(s3Uri):
     filename = Path(s3Uri).name
     return bucket_name, s3_path, filename
 
+@retry(tries=3, delay=2, backoff=2)
 def handleS3FileSaving(savefunc, s3Uri, params):
     """ Handles function for saving model to S3 bucket. 
     Parameters:
@@ -67,6 +97,7 @@ def handleS3FileSaving(savefunc, s3Uri, params):
         odcommon.log_msg('\nModel uploaded to S3 Bucket.')
 
 
+@retry(tries=3, delay=2, backoff=2)
 def handleS3FileLoading(loadfunc, s3Uri):
     """ Handles function for loading model from S3 bucket. 
     Parameters:
