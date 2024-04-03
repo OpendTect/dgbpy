@@ -33,7 +33,7 @@ def parseS3Uri(s3Uri):
     Tuple of bucket name and path
     """
     if not dgbhdf5.isS3Uri(s3Uri):
-        raise InvalidS3Exception('Invalid S3 URI')
+        raise InvalidS3Exception('Invalid S3 URI. Must be in the format s3://bucketname/path/to/file.')
     if not dgbhdf5.hasboto3(auth=True):
         raise InvalidS3Exception('AWS S3 is not available or boto3 not installed.')
     
@@ -52,9 +52,9 @@ def handleS3FileSaving(savefunc, s3Uri, params):
     s3Uri = cleanS3Uri(s3Uri)
     try:
         bucket_name, _, filename = parseS3Uri(s3Uri)
-    except InvalidS3Exception:
+    except InvalidS3Exception as e:
         params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
-        warnings.warn('[Warning] AWS S3 is not available or boto3 not installed. Saving to local storage.')
+        warnings.warn(str(e) + ' Saving model to local storage.')
         return savefunc(s3Uri)
       
     with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
