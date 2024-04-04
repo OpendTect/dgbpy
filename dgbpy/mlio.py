@@ -342,7 +342,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
     * params (dict): parameters to be used when saving the model
   """
 
-  if dgbhdf5.shouldUseS3(outfnm, params, relaxed=True, kwargs=kwargs):
+  if dgbhdf5.shouldUseS3(outfnm, params, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
     save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
     return dgb_boto.handleS3FileSaving(save_function, outfnm, params)
@@ -382,7 +382,7 @@ def getModel( modelfnm, fortrain=False, pars=None, **kwargs ):
   Returs:
     * tuple: (trained model and model/project info)
   """
-  if dgbhdf5.shouldUseS3(modelfnm, params=None, relaxed=False, kwargs=kwargs):
+  if dgbhdf5.shouldUseS3(modelfnm, params=None, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
     load_function = lambda s3uri: getModel(s3uri, fortrain, pars, isHandled=True)
     return dgb_boto.handleS3FileLoading(load_function, modelfnm)

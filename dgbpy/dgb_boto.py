@@ -48,6 +48,8 @@ def retry(exceptions=Exception, tries=3, delay=1, backoff=2):
                     _tries -= 1
                     _delay *= backoff
                     print(f"Retrying {func.__name__}. Exception -  {e}, {tries - _tries + 1}/{tries} attempts...")
+            if kwargs.get("uselocal"): 
+                return func(*args, uselocal=True, **kwargs) 
             return func(*args, **kwargs) 
         return wrapper_retry
     return decorator_retry
@@ -63,8 +65,8 @@ def parseS3Uri(s3Uri):
     """
     if not dgbhdf5.isS3Uri(s3Uri):
         raise InvalidS3Exception('Invalid S3 URI. Must be in the format s3://bucketname/path/to/file.')
-    if not dgbhdf5.hasboto3(auth=True):
-        raise InvalidS3Exception('AWS S3 is not available or boto3 not installed.')
+    if not dgbhdf5.hasboto3(auth=False):
+        raise Exception('AWS S3 is not accessible or boto3 not installed.')
     
     s3Uri = s3Uri.replace('s3://', '')
     bucket_name, s3_path = s3Uri.split('/', 1)
@@ -72,29 +74,36 @@ def parseS3Uri(s3Uri):
     return bucket_name, s3_path, filename
 
 @retry(tries=3, delay=2, backoff=2)
-def handleS3FileSaving(savefunc, s3Uri, params):
+def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False):
     """ Handles function for saving model to S3 bucket. 
     Parameters:
     savefunc: function to save model to a file(s)
-    hdf5nm: Output HDF5 filename or path
-    bucket_name: S3 bucket name
+    s3Uri: S3 URI
+    params: Parameters for saving model
+    uselocal: Fallback to local storage
     """
     s3Uri = cleanS3Uri(s3Uri)
     try:
+        if uselocal and params['storagetype'] == dgbhdf5.StorageType.AWS.value:
+            raise InvalidS3Exception()
+        
         bucket_name, _, filename = parseS3Uri(s3Uri)
+        
+        with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
+            newhdf5nm = os.path.join(tmpdirname, filename) 
+            if savefunc: savefunc(newhdf5nm) # Save model to tempdir
+            modelfiles = getFilenamesFromPath(tmpdirname)
+            s3_dest_folder = os.path.splitext(filename)[0] # Set s3 upload folder to model name
+            s3_paths = createS3PathList(modelfiles, s3_dest_folder)
+            upload_multiple_to_s3(modelfiles, s3_paths, bucket_name)
+            odcommon.log_msg('\nModel uploaded to S3 Bucket.')
+
     except InvalidS3Exception as e:
+        if not dgbhdf5.isS3Uri(s3Uri): filename = os.path.basename(s3Uri)
+        else: bucket_name, _, filename = parseS3Uri(s3Uri)
         params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
         warnings.warn(str(e) + ' Saving model to local storage.')
-        return savefunc(s3Uri)
-      
-    with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
-        newhdf5nm = os.path.join(tmpdirname, filename) 
-        if savefunc: savefunc(newhdf5nm) # Save model to tempdir
-        modelfiles = getFilenamesFromPath(tmpdirname)
-        s3_dest_folder = os.path.splitext(filename)[0] # Set s3 upload folder to model name
-        s3_paths = createS3PathList(modelfiles, s3_dest_folder)
-        upload_multiple_to_s3(modelfiles, s3_paths, bucket_name)
-        odcommon.log_msg('\nModel uploaded to S3 Bucket.')
+        return savefunc(filename)
 
 
 @retry(tries=3, delay=2, backoff=2)
