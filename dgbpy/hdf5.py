@@ -10,6 +10,7 @@ import random
 import json
 import ast
 from datetime import datetime
+from enum import Enum
 
 import numpy as np
 from pathlib import PurePosixPath, PureWindowsPath, Path
@@ -188,7 +189,10 @@ def applyArrTranspose( info ):
     return info[arrayorderdictstr] == reversestr
   return info == reversestr
 
-from enum import Enum
+class StorageType(Enum):
+  AWS = "AWS"
+  LOCAL = "LOCAL"
+
 class Scaler(Enum):
   GlobalScaler = globalstdtypestr
   StandardScaler = localstdtypestr
@@ -228,6 +232,39 @@ def isMultiLabelRegression( info ):
     return False
   return getNrOutputs( info ) > 1
 
+def hasboto3(auth=False):
+    try:
+        import boto3
+        if auth:
+            s3 = boto3.client('s3')
+            s3.list_buckets()
+        return True
+    except Exception as e:
+        return False
+
+def isS3Uri(uri):
+    return uri.startswith('s3://')
+
+def shouldUseS3(modelfnm, params=None, relaxed=True, kwargs=None):   
+  """
+  Check if the model file should be stored or retrieved from S3.
+  :param modelfnm: The model file name.
+  :param params: The parameters dictionary.
+  :param relaxed: If True, the function will not raise an exception if the model file is not an S3 URI.
+  :param kwargs: The keyword arguments dictionary.
+  """
+  if isS3Uri(modelfnm) and params and params.get('storagetype') != StorageType.AWS.value:
+    params['storagetype'] = StorageType.AWS.value
+  if not hasboto3(not relaxed):
+    return
+  if not isS3Uri(modelfnm) and not params:
+    return
+  if params and params.get('storagetype') != StorageType.AWS.value:
+    return
+  if kwargs and kwargs.get('isHandled'):
+    return
+  return True
+  
 def rm_tree(pth):
     pth = Path(pth)
     for child in pth.glob('*'):
