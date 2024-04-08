@@ -530,7 +530,7 @@ def resume( model, infos):
     model = model.convert_to_torch()
   return model
 
-def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities ):
+def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, batch_size = torch_dict['batch'] ):
   attribs = dgbhdf5.getNrAttribs(info)
   model_shape = get_model_shape(info[dgbkeys.inpshapedictstr], attribs, True)
   ndims = getModelDims(model_shape, 'channels_first')
@@ -544,7 +544,6 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       drop_last = True
   else:
     drop_last = False
-  batch_size = torch_dict['batch']
   dataloader = getDataLoader(sampleDataset, batch_size=batch_size, drop_last=drop_last)
   if isclassification:
     nroutputs = len(info[dgbkeys.classesdictstr])
