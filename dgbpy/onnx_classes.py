@@ -36,6 +36,15 @@ def __output_names( onnx_model ):
 def __num_outputs( onnx_model ):
     return len(onnx_model.graph.output)
 
+def __dataformat( onnx_model ):
+    inpshape = [int(shp) if shp else 0 for shp in __input_shape(onnx_model)]
+    dataformat = 'channels_first'
+    if inpshape[1]!=0 and inpshape[-1]!=0:
+        dataformat = 'channels_first' if inpshape[1]<inpshape[-1] else 'channels_last'
+    elif inpshape[1]==0 or inpshape[-1]==0:
+        dataformat = 'channels_first' if inpshape[1]!=0 else 'channels_last'
+    return dataformat
+
 def model_info( modelfnm ):
     model = onnx.load( modelfnm )
     mi = model_info_dict( model )
@@ -49,7 +58,7 @@ def model_info_dict( onnx_model ):
     minfo['num_outputs'] = __num_outputs(onnx_model)
     minfo['input_names'] = __input_names(onnx_model)
     minfo['output_names'] = __output_names(onnx_model)
-    minfo['input_shape'] = [shp if shp else 1 for shp in __input_shape(onnx_model)]
-    minfo['output_shape'] = [shp if shp else 1 for shp in __output_shape(onnx_model)]
-    minfo['data_format'] = 'channels_first' if minfo['input_shape'][1]<minfo['input_shape'][-1] else 'channels_last'
+    minfo['input_shape'] = [shp if shp else 0 for shp in __input_shape(onnx_model)]
+    minfo['output_shape'] = [shp if shp else 0 for shp in __output_shape(onnx_model)]
+    minfo['data_format'] = __dataformat(onnx_model)
     return minfo
