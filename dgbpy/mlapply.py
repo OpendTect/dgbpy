@@ -505,7 +505,7 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
     res = dgbscikit.apply( model, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
   elif platform == dgbkeys.torchplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    res = dgbtorch.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities )
+    res = dgbtorch.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, batchsize )
   elif platform == dgbkeys.numpyvalstr:
     res = numpyApply( samples )
   elif platform == dgbkeys.onnxplfnm:
