@@ -65,7 +65,7 @@ class OnnxModel():
         self.onnx_mdl = onnx.load(self.name)
         self.metadata = {x.key: x.value for x in self.onnx_mdl.metadata_props}
         inshape = self.input_shape()
-        self.data_format = self.metadata.get('data_format', 'channels_first' if inshape[1]<inshape[-1] else 'channels_last')
+        self.data_format = self.metadata.get('data_format', oc.dataformat(self.onnx_mdl))
         providers = [dgbkeys.onnxcudastr, dgbkeys.onnxcpustr]
         try:
             self.session = rt.InferenceSession(self.name, providers=providers)
@@ -117,7 +117,7 @@ class OnnxModel():
 
     def input_shape(self):
         inp = self.onnx_mdl.graph.input
-        return [dim.dim_value if dim.dim_value else 1 for dim in inp[0].type.tensor_type.shape.dim]
+        return [dim.dim_value if dim.dim_value else 0 for dim in inp[0].type.tensor_type.shape.dim]
 
     def num_inputs(self):
         return len(self.onnx_mdl.graph.input)
