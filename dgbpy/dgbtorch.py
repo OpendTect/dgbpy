@@ -572,7 +572,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       if not (doprobabilities or withconfidence):
         if nroutputs > 2:
             predictions = np.argmax(predictions, axis=1)
-        if nroutputs == 2:
+        if nroutputs == 2 and samples.shape != predictions.shape:
             predictions = predictions[:, -1]
         ret.update({dgbkeys.preddictstr: predictions})
         
@@ -616,6 +616,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   return ret
 
 def getDataLoader(dataset, batch_size=torch_dict['batch'], drop_last=False):
+    if not batch_size: batch_size = torch_dict['batch']
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False, drop_last=drop_last)
     return dataloader
 
