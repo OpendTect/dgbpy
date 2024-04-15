@@ -19,6 +19,22 @@ from tensorflow.keras.utils import Sequence, to_categorical
 import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 
+def dataformat( model ):
+  layers = model.layers
+  for i in range(len(layers)):
+    laycfg = layers[i].get_config()
+    if 'data_format' in laycfg:
+      return laycfg['data_format']
+
+    inshape = [shp if shp else 0 for shp in model.input_shape]
+    dataformat = 'channels_last'
+    if inshape[1]!=0 and inshape[-1]!=0:
+      dataformat = 'channels_first' if inshape[1]<inshape[-1] else 'channels_last'
+    elif inshape[1]==0 or inshape[-1]==0:
+      dataformat = 'channels_first' if inshape[1]!=0 else 'channels_last'
+
+  return dataformat
+
 def model_info( modelfnm ):
   from dgbpy.dgbkeras import load
   warnings.filterwarnings('ignore')
@@ -28,17 +44,13 @@ def model_info( modelfnm ):
 
 def model_info_dict( keras_model ):
   minfo = {}
-  minfo['num_inputs'] = len(keras_model.input_names)
-  minfo['num_outputs'] = len(keras_model.output_names)
   minfo['input_names'] = keras_model.input_names
   minfo['output_names'] = keras_model.output_names
-  minfo['input_shape'] = [shp if shp else 1 for shp in keras_model.input_shape]
-  minfo['output_shape'] = [shp if shp else 1 for shp in keras_model.output_shape]
-  minfo['data_format'] = 'channels_last'
-  for layer in keras_model.layers:
-    if hasattr(layer, 'data_format'):
-      minfo['data_format'] = layer.data_format
-      break
+  minfo['input_shape'] = [shp if shp else 0 for shp in keras_model.input_shape]
+  minfo['output_shape'] = [shp if shp else 0 for shp in keras_model.output_shape]
+  minfo['data_format'] = dataformat(keras_model)
+  minfo['num_inputs'] = minfo['input_shape'][-1] if minfo['data_format']=='channels_last' else minfo['input_shape'][1]
+  minfo['num_outputs'] = minfo['output_shape'][-1] if minfo['data_format']=='channels_last' else minfo['output_shape'][1]
   return minfo
 
 class TrainingSequence(Sequence):

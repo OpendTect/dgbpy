@@ -170,12 +170,7 @@ def adaptive_schedule(initial_lrate=keras_dict['learnrate'],
 
 
 def get_data_format( model ):
-  layers = model.layers
-  for i in range(len(layers)):
-    laycfg = layers[i].get_config()
-    if 'data_format' in laycfg:
-      return laycfg['data_format']
-  return None
+  return kc.dataformat(model)
 
 def hasValidCubeletShape( cubeszs ):
   if None in cubeszs:
@@ -678,7 +673,7 @@ def transfer( model ):
 
   return model
 
-def apply( model, samples, isclassification, withpred, withprobs, \
+def apply( model, info, samples, isclassification, withpred, withprobs, \
            withconfidence, doprobabilities, dictinpshape=None, scaler=None, batch_size=None ):
   if batch_size == None:
     batch_size = keras_dict['batch']
@@ -689,9 +684,13 @@ def apply( model, samples, isclassification, withpred, withprobs, \
 
   inp_shape = samples.shape
   data_format = 'channels_first'
-  samples = adaptToModel( model, samples, dictinpshape, sample_data_format=data_format )
+  img2img = dgbhdf5.isImg2Img(info)
+  if img2img:
+    samples = adaptToModel_img2img(model, samples, sample_data_format=data_format)
+  else:
+    samples = adaptToModel( model, samples, dictinpshape, sample_data_format=data_format )
+
   model_outshape = model.output_shape
-  img2img = len(model_outshape) > 2
   if len(model_outshape) <= 2:
     nroutputs = model_outshape[-1]
   else:
@@ -711,7 +710,10 @@ def apply( model, samples, isclassification, withpred, withprobs, \
           pass
     if not isinstance( res, np.ndarray ):
       res = model.predict( x=samples, batch_size=batch_size )
-      res = adaptFromModel(model,res,inp_shape,ret_data_format=data_format)
+      if img2img:
+        res = adaptFromModel_img2img(model, res, sample_data_format=data_format)
+      else:
+        res = adaptFromModel(model,res,inp_shape,ret_data_format=data_format)
       ret.update({dgbkeys.preddictstr: res})
 
   if isclassification and (doprobabilities or withconfidence or withpred):
@@ -740,6 +742,44 @@ def apply( model, samples, isclassification, withpred, withprobs, \
       sortedprobs = allprobs[indices.ravel(),np.tile(np.arange(x),N)].reshape(N,x)
       res = np.diff(sortedprobs,axis=0)
       ret.update({dgbkeys.confdictstr: res})
+
+  return ret
+
+def adaptToModel_img2img(model, samples, sample_data_format='channels_first'):
+  model_data_format = get_data_format( model )
+  if model_data_format == 'channels_first':
+    if sample_data_format == 'channels_last':
+      ret = np.moveaxis(samples, -1, 1)
+      if ret.shape[2]==1:
+        ret = np.squeeze(ret, 2)
+    elif samples.shape[2]==1:
+      ret = np.squeeze(samples, 2)
+    else:
+      return samples
+  else:
+    if sample_data_format == 'channels_first':
+      ret = np.moveaxis(samples, 1, -1)
+      if ret.shape[1]==1:
+        ret = np.squeeze(ret, 1)
+    elif samples.shape[1]==1:
+      ret = np.squeeze(samples, 1)
+    else:
+      return samples
+
+  return ret
+
+def adaptFromModel_img2img(model, samples, sample_data_format='channels_first'):
+  model_data_format = get_data_format( model )
+  if model_data_format == 'channels_first':
+    if sample_data_format == 'channels_last':
+      ret = np.moveaxis(samples, 1, -1)
+    else:
+      return samples
+  else:
+    if sample_data_format == 'channels_last':
+      return samples
+    else:
+      ret = np.moveaxis(samples, -1, 1)
 
   return ret
 
