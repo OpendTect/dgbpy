@@ -68,13 +68,13 @@ def plot_slices(plotparams):
             if t == 1:
                 data = yslices
                 titlepart1 = ' Target '
-            maxval = max(np.amax(data[0]), np.amax(data[1]))
-            minval = min(np.amin(data[0]), np.amin(data[1]))
             for i in range(dim):
                 nr = slicepos[i]
                 titlepart2 = titlelist[i]
                 title = titlepart1 + titlepart2 + str(nr+1)
                 flipped = np.flipud(data[i])
+                maxval = max(np.amax(flipped[0]), np.amax(flipped[1]))
+                minval = min(np.amin(flipped[0]), np.amin(flipped[1]))
                 if i==0:
                     flipped = np.fliplr(flipped)
 
