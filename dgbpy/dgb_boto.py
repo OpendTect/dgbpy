@@ -14,6 +14,7 @@ from botocore.exceptions import *
 import os, sys, threading
 import dgbpy.keystr as dbk
 import dgbpy.hdf5 as dgbhdf5
+from odpy.common import restore_stdout, redirect_stdout
 import tempfile
 from pathlib import Path
 
@@ -74,7 +75,7 @@ def parseS3Uri(s3Uri):
     return bucket_name, s3_path, filename
 
 @retry(tries=3, delay=2, backoff=2)
-def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False):
+def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False, isbokeh=False):
     """ Handles function for saving model to S3 bucket. 
     Parameters:
     savefunc: function to save model to a file(s)
@@ -95,14 +96,19 @@ def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False):
             modelfiles = getFilenamesFromPath(tmpdirname)
             s3_dest_folder = os.path.splitext(filename)[0] # Set s3 upload folder to model name
             s3_paths = createS3PathList(modelfiles, s3_dest_folder)
-            upload_multiple_to_s3(modelfiles, s3_paths, bucket_name)
-            odcommon.log_msg('\nModel uploaded to S3 Bucket.')
+            upload_multiple_to_s3(modelfiles, s3_paths, bucket_name, isbokeh=isbokeh)
+            if isbokeh:
+                restore_stdout()
+                print(f'{dbk.s3bokehmsg}Model uploaded to S3 Bucket')
+                redirect_stdout()
+            else: odcommon.log_msg('\nModel uploaded to S3 Bucket')
 
     except InvalidS3Exception as e:
         if not dgbhdf5.isS3Uri(s3Uri): filename = os.path.basename(s3Uri)
         else: bucket_name, _, filename = parseS3Uri(s3Uri)
         params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
         warnings.warn(str(e) + ' Saving model to local storage.')
+        if isbokeh: print(f'{dbk.s3bokehmsg}Error occured: Saving model to local storage.')
         return savefunc(filename)
 
 
@@ -293,11 +299,11 @@ def upload_to_s3(local_path, s3_path, bucket_name):
         raise e
 
 
-def upload_multiple_to_s3(local_paths, s3_paths, bucket_name):
+def upload_multiple_to_s3(local_paths, s3_paths, bucket_name, isbokeh=False):
     try:
         s3 = boto3.client('s3')
         total_size = sum([os.path.getsize(local_path) for local_path in local_paths])
-        progress = S3Progress(local_paths, total_size=total_size, upload=True)
+        progress = S3Progress(local_paths, total_size=total_size, upload=True, isbokeh=isbokeh)
         for local_path,s3_path in zip(local_paths, s3_paths):
             progress.set_current_file()
             s3.upload_file(local_path,  bucket_name, s3_path, Callback=progress)
@@ -335,7 +341,7 @@ class S3Progress:
     A class to monitor and display the progress of file upload/download to/from AWS S3.
     """
 
-    def __init__(self, filenames, total_size=0, download=False, upload=False):
+    def __init__(self, filenames, total_size=0, download=False, upload=False, isbokeh=False):
         """
         Initializes the S3Progress object.
 
@@ -355,6 +361,7 @@ class S3Progress:
         self.current_file_index = 0
         self.lock = threading.Lock()
         self.num_files = len(self.filenames)
+        self.bokeh_msg = dbk.s3bokehmsg if isbokeh else ''
         self.process_repr = ['Downloading', 'from'] if download else ['Uploading', 'to']
 
     def __call__(self, bytes_amount):
@@ -381,6 +388,6 @@ class S3Progress:
 
         :param percentage: The current progress percentage
         """
-        sys.stdout.write(f'\r{self.process_repr[0]} model {self.process_repr[1]} S3: {percentage:.2f}% ({self.current_file_index}/{self.num_files})')
-        sys.stdout.flush()
-        
+        restore_stdout()  
+        print(f'\r{self.bokeh_msg}{self.process_repr[0]} model {self.process_repr[1]} S3: {percentage:.2f}% ({self.current_file_index}/{self.num_files})', flush=True)
+        redirect_stdout()

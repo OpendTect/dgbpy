@@ -1,6 +1,4 @@
 import logging
-from bokeh.io import curdoc
-
 import dgbpy.keystr as dbk
 from dgbpy import uisklearn, uitorch, uikeras
 

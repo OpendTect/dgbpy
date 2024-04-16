@@ -54,7 +54,8 @@ def training_app(doc):
       'epoch': 0, 'n_epochs': 0, 'doCrossVal': False,
       'iter': 0, 'n_iters': 0, 'after_iter':False,
       'state': ProgState.Ready, 'Ended': False,
-      'status': TrainStatus.Default
+      'status': TrainStatus.Default,
+      'storage_msg':None
       }
 
   info = get_default_info()
@@ -465,12 +466,18 @@ def training_app(doc):
       progress['doCrossVal'] = True #allow crossval ui from training platform callbacks
     progress['ifold'], progress['n_folds'] = uibokeh.getProgMsg(msgstr)
 
+  def setS3StorageProgress(msgstr):
+    maxsplit = 1
+    msgstr = msgstr.split(dgbkeys.s3bokehmsg, maxsplit)
+    progress['storage_msg'] = msgstr[maxsplit]
+
   def resetProgressDict():
     progress['iter'], progress['n_iters'] = 0, 0
     progress['epoch'] = 0
     progress['state'], progress['Ended'] = ProgState.Ready, False
     progress['after_iter'] = False
     resetFold = False if progress['doCrossVal'] else True
+    progress['storage_msg'] = None
     if progress['_foldTemp'] == progress['n_folds'] and progress['doCrossVal']:
       resetFold, progress['doCrossVal'] = True, False
       progress['ifold'], progress['n_folds'], progress['_foldTemp'] = 0, 0, 0
@@ -481,7 +488,9 @@ def training_app(doc):
     else:
       progress['state'] = ProgState.Running
 
-  def progressMonitorCB(chunk, fold, parent, child, status):
+  def progressMonitorCB(chunk, fold, parent, child, status, storagemsg):
+    if progress['storage_msg']:
+      storagemsg.set_progress(progress['storage_msg'])
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
@@ -545,7 +554,7 @@ def training_app(doc):
 
   args = curdoc().session_context.server_context.application_context.application.metadata
   service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
-                        '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete,
+                        '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete, '--S3--': setS3StorageProgress,
                         '--Fold_bkh ': setFold, '--Training Success':setTrainSuccess, '--Training Fail':setTrainFailure}
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())

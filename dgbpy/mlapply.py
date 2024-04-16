@@ -12,7 +12,7 @@ from enum import Enum
 import numpy as np
 import os
 
-from odpy.common import log_msg, get_log_file
+from odpy.common import log_msg, get_log_file, restore_stdout, redirect_stdout
 from odpy.oscommand import printProcessTime
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -418,11 +418,17 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     infos = trainingdp[dgbkeys.infodictstr]
     modtype = dgbmlio.getModelType( infos )
     outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
-    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm, params )
-    return (outfnm != None and os.path.isfile( outfnm ))
+    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm, params, isbokeh=bokeh )
+    result = (outfnm != None and os.path.isfile( outfnm ))
+    dgbmlio.announceTrainingSuccess()
+    return result
   except Exception as e:
     dgbmlio.announceTrainingFailure()
     raise e
+  finally:
+    restore_stdout()
+    print('--Training Ended--', flush=True)
+    redirect_stdout()
 
 def reformat( res, applyinfo ):
   """ For reformatting prediction result type(s)

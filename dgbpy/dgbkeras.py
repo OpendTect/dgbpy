@@ -361,10 +361,6 @@ class BokehProgressCallback(Callback):
       restore_stdout()
       print('--Epoch '+str(epoch+1)+' of '+str(self.params['epochs'])+' --', flush=True)
       restore_stdout()
-      if epoch+1 == self.params['epochs']:
-        restore_stdout()
-        print('--Training Ended--', flush=True)
-        restore_stdout()
 
     def on_train_batch_begin(self, batch, logs=None):
       if batch == 0:
@@ -519,7 +515,6 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
           if ifold != 1: # start transfer from second fold
             transfer(model)
           model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,validation_data=validate_datagen,callbacks=callbacks)
-      announceTrainingSuccess()
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')

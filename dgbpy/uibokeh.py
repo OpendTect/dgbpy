@@ -64,12 +64,29 @@ class TrainStatusUI():
     else:
       self.message.visible = False
 
+class S3ProgressUI():
+  """Show model upload progress as text in the UI"""
+  def __init__(self):
+    self.message = Div(text="", visible=False)
+
+  def set_progress(self, msgstr):
+    self.message.visible = True
+    self.message.text = msgstr
+    self.message.styles = { "background-color": "white", "font-size": "12px", "padding": "5px 10px" }
+
+  def visible(self, bool):
+    if bool:
+      self.message.visible = True
+    else:
+      self.message.visible = False
+
 def getPbar():
   chunk = Div(text = "Chunk 0 of 0")
   fold = Div(text = "Fold 0 of 0")
   parent = ProgBar(setProgValue(type=parent_bar))
   child = ProgBar(setProgValue(type=child_bar), parent=parent)
   status = TrainStatusUI()
+  s3progress = S3ProgressUI()
 
   chunk.visible = False
   fold.visible = False
@@ -77,13 +94,14 @@ def getPbar():
   child.visible(False)
   #status.visible(False)
 
-  progressfld = column(chunk, fold, parent.panel(), child.panel(), status.message)
+  progressfld = column(chunk, fold, parent.panel(), child.panel(), s3progress.message, status.message)
   ret = {
     'chunk': chunk,
     dgbkeys.foldstr: fold,
     parent_bar: parent,
     child_bar : child,  
-    'status' : status
+    'status' : status,
+    'storage_msg': s3progress
     }
   return ret, progressfld
 
@@ -100,7 +118,8 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
     'progress': progress,
     timerkey: None
   }
-  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], progress[child_bar], progress['status'])
+  progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], 
+                        progress[child_bar], progress['status'], progress['storage_msg'])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
                               timer_fn=timercb) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
@@ -153,6 +172,7 @@ def setRunning( runbutbar, start_fn=None):
 
 def startBarUpdateCB(cb, ret):
   ret['status'].visible(False)
+  ret['storage_msg'].visible(False)
   if 'cb' not in ret:
     ret['cb'] = curdoc().add_periodic_callback(cb, 100)
 
