@@ -236,7 +236,7 @@ def test_apply(data):
         withconfidence = conditions[dbk.confdictstr][step]
         current_conditions = getCurrentConditions(conditions, step)
         
-        pred = dgbkeras.apply(model, samples, isclassification, withpred=withpred, withprobs=withprobs, withconfidence=withconfidence, doprobabilities=doprobabilities, \
+        pred = dgbkeras.apply(model, info, samples, isclassification, withpred=withpred, withprobs=withprobs, withconfidence=withconfidence, doprobabilities=doprobabilities, \
                                 dictinpshape=dictinpshape, scaler=None, batch_size=4)
         
         check_apply_res(current_conditions, pred)
