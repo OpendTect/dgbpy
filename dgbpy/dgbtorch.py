@@ -302,7 +302,7 @@ def load( modelfnm, infos = False ):
     modelname = odhdf5.getText( h5file, 'type' )
     modelgrp = h5file['model']
     savetypestr = odhdf5.getText( modelgrp, 'type' )
-    savetype = SaveType( savetypestr )
+    savetype = None if savetypestr=='torch' else SaveType( savetypestr )
 
     if savetype == SaveType.Onnx:
       modfnm = odhdf5.getText( modelgrp, 'path' )
@@ -322,6 +322,11 @@ def load( modelfnm, infos = False ):
       modeldata = modelgrp['object']
       model_state_dict = pickle.loads( modeldata[:].tostring() )
       model, _ = get_model_architecture( model_state_dict, modelname, infos )
+    else:
+      modfnm = odhdf5.getText( modelgrp, 'path' )
+      modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      model = torch.load( str(modfnm) )
+
   except Exception as e:
     raise e
   finally:
@@ -559,7 +564,7 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
   predictions = []
   model.eval()
   for input in dataloader:
-      with torch.no_grad():
+    with torch.no_grad():
         input = input.to(device)
         out = model(input)
         pred = out.detach().cpu().numpy()
