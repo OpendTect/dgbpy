@@ -117,6 +117,7 @@ versionstr = 'Version'
 
 # Others
 ndimstr = 'ndims'
+s3bokehmsg = '--S3--:'
 
 def getNames( lst, uinames=True ):
   idx = -1

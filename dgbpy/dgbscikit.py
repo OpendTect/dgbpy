@@ -700,7 +700,6 @@ def train(model, trainingdp):
     restore_stdout()
     printProcessTime( 'Training with scikit-learn', False, print_fn=log_msg, withprocline=False )
     assessQuality( model, trainingdp )
-    announceTrainingSuccess()
     return ret
   except Exception as e:
     announceTrainingFailure()
