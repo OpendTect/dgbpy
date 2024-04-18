@@ -382,11 +382,6 @@ class BokehProgressCallback(Callback):
         print('--Epoch '+str(self.epoch+1)+' of '+str(self.epochs)+' --', flush=True)
         odcommon.restore_stdout()
 
-    def after_fit(self):
-        odcommon.restore_stdout()
-        print('--Training Ended--', flush=True)
-        odcommon.restore_stdout()
-
     def before_fit_chunk(self):
         odcommon.restore_stdout()
         print('--Chunk_Number '+str(self.ichunk+1)+' of '+str(self.nbchunks)+' --', flush=True)
@@ -667,7 +662,6 @@ class Trainer:
                 raise 
             
             self.savemodel = self.fit_one_chunk(ichunk, cbs)
-        announceTrainingSuccess()
         return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
