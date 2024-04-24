@@ -415,10 +415,15 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       log_msg( 'Unsupported machine learning platform' )
       raise AttributeError
 
-    infos = trainingdp[dgbkeys.infodictstr]
-    modtype = dgbmlio.getModelType( infos )
+    out_infos = trainingdp[dgbkeys.infodictstr]
+    if dgbkeys.flexshpdictstr in infos:
+      out_infos.update({
+        dgbkeys.flexshpdictstr: infos[dgbkeys.flexshpdictstr]
+      })
+
+    modtype = dgbmlio.getModelType( out_infos )
     outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
-    dgbmlio.saveModel( model, examplefilenm, platform, infos, outfnm, params )
+    dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params )
     return (outfnm != None and os.path.isfile( outfnm ))
   except Exception as e:
     dgbmlio.announceTrainingFailure()
