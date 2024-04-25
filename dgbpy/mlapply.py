@@ -416,7 +416,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       raise AttributeError
 
     out_infos = trainingdp[dgbkeys.infodictstr]
-    if dgbkeys.flexshpdictstr in infos:
+    if infos and dgbkeys.flexshpdictstr in infos:
       out_infos.update({
         dgbkeys.flexshpdictstr: infos[dgbkeys.flexshpdictstr]
       })
