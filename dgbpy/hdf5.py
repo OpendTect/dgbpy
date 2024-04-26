@@ -684,6 +684,11 @@ def getInfo( filenm, quick ):
     filedictstr: filenm,
   }
 
+  if odhdf5.hasAttr(info, flexshpstr):
+    retinfo.update({
+      flexshpdictstr: odhdf5.getIArray(info, flexshpstr)
+    })
+
   if not quick:
     retinfo.update({
       datasetdictstr: getCubeLetNames( retinfo )
@@ -831,6 +836,9 @@ def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
       odhdf5.setArray( dsinfoout, outshapestr, infos[outshapedictstr] )
     else:
       odhdf5.setArray( dsinfoout, outshapestr, getNrOutputs(infos) )
+
+  if flexshpdictstr in infos:
+    odhdf5.setArray( dsinfoout, flexshpstr, infos[flexshpdictstr] )
 
   outps = getOutputs( infos )
   odhdf5.setAttr( dsinfoout, modeloutstr+'Size', str(len(outps)) )
