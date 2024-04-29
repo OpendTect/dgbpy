@@ -278,7 +278,7 @@ def test_train_multiple_chunks(data):
     assert isinstance(trained_model, nn.Module), 'model should be a nn.Module'
 
 @pytest.mark.parametrize('data', all_data(), ids=test_data_ids)
-def test_apply(data):
+def test_apply_result_dictionary(data):
     pars = default_pars()
     info = data[dbk.infodictstr]
     model = get_default_model(info)
@@ -290,7 +290,6 @@ def test_apply(data):
     trained_model = load_model(f'{filename}.h5')	
 
     samples = data[dbk.xvaliddictstr]
-    print(samples.shape)
     isclassification = info[dbk.classdictstr]
     if isclassification and dgbhdf5.isLogInput(info):
         withprobs = list(range(dgbhdf5.getNrClasses(info)))
@@ -315,5 +314,114 @@ def test_apply(data):
 
     os.remove(f'{filename}.h5')
     os.remove(f'{filename}.onnx')
+
+
+@pytest.mark.parametrize('data',
+                         (get_2d_seismic_imgtoimg_data(nrclasses=5), get_3d_seismic_imgtoimg_data(nrclasses=5)),
+                         ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_apply_result____img2img_classes_gt_2_should_do_argmax(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbtorch.train(modelarch, data, pars, silent=True)
+
+    filename = 'torchmodel'
+    save_model(model, f'{filename}.h5', info, pars)
+    trained_model = load_model(f'{filename}.h5')
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbtorch.apply(trained_model, info, samples, None, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+    prediction = prediction[:, np.newaxis,...] # Add attribute dimension
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    # Ensure the prediction uses argmax to get the class number
+    assert np.issubdtype(prediction.dtype, np.integer), 'prediction should be an integer array representing each class'
+
+    os.remove(f'{filename}.h5')
+    os.remove(f'{filename}.onnx')
+
+@pytest.mark.parametrize('data',
+                         (get_2d_seismic_imgtoimg_data(nrclasses=2), get_3d_seismic_imgtoimg_data(nrclasses=2)),
+                         ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_apply_result____img2img_classes_is_2_should_return_continous_values(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbtorch.train(modelarch, data, pars, silent=True)
+
+    filename = 'torchmodel'
+    save_model(model, f'{filename}.h5', info, pars)
+    trained_model = load_model(f'{filename}.h5')
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbtorch.apply(trained_model, info, samples, None, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+    prediction = prediction[:, np.newaxis,...] # Add attribute dimension
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    # Ensure the prediction is a continuous value
+    assert np.issubdtype(prediction.dtype, np.floating), 'prediction should be a continuous value'
+
+    os.remove(f'{filename}.h5')
+    os.remove(f'{filename}.onnx')
+
+
+@pytest.mark.parametrize('data',
+                         (get_2d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2), get_3d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2)),
+                         ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_train_and_apply_multiple_in_attributes(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbtorch.train(modelarch, data, pars, silent=True)
+
+    print(data[dbk.xtraindictstr].shape, data[dbk.ytraindictstr].shape, data[dbk.xvaliddictstr].shape, data[dbk.yvaliddictstr].shape)
+
+    filename = 'torchmodel'
+    save_model(model, f'{filename}.h5', info, pars)
+    trained_model = load_model(f'{filename}.h5')
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbtorch.apply(trained_model, info, samples, None, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+    prediction = prediction[:, np.newaxis,...]
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
 
 

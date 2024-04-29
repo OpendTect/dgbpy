@@ -13,7 +13,7 @@ def get_default_examples():
         "Dummy": {
             "target": "Dummy",
             "id": 0,
-            "collection": {"Dummy": {"dbkey": "100050.1", "id": 0}},
+            dbk.collectdictstr: {"Dummy": {"dbkey": "100050.1", "id": 0}},
         }
     }
     return retinfo
@@ -23,7 +23,7 @@ def get_default_multiple_examples():
         "Dummy": {
             "target": "Dummy",
             "id": 0,
-            "collection": {
+            dbk.collectdictstr: {
                 "Dummy":  {"dbkey": "100050.1", "id": 0},
                 "Dummy2": {"dbkey": "100050.2", "id": 1},
                 "Dummy3": {"dbkey": "100050.3", "id": 3},
@@ -33,10 +33,16 @@ def get_default_multiple_examples():
     return retinfo
 
 
-def get_default_input():
+def get_default_input(nr_inattr=1, nr_outattr=1):
+    if nr_inattr < 1: nr_inattr = 1
+
+    dummy_collection = {}
+    for nattr in range(nr_inattr):
+        dummy_collection[f"Dummy{nattr}"] = {"id": {nattr}}
+    
     retinfo = {
         "Dummy": {
-            "collection": {"Dummy": {"id": 0}},
+            dbk.collectdictstr: dummy_collection,
             "id": 0,
             "scale": dgbscikit.StandardScaler(),
         }
@@ -46,7 +52,7 @@ def get_default_input():
 def get_default_multiple_input():
     retinfo = {
         "Dummy": {
-            "collection": {
+            dbk.collectdictstr: {
                 "Dummy":  {"id": 0},
                 "Dummy2": {"id": 1},
                 "Dummy3": {"id": 2},
@@ -78,7 +84,7 @@ def getCurrentConditions(conditions, step):
         current_conditions[key] = value[step]
     return current_conditions
 
-def get_default_info():
+def get_default_info(nr_inattr=1, nroutattr=1):
     retinfo = {
         dbk.learntypedictstr: dbk.loglogtypestr,
         dbk.segmentdictstr: False,
@@ -152,25 +158,28 @@ def prepare_data_arr(info, split, nrpts):
         nclasses = None
     return nclasses, (x_train_shape, y_train_shape), (x_valid_shape, y_valid_shape)
 
-def get_seismic_imgtoimg_info():
-    default = get_default_info()
+def get_seismic_imgtoimg_info(nrclasses=5, nr_inattr=1, nr_outattr=1, inpshape=[1,8,8], outshape=[1,8,8]):
+    if len(inpshape) != 3 or len(outshape) != 3:
+        raise ValueError("Input shape and output shape must be 3D")
+    
+    default = get_default_info(nr_inattr, nr_outattr)
     default[dbk.learntypedictstr] = dbk.seisimgtoimgtypestr
-    default[dbk.inpshapedictstr] = [1, 8, 8]
-    default[dbk.outshapedictstr] = [1, 8, 8]
+    default[dbk.inpshapedictstr] = inpshape
+    default[dbk.outshapedictstr] = outshape
     default[dbk.classdictstr] = True
     default[dbk.interpoldictstr] = True
-    default[dbk.classesdictstr] = [1, 2, 3, 4, 5]
+    default[dbk.classesdictstr] = list(range(1, nrclasses+1))
     return default
 
 
-def get_seismic_classification_info():
-    default = get_default_info()
+def get_seismic_classification_info(nrclasses=5, nr_inattr=1, nr_outattr=1, ):
+    default = get_default_info(nr_inattr, nr_outattr)
     default[dbk.learntypedictstr] = dbk.seisclasstypestr
     default[dbk.inpshapedictstr] = [1, 8, 8]
     default[dbk.outshapedictstr] = 1
     default[dbk.classdictstr] = True
     default[dbk.interpoldictstr] = True
-    default[dbk.classesdictstr] = [1, 2, 3, 4, 5]
+    default[dbk.classesdictstr] = list(range(1, nrclasses+1))
     return default
 
 
@@ -185,7 +194,7 @@ def get_loglog_info():
     default[dbk.interpoldictstr] = False
     return default
 
-def loglog_classification_info():
+def loglog_classification_info(nrclasses=3):
     default = get_default_info()
     default[dbk.exampledictstr] = get_default_multiple_examples()
     default[dbk.inputdictstr] = get_default_multiple_input()
@@ -194,11 +203,11 @@ def loglog_classification_info():
     default[dbk.outshapedictstr] = 1
     default[dbk.classdictstr] = True
     default[dbk.interpoldictstr] = False
-    default[dbk.classesdictstr] = [1, 2, 3]
+    default[dbk.classesdictstr] = list(range(1, nrclasses+1))
     return default
 
-def get_2d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
-    info = get_seismic_imgtoimg_info()
+def get_2d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0, nrclasses=5, nr_inattr=1, nr_outattr=1, inpshape=[1,8,8], outshape=[1,8,8]):
+    info = get_seismic_imgtoimg_info(nrclasses, nr_inattr, nr_outattr, inpshape, outshape)
     dataset = get_dataset_dict(nrpts)
     info[dbk.datasetdictstr] = dataset
     info = prepare_dataset_dict(info, nbchunks, seed, split, nbfolds)
@@ -220,8 +229,8 @@ def get_2d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfold
         dbk.infodictstr: info,
     }
 
-def get_3d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0):
-    info = get_seismic_imgtoimg_info()
+def get_3d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfolds=0, nrclasses=5, nr_inattr=1, nr_outattr=1, inpshape = [1,8,8], outshape=[1,8,8]):
+    info = get_seismic_imgtoimg_info(nrclasses, nr_inattr, nr_outattr, inpshape, outshape)
     info[dbk.inpshapedictstr] = [8, 8, 8]
     info[dbk.outshapedictstr] = [8, 8, 8]
     dataset = get_dataset_dict(nrpts)
@@ -246,8 +255,8 @@ def get_3d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfold
     }
 
 
-def get_seismic_classification_data(nrpts=40, nbchunks=1, seed=0, split=0.2, nbfolds=0):
-    info = get_seismic_classification_info()
+def get_seismic_classification_data(nrpts=40, nbchunks=1, seed=0, split=0.2, nbfolds=0, nrclasses=5, nr_inattr=1, nr_outattr=1):
+    info = get_seismic_classification_info(nrclasses, nr_inattr, nr_outattr)
     dataset = get_dataset_dict(nrpts)
     info[dbk.datasetdictstr] = dataset
     info = prepare_dataset_dict(info, nbchunks, seed, split, nbfolds)
