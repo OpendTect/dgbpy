@@ -392,7 +392,7 @@ def test_apply_result____img2img_classes_is_2_should_return_continous_values(dat
 
 
 @pytest.mark.parametrize('data',
-                         (get_2d_seismic_imgtoimg_data(nrclasses=5, multiattr=True), get_3d_seismic_imgtoimg_data(nrclasses=5, multiattr=True)),
+                         (get_2d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2), get_3d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2)),
                          ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
 def test_train_and_apply_multiple_in_attributes(data):
     pars = default_pars()
@@ -425,12 +425,3 @@ def test_train_and_apply_multiple_in_attributes(data):
     assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
 
 
-image_to_image_data = lambda **kwargs: (
-    get_2d_seismic_imgtoimg_data(**kwargs),
-    get_3d_seismic_imgtoimg_data(**kwargs),
-)
-image_to_image_data_data_ids = ['2D_seismic_imgtoimg', '3D_seismic_imgto_img']
-
-@pytest.mark.parametrize('data', image_to_image_data(), ids=image_to_image_data_data_ids)
-def test_apply_variable_size_model(data):
-    pass
