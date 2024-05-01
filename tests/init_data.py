@@ -8,37 +8,28 @@ import dgbpy.mlio as dgbmlio
 import numpy as np
 
 
-def get_default_examples():
+def get_default_examples(nr_inattr=1, nr_outattr=1):
+    dummy_collection = get_n_collection(nr_inattr)
+    targets = [f"Dummy{colnm}" for colnm in range(1, nr_outattr+1)]
     retinfo = {
         "Dummy": {
-            "target": "Dummy",
+            "target": targets,
             "id": 0,
-            dbk.collectdictstr: {"Dummy": {"dbkey": "100050.1", "id": 0}},
+            dbk.collectdictstr: dummy_collection
         }
     }
     return retinfo
 
-def get_default_multiple_examples():
-    retinfo = {
-        "Dummy": {
-            "target": "Dummy",
-            "id": 0,
-            dbk.collectdictstr: {
-                "Dummy":  {"dbkey": "100050.1", "id": 0},
-                "Dummy2": {"dbkey": "100050.2", "id": 1},
-                "Dummy3": {"dbkey": "100050.3", "id": 3},
-            },
-        }
-    }
+def get_n_collection(count = 1):
+    retinfo = {}
+    for n in range(count):
+        retinfo[f"Dummy{n}"] = {"id": f"{n}"}
     return retinfo
 
-
-def get_default_input(nr_inattr=1, nr_outattr=1):
+def get_default_input(nr_inattr=1):
     if nr_inattr < 1: nr_inattr = 1
 
-    dummy_collection = {}
-    for nattr in range(nr_inattr):
-        dummy_collection[f"Dummy{nattr}"] = {"id": {nattr}}
+    dummy_collection = get_n_collection(nr_inattr)
     
     retinfo = {
         "Dummy": {
@@ -92,25 +83,28 @@ def get_default_info(nr_inattr=1, nroutattr=1):
         dbk.outshapedictstr: 1,
         dbk.classdictstr: False,
         dbk.interpoldictstr: False,
-        dbk.exampledictstr: get_default_examples(),
-        dbk.inputdictstr: get_default_input(),
+        dbk.exampledictstr: get_default_examples(nr_inattr, nroutattr),
+        dbk.inputdictstr: get_default_input(nr_inattr),
         dbk.filedictstr: "dummy",
         dbk.estimatedsizedictstr: 1,
     }
     return retinfo
+
+def getNrDims(inpshape):
+    if isinstance(inpshape, int):
+        if inpshape > 1:
+            return 1
+        else:
+            return inpshape
+    else:
+        return len(inpshape) - inpshape.count(1)
 
 def getExampleInfos(infodict):
     learntype = infodict[dbk.learntypedictstr]
     classification = infodict[dbk.classdictstr]
     inpshape = infodict[dbk.inpshapedictstr]
     nrattribs = dgbhdf5.getNrAttribs(infodict)
-    if isinstance(inpshape, int):
-        if inpshape > 1:
-            nrdims = 1
-        else:
-            nrdims = inpshape
-    else:
-        nrdims = len(inpshape)
+    nrdims = getNrDims(inpshape)
     return (learntype, classification, nrdims, nrattribs)
 
 
@@ -141,15 +135,18 @@ def prepare_data_arr(info, split, nrpts):
     inp_shape = info[dbk.inpshapedictstr]
     out_shape = info[dbk.outshapedictstr]
 
-    nrattribs = dgbhdf5.getNrAttribs(info)
-    x_train_shape = dgbhdf5.get_np_shape(inp_shape, nrpts, nrattribs)
+    inpnrattribs = dgbhdf5.getNrAttribs(info)
+    outnrattribs = dgbhdf5.getNrOutputs(info)
+    x_train_shape = dgbhdf5.get_np_shape(inp_shape, nrpts, inpnrattribs)
     if isinstance(out_shape, int):
         out_shape = (out_shape,)
-    if 1 not in out_shape:
-        out_shape = (1, *out_shape)
+        if 1 not in out_shape:
+            out_shape = (1, *out_shape)
+    else:
+        out_shape = (outnrattribs, *out_shape)
     y_train_shape = (nrpts, *out_shape)
 
-    x_valid_shape = dgbhdf5.get_np_shape(inp_shape, valid_nrpts, nrattribs)
+    x_valid_shape = dgbhdf5.get_np_shape(inp_shape, valid_nrpts, inpnrattribs)
     y_valid_shape = (valid_nrpts, *out_shape)
 
     if dgbhdf5.isClassification(info):
@@ -166,7 +163,7 @@ def get_seismic_imgtoimg_info(nrclasses=5, nr_inattr=1, nr_outattr=1, inpshape=[
     default[dbk.learntypedictstr] = dbk.seisimgtoimgtypestr
     default[dbk.inpshapedictstr] = inpshape
     default[dbk.outshapedictstr] = outshape
-    default[dbk.classdictstr] = True
+    default[dbk.classdictstr] = nrclasses > 1
     default[dbk.interpoldictstr] = True
     default[dbk.classesdictstr] = list(range(1, nrclasses+1))
     return default
@@ -185,7 +182,7 @@ def get_seismic_classification_info(nrclasses=5, nr_inattr=1, nr_outattr=1, ):
 
 def get_loglog_info():
     default = get_default_info()
-    default[dbk.exampledictstr] = get_default_multiple_examples()
+    default[dbk.exampledictstr] = get_default_examples(nr_inattr=3, nr_outattr=1)
     default[dbk.inputdictstr] = get_default_multiple_input()
     default[dbk.learntypedictstr] = dbk.loglogtypestr
     default[dbk.inpshapedictstr] = 1
@@ -196,12 +193,12 @@ def get_loglog_info():
 
 def loglog_classification_info(nrclasses=3):
     default = get_default_info()
-    default[dbk.exampledictstr] = get_default_multiple_examples()
+    default[dbk.exampledictstr] = get_default_examples(nr_inattr=3, nr_outattr=1)
     default[dbk.inputdictstr] = get_default_multiple_input()
     default[dbk.learntypedictstr] = dbk.loglogtypestr
     default[dbk.inpshapedictstr] = 1
     default[dbk.outshapedictstr] = 1
-    default[dbk.classdictstr] = True
+    default[dbk.classdictstr] = nrclasses > 1
     default[dbk.interpoldictstr] = False
     default[dbk.classesdictstr] = list(range(1, nrclasses+1))
     return default
@@ -217,9 +214,14 @@ def get_2d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfold
     x_valid_shape, y_valid_shape = valid_shape
 
     x_train = np.random.random(x_train_shape).astype(np.single)
-    y_train = np.random.randint(nclasses, size=y_train_shape).astype(np.single)
     x_validate = np.random.random(x_valid_shape).astype(np.single)
-    y_validate = np.random.randint(nclasses, size=y_valid_shape).astype(np.single)
+
+    if nrclasses > 1:
+        y_train = np.random.randint(nclasses, size=y_train_shape).astype(np.single)
+        y_validate = np.random.randint(nclasses, size=y_valid_shape).astype(np.single)
+    else:
+        y_train = np.random.random(y_train_shape).astype(np.single)
+        y_validate = np.random.random(y_valid_shape).astype(np.single)
 
     return {
         dbk.xtraindictstr: x_train,
@@ -242,9 +244,14 @@ def get_3d_seismic_imgtoimg_data(nrpts=16, nbchunks=1, seed=0, split=0.2, nbfold
     x_valid_shape, y_valid_shape = valid_shape
 
     x_train = np.random.random(x_train_shape).astype(np.single)
-    y_train = np.random.randint(nclasses, size=y_train_shape).astype(np.single)
     x_validate = np.random.random(x_valid_shape).astype(np.single)
-    y_validate = np.random.randint(nclasses, size=y_valid_shape).astype(np.single)
+
+    if nrclasses > 1:
+        y_train = np.random.randint(nclasses, size=y_train_shape).astype(np.single)
+        y_validate = np.random.randint(nclasses, size=y_valid_shape).astype(np.single)
+    else:
+        y_train = np.random.random(y_train_shape).astype(np.single)
+        y_validate = np.random.random(y_valid_shape).astype(np.single)
 
     return {
         dbk.xtraindictstr: x_train,

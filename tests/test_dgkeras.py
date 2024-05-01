@@ -239,3 +239,188 @@ def test_apply(data):
                                 dictinpshape=dictinpshape, scaler=None, batch_size=4)
         
         check_apply_res(current_conditions, pred)
+
+@pytest.mark.parametrize('data',
+                         (get_2d_seismic_imgtoimg_data(nrclasses=5), get_3d_seismic_imgtoimg_data(nrclasses=5)),
+                         ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_apply_result____img2img_classes_gt_2_should_do_argmax(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+    filename = 'kerasmodel.h5'
+    save_model(model, filename)
+    trained_model = load_model(filename)
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbkeras.apply(trained_model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+
+    # Reshape array to fit the target shape
+    if getNrDims(info[dbk.inpshapedictstr]) < 3:
+        prediction = prediction[:, np.newaxis, ...]
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    # Ensure the prediction uses argmax to get the class number
+    assert np.issubdtype(prediction.dtype, np.integer), 'prediction should be an integer array representing each class'
+
+    os.remove(filename)
+
+@pytest.mark.parametrize('data',
+                            (get_2d_seismic_imgtoimg_data(nrclasses=2), get_3d_seismic_imgtoimg_data(nrclasses=2)),
+                            ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_apply_result____img2img_classes_is_2_should_return_continous_values(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+    filename = 'kerasmodel.h5'
+    save_model(model, filename)
+    trained_model = load_model(filename)
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbkeras.apply(trained_model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+
+    # Reshape array to fit the target shape
+    if getNrDims(info[dbk.inpshapedictstr]) < 3:
+        prediction = prediction[:, np.newaxis, ...]
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    # Ensure the prediction is a continuous value
+    assert np.issubdtype(prediction.dtype, np.floating), 'prediction should be a continuous value'
+
+    os.remove(filename)
+
+
+@pytest.mark.parametrize('data',
+                            (get_2d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2), get_3d_seismic_imgtoimg_data(nrclasses=5, nr_inattr=2)),
+                            ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+def test_train_and_apply_multiple_in_attributes(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+    filename = 'kerasmodel.h5'
+    save_model(model, filename)
+    trained_model = load_model(filename)
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbkeras.apply(trained_model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+
+    # Reshape array to fit the target shape
+    if getNrDims(info[dbk.inpshapedictstr]) < 3:
+        prediction = prediction[:, np.newaxis, ...]
+
+    # Ensure the prediction shape is the same as the target shape
+    yvalid = data[dbk.yvaliddictstr]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    os.remove(filename)
+
+
+@pytest.mark.parametrize('data',
+                            (get_2d_seismic_imgtoimg_data(nrclasses=False, nr_outattr=2), get_3d_seismic_imgtoimg_data(nrclasses=False, nr_outattr=2)),
+                            ids=['2D_seismic_imgtoimg_regression', '3D_seismic_imgto_img_regression'])
+def test_train_and_apply_multiple_out_attributes(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+    filename = 'kerasmodel.h5'
+    save_model(model, filename)
+    trained_model = load_model(filename)
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbkeras.apply(trained_model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+
+    yvalid = data[dbk.yvaliddictstr]
+    if getNrDims(info[dbk.inpshapedictstr]) < 3:
+        prediction = prediction[:, :, np.newaxis, ...]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    os.remove(filename)
+
+
+@pytest.mark.parametrize('data',
+                            (get_2d_seismic_imgtoimg_data(nrclasses=False, nr_inattr=2, nr_outattr=2),
+                                get_3d_seismic_imgtoimg_data(nrclasses=False, nr_inattr=2, nr_outattr=2)),
+                            ids=['2D_seismic_imgtoimg_regression', '3D_seismic_imgto_img_regression'])
+def test_train_and_apply_multiple_in_and_out_attributes(data):
+    pars = default_pars()
+    info = data[dbk.infodictstr]
+    model = get_default_model(info)
+    modelarch = get_model_arch(info, model, 0)
+    model = dgbkeras.train(modelarch, data, pars, silent=True)
+
+    filename = 'kerasmodel.h5'
+    save_model(model, filename)
+    trained_model = load_model(filename)
+
+    samples = data[dbk.xvaliddictstr]
+    isclassification = info[dbk.classdictstr]
+    withpred = True
+    withprobs = []
+    withconfidence = False
+    doprobabilities = len(withprobs) > 0
+
+    pred = dgbkeras.apply(trained_model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities)
+
+    assert dbk.preddictstr in pred, 'prediction should be in the output result'
+    prediction = pred[dbk.preddictstr]
+
+    yvalid = data[dbk.yvaliddictstr]
+    if getNrDims(info[dbk.inpshapedictstr]) < 3:
+        prediction = prediction[:, :, np.newaxis, ...]
+    assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
+
+    os.remove(filename)
