@@ -13,7 +13,7 @@ from keras import backend as kb
 from dgbpy.keras_classes import UserModel, DataPredType, OutputType, DimType
 
 def _to_tensor(x, dtype):
-  from keras.optimizers import tf
+  import tensorflow as tf
   x = tf.convert_to_tensor(value=x)
   if x.dtype != dtype:
     x = tf.cast(x, dtype)
@@ -31,7 +31,7 @@ def getAdamOpt( learning_rate=1e-4 ):
     return tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
 def cross_entropy_balanced(y_true, y_pred):
-  from keras.optimizers import tf
+  import tensorflow as tf
   _epsilon = _to_tensor( kb.epsilon(), y_pred.dtype )
   y_pred = tf.clip_by_value(y_pred, _epsilon, 1 - _epsilon)
   y_pred = tf.math.log(y_pred/ (1 - y_pred))
