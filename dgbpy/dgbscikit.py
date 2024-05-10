@@ -177,14 +177,14 @@ if hasScikit():
   scikit_dict.update({
     'ensemblepars': {
       'xgdt': {
-        'lr': 1,
+        'lr': 0.3,
         'maxdep': 5,
-        'est': 1
+        'est': 100
         },
       'xgrf': {
-        'lr': 1,
+        'lr': 0.3,
         'maxdep': 5,
-        'est': 1
+        'est': 100
         },
       'rf': {
         'maxdep': 50, #default: None, but we prefer less
@@ -234,14 +234,14 @@ else:
   scikit_dict.update({
   'ensemblepars': {
     'xgdt': {
-      'lr': 1,
+      'lr': 0.3,
       'maxdep': 5,
-      'est': 1
+      'est': 100
       },
     'xgrf': {
-      'lr': 1,
+      'lr': 0.3,
       'maxdep': 5,
-      'est': 1
+      'est': 100
       },
     'rf': {
       'maxdep': 50, #default: None, but we prefer less
@@ -287,29 +287,6 @@ else:
       }
     }
   })
-if hasXGBoost():
-  from xgboost import XGBRegressor, XGBRFRegressor
-  defdtregressor = XGBRegressor()
-  xgdtpars = {
-    'lr': scikit_dict['ensemblepars']['xgdt']['lr'],
-    'maxdep': scikit_dict['ensemblepars']['xgdt']['maxdep'],
-    'est': defdtregressor.n_estimators,
-  }
-  if defdtregressor.learning_rate != None:
-    xgdtpars.update({'lr': defdtregressor.learning_rate})
-  if defdtregressor.max_depth != None:
-    xgdtpars.update({'maxdep': defdtregressor.max_depth})
-  scikit_dict['ensemblepars'].update({'xgdt': xgdtpars})
-
-  defrfregressor = XGBRFRegressor()
-  xgrfpars = {
-      'lr': defrfregressor.learning_rate,
-      'maxdep': scikit_dict['ensemblepars']['xgrf']['maxdep'],
-      'est': defrfregressor.n_estimators,
-  }
-  if defrfregressor.max_depth != None:
-    xgrfpars.update({'maxdep': defrfregressor.max_depth})
-  scikit_dict['ensemblepars'].update({'xgrf': xgrfpars})
 
 
 def getClusterParsKMeans( methodname, nclust, ninit, maxiter ):
