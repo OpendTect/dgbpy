@@ -257,7 +257,17 @@ class MinMaxScaler(ScaleTransform, BaseTransform):
  
     def transform(self, arr):
         self.scaler = self.getNewMinMaxScaler(arr, maxout=255)
-        return self.scale(arr, self.scaler)        
+        return self.scale(arr, self.scaler)
+
+class RangeScaler(ScaleTransform, BaseTransform):
+    def __init__(self):
+        super().__init__()
+        from dgbpy.dgbscikit import getNewRangeScaler
+        self.getNewRangeScaler = getNewRangeScaler
+
+    def transform(self, arr):
+        self.scaler = self.getNewRangeScaler()
+        return self.scale(arr, self.scaler)
 
 
 all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
