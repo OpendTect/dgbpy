@@ -184,6 +184,11 @@ def applyMinMaxScaling( info ):
     return info[inpscalingdictstr] == minmaxtypestr
   return info == minmaxtypestr
 
+def applyRangeScaling( info ):
+  if isinstance(info,dict) and inpscalingdictstr in info:
+    return info[inpscalingdictstr] == rangestdtypestr
+  return info == rangestdtypestr
+
 def applyArrTranspose( info ):
   if isinstance(info,dict) and arrayorderdictstr in info:
     return info[arrayorderdictstr] == reversestr
