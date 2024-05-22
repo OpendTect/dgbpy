@@ -16,6 +16,7 @@ import pickle
 
 try:
   import sklearn
+  from sklearn.base import BaseEstimator, TransformerMixin
   from sklearn.preprocessing import MinMaxScaler, StandardScaler
   from sklearn.linear_model import LinearRegression, LogisticRegression
   from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
@@ -456,6 +457,13 @@ def getNewMinMaxScaler( data, minout=0, maxout=1 ):
   scaler.fit( data.reshape((np.prod(data.shape),1)) )
   return scaler
 
+def getNewRangeScaler( data, std=4 ):
+  """ Gets new scaler object for range normalization
+  """
+  scaler = RangedScaler( std )
+  scaler.fit( data )
+  return scaler
+
 def getScaler( x_train, byattrib ):
   """ Extract scaler for standardization of features.
   The scaler is such that when it is applied to the samples they get
@@ -520,6 +528,8 @@ def scale( samples, scaler ):
     shape = samples.shape
     samples = scaler.transform( samples.reshape((np.prod(shape),1)) )
     samples = samples.reshape( shape )
+  elif isinstance(scaler,RangedScaler):
+    samples = scaler.transform( samples )
   elif scaler.n_samples_seen_ == 1:
     samples = transform( samples, scaler.mean_[0], scaler.scale_[0] )
   else:
@@ -561,6 +571,75 @@ def unscale( samples, scaler ):
       samples[:,i] = transformBack( samples[:,i], mean, scale )
 
   return samples
+
+class RangedScaler(BaseEstimator, TransformerMixin):
+    """
+    Custom scaler for normalizing data.
+    """
+    def __init__(self, std=4):
+        self.std = std
+
+    def fit(self, X, y=None):
+        """
+        Compute the mean and standard deviation to be used for later scaling.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+        y : Ignored Not used, present for API consistency.
+
+        Returns
+        -------
+        self : object
+            Fitted scaler.
+        """
+        self.mean_ = np.mean(X)
+        self.scale_ = np.std(X)
+        return self
+
+    def transform(self, X, y=None):
+        """
+        Perform standardization by centering and scaling, then clip the data based on the specified range.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The data to transform based on the computed mean and standard deviation.
+
+        y : Ignored
+            Not used, present here for API consistency by convention.
+
+        Returns
+        -------
+        X_scaled : array-like of shape (n_samples, n_features)
+            The transformed data.
+        """
+        X_centered = X - self.mean_
+        std_range = self.std * self.scale_
+        X_clipped = np.clip(X_centered, -std_range, std_range)
+        return X_clipped / std_range
+
+    def fit_transform(self, X, y=None, **fit_params):
+        """
+        Fit to data, then transform it.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The data to fit, then transform.
+
+        y : Ignored
+            Not used, present here for API consistency by convention.
+
+        **fit_params : dict
+            Additional fit parameters.
+
+        Returns
+        -------
+        X_scaled : array-like of shape (n_samples, n_features)
+            The transformed data.
+        """
+        return self.fit(X, y).transform(X, y)
 
 def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']

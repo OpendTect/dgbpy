@@ -142,6 +142,8 @@ class ModelApplier:
             self.scaler_ = dgbscikit.getNewMinMaxScaler( samples )
         elif dgbhdf5.applyMinMaxScaling( self.info_ ):
             self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, maxout=255 )
+        elif dgbhdf5.applyRangeScaling( self.info_ ):
+            self.scaler_ = dgbscikit.getNewRangeScaler( samples )
         elif dgbhdf5.applyGlobalStd( self.info_ ):
             if self.scaler_ == None:
                 self.debugmsg_ = 'Missing scaler for global standardization' 
