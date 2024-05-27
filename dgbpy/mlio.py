@@ -361,7 +361,11 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
     dgbkeras.save( model, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
-    dgbscikit.save( model, outfnm )
+    if dgbscikit.isClustering(model):
+      savetype = params['savetype']
+    else:
+      savetype = dgbscikit.defsavetype
+    dgbscikit.save( model, outfnm, savetype )
   elif platform == dgbkeys.torchplfnm or platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbtorch as dgbtorch
     dgbtorch.save( model, outfnm, infos, params )

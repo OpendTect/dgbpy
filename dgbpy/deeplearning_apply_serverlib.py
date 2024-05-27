@@ -145,6 +145,7 @@ class ModelApplier:
         elif dgbhdf5.applyRangeScaling( self.info_ ):
             self.scaler_ = dgbscikit.getNewRangeScaler( samples )
         elif dgbhdf5.applyGlobalStd( self.info_ ):
+            self.scaler_ = dgbscikit.getScaler( samples, True )
             if self.scaler_ == None:
                 self.debugmsg_ = 'Missing scaler for global standardization' 
                 raise TypeError

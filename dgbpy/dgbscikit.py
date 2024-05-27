@@ -28,6 +28,7 @@ try:
   from sklearn.cluster import KMeans, MeanShift, SpectralClustering
 except ModuleNotFoundError:
   pass
+from scipy.spatial import distance
 from odpy.common import log_msg, redirect_stdout, restore_stdout
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
@@ -52,6 +53,10 @@ def isVersionAtLeast(version):
   except ModuleNotFoundError:
     return False
   return sklearn.__version__ >= version
+
+def isClustering(model):
+  if isinstance(model, SpectralClustering) or isinstance(model, MeanShift) or isinstance(model, KMeans):
+    return True
 
 def hasXGBoost():
   try:
@@ -174,6 +179,19 @@ def getDefaultNNKernel( isclass, uiname=True ):
     kernelstr = linkernel
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
+def getClusterDistances(model, samples):
+  if isClustering(model):
+    if isinstance(model, KMeans) or isinstance(model, MeanShift):
+      cluster_centers = model.cluster_centers_
+    elif isinstance(model, SpectralClustering):
+      labels = model.fit_predict(samples)
+      cluster_centers = np.array([samples[labels == i].mean(axis=0) for i in np.unique(labels)])
+    distances = np.array([[distance.euclidean(x, center) for center in cluster_centers] for x in samples])
+    min_distances = distances.min(axis=1)
+    scaler = MinMaxScaler()
+    min_distances_normalized = scaler.fit_transform(min_distances.reshape(-1, 1)).flatten()
+    return min_distances_normalized
+
 if hasScikit():
   scikit_dict.update({
     'ensemblepars': {
@@ -218,15 +236,15 @@ if hasScikit():
       },
     'clusterpars': {
       'kmeans': {
-        'n_clusters': KMeans().n_clusters,
-        'n_init': KMeans().n_init,
+        'n_clusters': 4,
+        'n_init': 10,
         'max_iter': KMeans().max_iter
         },
       'meanshift': {
         'max_iter': MeanShift().max_iter
         },
       'spectral': {
-        'n_clusters': SpectralClustering().n_clusters,
+        'n_clusters': 4,
         'n_init': SpectralClustering().n_init
         }
       }
@@ -296,7 +314,8 @@ def getClusterParsKMeans( methodname, nclust, ninit, maxiter ):
     'methodname': methodname,
     'n_clusters': nclust,
     'n_init': ninit,
-    'max_iter': maxiter
+    'max_iter': maxiter,
+    'savetype': savetypes[2]
   }
 
 
@@ -304,7 +323,8 @@ def getClusterParsMeanShift( methodname, maxiter ):
   return {
     'modelname': 'Clustering',
     'methodname': methodname,
-    'max_iter': maxiter
+    'max_iter': maxiter,
+    'savetype': savetypes[2]
   }
 
 
@@ -313,7 +333,8 @@ def getClusterParsSpectral( methodname, nclust, ninit ):
     'modelname': 'Clustering',
     'methodname': methodname,
     'n_clusters': nclust,
-    'n_init': ninit
+    'n_init': ninit,
+    'savetype': savetypes[2]
   }
 
 
@@ -645,7 +666,7 @@ def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']
   isclassification = setup[dgbhdf5.classdictstr]
   ismultilabelregression = dgbhdf5.isMultiLabelRegression(setup)
-  if ismultilabelregression and modelname != 'Random Forests':
+  if ismultilabelregression and modelname != 'Random Forests' and modelname != 'Clustering':
     log_msg('Multilabel prediction is only supported for Random Forest in Scikit')   
     return None
   try:
@@ -890,8 +911,15 @@ def apply( model, samples, scaler, isclassification, withpred, withprobs, withco
   ret = {}
   res = None
   if withpred:
-    res = np.transpose( model.predict( samples ) )
+    if isinstance(model, SpectralClustering):
+      res = np.transpose( model.fit_predict( samples ) )
+    else:
+      res = np.transpose( model.predict( samples ) )
     ret.update({dgbkeys.preddictstr: res})
+
+  if isClustering(model):
+    res = np.transpose( getClusterDistances( model, samples) )
+    ret.update({dgbkeys.macthdictstr: res})
 
   if isclassification and (doprobabilities or withconfidence):
     res = np.transpose( model.predict_proba( samples ) )
