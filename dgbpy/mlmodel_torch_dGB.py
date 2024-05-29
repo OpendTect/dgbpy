@@ -151,7 +151,7 @@ class dGB_UNetSeg_VGG19(TorchUserModel):
   def _make_model(self, model_shape, nroutputs, nrattributes):
     from dgbpy.dgbtorch import getModelDims
     ndim = getModelDims(model_shape, 'channels_first')
-    model = UNet_VGG19(model_shape=model_shape, out_channels=nroutputs, nrattribs=nrattributes)
+    model = UNet_VGG19(model_shape=model_shape, out_channels=nroutputs, nrattribs=nrattributes, predtype=self.predtype)
     return model
 
 class dGB_UNetReg_VGG19(TorchUserModel):
@@ -164,5 +164,5 @@ class dGB_UNetReg_VGG19(TorchUserModel):
   def _make_model(self, model_shape, nroutputs, nrattributes):
     from dgbpy.dgbtorch import getModelDims
     ndim = getModelDims(model_shape, 'channels_first')
-    model = UNet_VGG19(model_shape=model_shape, out_channels=nroutputs, nrattribs=nrattributes)
+    model = UNet_VGG19(model_shape=model_shape, out_channels=nroutputs, nrattribs=nrattributes, predtype=self.predtype)
     return model
