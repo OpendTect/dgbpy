@@ -1322,9 +1322,9 @@ class UNet_VGG19(nn.Module):
         conv8 = self.conv8(conv7)
 
         if self.predtype == DataPredType.Classification:
-            output = self.activation(conv8)
+            return self.activation(conv8)
 
-        return output
+        return conv8
 
 
 class TrainDatasetClass(Dataset):
