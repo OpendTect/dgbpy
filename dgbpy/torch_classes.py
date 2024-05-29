@@ -1233,7 +1233,7 @@ class UNet(nn.Module):
 
 
 class UNet_VGG19(nn.Module):
-    def __init__(self, model_shape, out_channels, nrattribs):
+    def __init__(self, model_shape, out_channels, nrattribs, predtype):
         super(UNet_VGG19, self).__init__()
 
         filtersz1 = 64
@@ -1243,6 +1243,7 @@ class UNet_VGG19(nn.Module):
         filtersz5 = 32
         filtersz6 = 16
 
+        self.predtype = predtype
         params = dict(kernel_size=3, padding=1)
 
         # Encoder
@@ -1319,9 +1320,11 @@ class UNet_VGG19(nn.Module):
         conv7 = self.relu(self.conv7_2(conv7))
 
         conv8 = self.conv8(conv7)
-        output = self.activation(conv8)
 
-        return output
+        if self.predtype == DataPredType.Classification:
+            return self.activation(conv8)
+
+        return conv8
 
 
 class TrainDatasetClass(Dataset):

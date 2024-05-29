@@ -386,7 +386,7 @@ def get_model_architecture(model, model_classname, infos):
     model_instance = UNet(out_channels=nroutputs, dim=dims, in_channels=attribs, n_blocks=1)
   elif model_classname == 'UNet_VGG19':
     from dgbpy.torch_classes import UNet_VGG19
-    model_instance = UNet_VGG19(model_shape, nroutputs, attribs)
+    model_instance = UNet_VGG19(model_shape, nroutputs, attribs, predtype)
   elif model_classname == 'GraphModule':
     model_instance = torch.jit.trace(model.cpu(), dummy_input)
   elif model_classname == 'OnnxTorchModel':
