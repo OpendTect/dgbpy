@@ -180,6 +180,28 @@ def getDefaultNNKernel( isclass, uiname=True ):
   return dgbkeys.getNameFromList( kerneltypes, kernelstr, uiname )
 
 def getClusterDistances(model, samples):
+  """
+    Calculate the minimum normalized Euclidean distance from each sample to the nearest cluster center.
+
+    This function computes the distances of each sample to the nearest cluster center for a given clustering model.
+    It supports dgbpy.dgbscikit unsupervised model including `KMeans`, `MeanShift`, and `SpectralClustering` models.
+    The distances are normalized to a range of [0, 1] using `MinMaxScaler`.
+
+    Parameters
+    ----------
+    model : object
+        The clustering model.
+
+    samples : array-like of shape (n_samples, n_features)
+        The input data samples to be clustered. Each row corresponds to a sample, and each column corresponds to a feature.
+
+    Returns
+    -------
+    min_distances_normalized : ndarray of shape (n_samples,)
+        The minimum normalized Euclidean distance from each sample to the nearest cluster center. The distances are 
+        scaled to a range between 0 and 1.
+  """
+
   if isClustering(model):
     if isinstance(model, KMeans) or isinstance(model, MeanShift):
       cluster_centers = model.cluster_centers_
