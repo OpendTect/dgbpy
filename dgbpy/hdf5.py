@@ -918,8 +918,8 @@ def getMainOutputs( info ):
   examples = info[exampledictstr]
   firstexamplenm = next(iter(examples))
   targets = examples[firstexamplenm][targetdictstr]
-  if info[learntypedictstr] == 'Log Clustering':
-    targets = ['Segment', 'Match']
+  if info[learntypedictstr] == logclustertypestr:
+    targets = [segmentstr, matchstr]
   ret = list()
   if isinstance(targets,list):
     ret.extend(targets)
