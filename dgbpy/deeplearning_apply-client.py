@@ -159,6 +159,12 @@ def req_connection(host, port, request):
   message = applylib.Message(sel, sock, addr, request)
   sel.register(sock, events, data=message)
 
+def isSupervised( args ):
+  exfnm = args['examples'].name
+  info = dgbhdf5.getInfo( exfnm, True )
+  if info['learntype'] != dgbkeys.logclustertypestr:
+    return True
+
 def getApplyPars( args ):
   if args['examples'] == None:
     ret= {
@@ -175,9 +181,14 @@ def getApplyPars( args ):
       shape=[0,0,shape]
     ret = {
       'inp_shape': shape,
-      'nrattribs': dgbhdf5.getNrAttribs( info ),
-      'outputnms': dgbhdf5.getOutputs( exfnm )
+      'nrattribs': dgbhdf5.getNrAttribs( info )
     }
+    if isSupervised( args ):
+      ret.update({
+      'outputnms': dgbhdf5.getOutputs( exfnm )})
+    else:
+      ret.update({
+      'outputnms': dgbhdf5.getOutputs( info )})
   return ret
 
 pars = getApplyPars( args )
