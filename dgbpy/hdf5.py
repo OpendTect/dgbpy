@@ -135,8 +135,9 @@ def hasUnlabeled( info ):
 
 def isLogInput( info ):
   if isinstance(info,dict):
-    return info[learntypedictstr] == loglogtypestr
-  return info == loglogtypestr
+    return info[learntypedictstr] == loglogtypestr or \
+           info[learntypedictstr] == logclustertypestr
+  return info == loglogtypestr or info == logclustertypestr
 
 def isLogOutput( info ):
   if isinstance(info,dict):
@@ -917,6 +918,8 @@ def getMainOutputs( info ):
   examples = info[exampledictstr]
   firstexamplenm = next(iter(examples))
   targets = examples[firstexamplenm][targetdictstr]
+  if info[learntypedictstr] == logclustertypestr:
+    targets = [segmentstr, matchstr]
   ret = list()
   if isinstance(targets,list):
     ret.extend(targets)
