@@ -506,7 +506,11 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
     nroutputs = dgbhdf5.getNrOutputs(info)
 
   res = None
-  if platform == dgbkeys.kerasplfnm:
+  if dgbhdf5.isZipModel(info):
+    import dgbpy.zipmodelbase as dgbzipmodel
+    res = dgbzipmodel.apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
+                        dictinpshape, dictoutshape, nroutputs )
+  elif platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     
     res = dgbkeras.apply( model, info, samples, isclassification, withpred, withprobs, withconfidence, doprobabilities, \
