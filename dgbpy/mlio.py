@@ -393,7 +393,10 @@ def getModel( modelfnm, fortrain=False, pars=None, **kwargs ):
 
   infos = getInfo( modelfnm )
   platform = infos[dgbkeys.plfdictstr]
-  if platform == dgbkeys.kerasplfnm:
+  if dgbhdf5.isZipModel(infos):
+    import dgbpy.zipmodelbase as dgbzipmodel
+    model = dgbzipmodel.load(modelfnm)
+  elif platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
     model = dgbkeras.load( modelfnm, fortrain, infos, pars )
   elif platform == dgbkeys.scikitplfnm:

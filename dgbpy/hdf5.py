@@ -151,6 +151,11 @@ def isImg2Img( info ):
     return info[learntypedictstr] == seisimgtoimgtypestr
   return info == seisimgtoimgtypestr
 
+def isZipModel( info ):
+  if isinstance(info,dict):
+    return info[savetypedictstr] == zipmodelstr
+  return info == zipmodeltypestr
+
 def isCrossValidation( info ):
   if isLogInput(info):
     if trainseldicstr in info:
@@ -544,6 +549,11 @@ def getInfo( filenm, quick ):
   if odhdf5.hasAttr(info, modelnmstr):
     modname = odhdf5.getText(info, modelnmstr)
 
+  savetype = None
+  if 'model' in h5file:
+    modelgrp = h5file['model']
+    savetype = odhdf5.getText(modelgrp, 'type')
+
   learntype = odhdf5.getText(info,typestr)
   isclassification = isSeisClass( learntype )
   issegmentation = False
@@ -567,6 +577,11 @@ def getInfo( filenm, quick ):
   scalingvalstr = 'Input.Scaling.Value Range'
   if odhdf5.hasAttr(info,scalingvalstr):
     scalingvalrg = odhdf5.getDInterval(info,scalingvalstr)
+
+  scaleclip = 4.0
+  scaleclipvalstr = 'Input.Scaling.Scale'
+  if odhdf5.hasAttr(info,scaleclipvalstr):
+    scaleclip = odhdf5.getDValue(info,scaleclipvalstr)
 
   unscaleoutput = False
   outunscalestr = 'Output.Unscale'
@@ -684,10 +699,12 @@ def getInfo( filenm, quick ):
     arrayorderdictstr: arrayorder,
     inpscalingdictstr: scalingtype,
     inpscalingvalsdictstr: scalingvalrg,
+    inpscaleclipstr: scaleclip,
     outputunscaledictstr: unscaleoutput,
     exampledictstr: examples,
     inputdictstr: inputs,
     filedictstr: filenm,
+    savetypedictstr: savetype,
   }
 
   if odhdf5.hasAttr(info, flexshpstr):
