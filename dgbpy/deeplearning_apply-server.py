@@ -160,3 +160,4 @@ except applylib.ExitCommand:
 finally:
   timer.cancel()
   sel.close()
+

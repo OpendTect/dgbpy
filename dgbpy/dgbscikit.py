@@ -941,7 +941,7 @@ def apply( model, samples, scaler, isclassification, withpred, withprobs, withco
 
   if isClustering(model):
     res = np.transpose( getClusterDistances( model, samples) )
-    ret.update({dgbkeys.macthdictstr: res})
+    ret.update({dgbkeys.matchdictstr: res})
 
   if isclassification and (doprobabilities or withconfidence):
     res = np.transpose( model.predict_proba( samples ) )
