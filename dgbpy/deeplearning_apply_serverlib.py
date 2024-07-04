@@ -276,6 +276,7 @@ class ModelApplier:
         outkeys.append( dgbkeys.preddictstr )
         outkeys.append( dgbkeys.probadictstr )
         outkeys.append( dgbkeys.confdictstr )
+        outkeys.append( dgbkeys.matchdictstr )
         for outkey in outkeys:
           if outkey in ret:
             res.append( ret[outkey] )
