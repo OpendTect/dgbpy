@@ -19,6 +19,7 @@ from odpy import common as odcommon
 from odpy.oscommand import getPythonExecNm, printProcessTime
 import dgbpy.keystr as dgbkeys
 import dgbpy.mlapply as dgbmlapply
+import odbind # force early load of dependent libraries
 
 parser = argparse.ArgumentParser(
             description='Run machine learning model training')
