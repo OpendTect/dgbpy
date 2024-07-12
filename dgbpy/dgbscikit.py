@@ -26,6 +26,7 @@ try:
   from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
   from sklearn.multioutput import MultiOutputRegressor
   from sklearn.cluster import KMeans, MeanShift, SpectralClustering
+  from sklearn.metrics import silhouette_score
 except ModuleNotFoundError:
   pass
 from scipy.spatial import distance
@@ -807,22 +808,36 @@ def train(model, trainingdp):
 def assessQuality( model, trainingdp ):
   if not dgbkeys.yvaliddictstr in trainingdp:
     return
-  try:
-    x_validate = trainingdp[dgbkeys.xvaliddictstr]
-    if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
-      y_validate = trainingdp[dgbkeys.yvaliddictstr]
-    else:
-      y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
-    y_predicted = model.predict(x_validate)
-    if trainingdp[dgbkeys.infodictstr][dgbkeys.classdictstr]:
-      cc = np.sum( y_predicted==y_validate) / len(y_predicted)
-    else:
-      cc = np.corrcoef( y_predicted, y_validate )[0,1]
-    log_msg( '\nCorrelation coefficient with validation data: ', "%.4f" % cc, '\n' )
-  except Exception as e:
-    log_msg( '\nCannot compute model quality:' )
-    log_msg( repr(e) )
-    announceTrainingFailure()
+  if isClustering( model ):
+    try:
+      x_validate = trainingdp[dgbkeys.xvaliddictstr]
+      if isinstance(model, SpectralClustering):
+        y_predicted = model.fit_predict(x_validate)
+      else:
+        y_predicted = model.predict(x_validate)
+      silhouette_avg = silhouette_score(x_validate, y_predicted)
+      log_msg( '\nAverage Silhouette Score: ', "%.4f" % silhouette_avg, '\n' )
+    except Exception as e:
+      log_msg( '\nCannot compute model quality:' )
+      log_msg( repr(e) )
+      announceTrainingFailure()
+  else:
+    try:
+      x_validate = trainingdp[dgbkeys.xvaliddictstr]
+      if dgbhdf5.isMultiLabelRegression(trainingdp[dgbkeys.infodictstr]):
+        y_validate = trainingdp[dgbkeys.yvaliddictstr]
+      else:
+        y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
+      y_predicted = model.predict(x_validate)
+      if trainingdp[dgbkeys.infodictstr][dgbkeys.classdictstr]:
+        cc = np.sum( y_predicted==y_validate) / len(y_predicted)
+      else:
+        cc = np.corrcoef( y_predicted, y_validate )[0,1]
+      log_msg( '\nCorrelation coefficient with validation data: ', "%.4f" % cc, '\n' )
+    except Exception as e:
+      log_msg( '\nCannot compute model quality:' )
+      log_msg( repr(e) )
+      announceTrainingFailure()
     
 def onnx_from_sklearn(model):
   try:
