@@ -26,6 +26,7 @@ try:
   from sklearn.svm import LinearSVC, LinearSVR, SVC, SVR
   from sklearn.multioutput import MultiOutputRegressor
   from sklearn.cluster import KMeans, MeanShift, SpectralClustering
+  from sklearn.metrics import silhouette_score
 except ModuleNotFoundError:
   pass
 from scipy.spatial import distance
