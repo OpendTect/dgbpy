@@ -47,6 +47,12 @@ class ModelApplier:
         if self.fakeapply_:
             info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
         return info
+    
+    def _get_swapaxes_dim(self, arr):
+        ndim = len(arr.shape)
+        if ndim == 5:
+            return 2, 3
+        return ndim-3, ndim-2
 
     def _set_transpose(self):
         if dgbhdf5.isSeisClass( self.info_ ) or \
@@ -163,7 +169,7 @@ class ModelApplier:
         if self.is2dinp_ and len(samples.shape)==5:
             samples = samples[:,:,samples.shape[2]//2,:,:]
         elif self.swapaxes_:
-            samples = samples.swapaxes(2, 3)
+            samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
 
         if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
@@ -204,8 +210,8 @@ class ModelApplier:
             self.is3dmodel_ = len(inpshape) == 3
             self.isflat_inlinemodel_ = self.is3dmodel_ and inpshape[0] == 1 and inpshape[1] > 1
             self.isflat_xlinemodel_ = self.is3dmodel_ and inpshape[0] > 1 and inpshape[1] == 1
-            self.swapaxes_ = (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and self.applydir_ == dgbkeys.crosslinestr \
-                             and not self.is2dinp_
+            self.swapaxes_ = ((self.isflat_inlinemodel_ and self.applydir_ == dgbkeys.crosslinestr) or \
+                              (self.isflat_xlinemodel_ and self.applydir_ == dgbkeys.inlinestr)) and not self.is2dinp_
             if self.isflat_xlinemodel_:
                 inpshape = (inpshape[1], inpshape[0], inpshape[2])
                 self.info_[dgbkeys.inpshapedictstr] = inpshape
@@ -240,7 +246,7 @@ class ModelApplier:
 
         samples = np.concatenate(allsamples)
         if self.swapaxes_:
-            samples = samples.swapaxes(2, 3)
+            samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
 
         samples = self.preprocess( samples )
 
@@ -250,9 +256,9 @@ class ModelApplier:
             self.applydir_ in [dgbkeys.averagestr, dgbkeys.minstr, dgbkeys.maxstr]:
             ret[dgbkeys.preddictstr] = self.flatModelApply(inp, samples, samples_shape)
             if self.applydir_ in [dgbkeys.averagestr, dgbkeys.minstr, dgbkeys.maxstr]:
-                samples = samples.swapaxes(2, 3)
+                samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
                 newret = self.flatModelApply(inp, samples, samples_shape)
-                newret = newret.swapaxes(2, 3)
+                newret = newret.swapaxes(*self._get_swapaxes_dim(samples))
                 if self.applydir_ == dgbkeys.averagestr:
                     ret[dgbkeys.preddictstr] = (newret + ret[dgbkeys.preddictstr])/2
                 elif self.applydir_ == dgbkeys.minstr:
@@ -263,10 +269,6 @@ class ModelApplier:
             ret = dgbmlapply.doApply( self.model_, self.info_, samples, \
                                       scaler=None, applyinfo=self.applyinfo_, \
                                       batchsize=self.batchsize_ )
-            if dgbkeys.preddictstr in ret and not self.is2dinp_ and \
-               ((self.isflat_inlinemodel_ and self.applydir_ in [dgbkeys.crosslinestr]) or \
-                (self.isflat_xlinemodel_ and self.applydir_ in [dgbkeys.inlinestr])):
-                ret[dgbkeys.preddictstr] = ret[dgbkeys.preddictstr].swapaxes(2, 3)
 
         if dgbkeys.preddictstr in ret:
             ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
