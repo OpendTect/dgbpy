@@ -279,7 +279,7 @@ def training_app(doc):
   def updateUI():
     nonlocal platformfld
     selplatform = platformfld.value
-    if info[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr:
+    if dgbhdf5.isImg2Img( info ) or dgbhdf5.isSeisClass( info ):
       sklearnplatform = uisklearn.getPlatformNm(True)
       if sklearnplatform in platformfld.options:
         platformfld.options.remove( sklearnplatform )
