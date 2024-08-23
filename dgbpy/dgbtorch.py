@@ -7,7 +7,7 @@
 # _________________________________________________________________________
 # various tools machine learning using PyTorch platform
 #
-import os, json, pickle, joblib
+import os, json
 import warnings
 import numpy as np
 from enum import Enum
@@ -314,11 +314,13 @@ def load( modelfnm, infos = False ):
       modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
       model = load_torchscript_model( str(modfnm) )
     elif savetype == SaveType.Joblib:
+      import joblib
       modfnm = odhdf5.getText( modelgrp, 'path' )
       modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
       model_state_dict = joblib.load( modfnm )
       model, _ = get_model_architecture( model_state_dict, modelname, infos )
     elif savetype == SaveType.Pickle:
+      import pickle
       modeldata = modelgrp['object']
       model_state_dict = pickle.loads( modeldata[:].tostring() )
       model, _ = get_model_architecture( model_state_dict, modelname, infos )
@@ -433,10 +435,12 @@ def save( model, outfnm, infos, params=torch_dict ):
     model.save(joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Joblib:
+    import joblib
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
     joblib.dump(model.state_dict(), joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Pickle:
+    import pickle
     exported_modelstr = pickle.dumps(model.state_dict())
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)

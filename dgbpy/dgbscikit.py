@@ -10,9 +10,7 @@
 
 import os.path
 import json
-import joblib
 import numpy as np
-import pickle
 
 try:
   import sklearn
@@ -884,10 +882,12 @@ def save( model, outfnm, save_type=defsavetype ):
       f.write(onx.SerializeToString())
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == savetypes[1]:
+    import joblib
     joutfnm = os.path.splitext( outfnm )[0] + '.joblib'
     joblib.dump( model, joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == savetypes[2]:
+    import pickle
     exported_modelstr = pickle.dumps(model)
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
@@ -908,10 +908,12 @@ def load( modelfnm ):
     from dgbpy.sklearn_classes import OnnxScikitModel
     model = OnnxScikitModel( str(modfnm) )
   if savetype == savetypes[1]:
+    import joblib
     modfnm = odhdf5.getText( modelgrp, 'path' )
     modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
     model = joblib.load( modfnm )
   elif savetype == savetypes[2]:
+    import pickle
     modeldata = modelgrp['object']
     model = pickle.loads( modeldata[:].tostring() )
   elif savetype == xgboostjson and hasXGBoost():
