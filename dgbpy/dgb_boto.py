@@ -23,9 +23,59 @@ import odpy.common as odcommon
 
 import time
 import functools
+import zipfile
 
 class InvalidS3Exception(Exception):
     pass
+
+def zip_files(files, zip_filename):
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        for file in files:
+            zipf.write(file, os.path.basename(file))
+
+def unzip_files(zip_file, extract_path):
+    """
+    Unzip files from a zip archive to a specified path and return the path to the root folder of the extracted contents.
+    
+    Parameters:
+    zip_file (str): Path to the zip file
+    extract_path (str): Path where files should be extracted
+    
+    Returns:
+    str: Absolute path to the root folder of the extracted contents
+    
+    Raises:
+    zipfile.BadZipFile: If the zip file is invalid or corrupted
+    OSError: If there's an error creating the extraction directory or writing files
+    ValueError: If the zip file is empty or has an unexpected structure
+    """
+    try:
+        abs_extract_path = os.path.abspath(extract_path)
+        os.makedirs(abs_extract_path, exist_ok=True)
+        
+        with zipfile.ZipFile(zip_file, 'r') as zipf:
+            file_list = zipf.namelist()
+            if not file_list:
+                raise ValueError("The zip file is empty.")
+            
+            root_folder = file_list[0].split('/')[0]
+            if not all(name.startswith(root_folder + '/') or name == root_folder for name in file_list):
+                raise ValueError("The zip file does not have a single root folder.")
+            
+            zipf.extractall(abs_extract_path)
+        
+        root_folder_path = os.path.join(abs_extract_path, root_folder)
+        if not os.path.exists(root_folder_path):
+            raise OSError(f"Expected root folder {root_folder_path} not found after extraction.")
+        return root_folder_path
+    
+    except zipfile.BadZipFile as e:
+        raise zipfile.BadZipFile(f"Error: The file {zip_file} is not a valid zip file. {str(e)}")
+    except OSError as e:
+        raise OSError(f"Error: Unable to extract files to {abs_extract_path}. {str(e)}")
+    except ValueError as e:
+        raise ValueError(f"Error: {str(e)}")
+
 
 def retry(exceptions=Exception, tries=3, delay=1, backoff=2):
     """
@@ -76,27 +126,27 @@ def parseS3Uri(s3Uri):
 
 @retry(tries=3, delay=2, backoff=2)
 def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False, isbokeh=False):
-    """ Handles function for saving model to S3 bucket. 
-    Parameters:
-    savefunc: function to save model to a file(s)
-    s3Uri: S3 URI
-    params: Parameters for saving model
-    uselocal: Fallback to local storage
-    """
     s3Uri = cleanS3Uri(s3Uri)
     try:
         if uselocal and params['storagetype'] == dgbhdf5.StorageType.AWS.value:
             raise InvalidS3Exception()
         
-        bucket_name, _, filename = parseS3Uri(s3Uri)
+        bucket_name, s3_path, filename = parseS3Uri(s3Uri)
         
         with tempfile.TemporaryDirectory(prefix='s3_model_') as tmpdirname:
-            newhdf5nm = os.path.join(tmpdirname, filename) 
-            if savefunc: savefunc(newhdf5nm) # Save model to tempdir
+            newhdf5nm = os.path.join(tmpdirname, filename)
+            if savefunc: savefunc(newhdf5nm)  # Save model to tempdir
             modelfiles = getFilenamesFromPath(tmpdirname)
-            s3_dest_folder = os.path.splitext(filename)[0] # Set s3 upload folder to model name
-            s3_paths = createS3PathList(modelfiles, s3_dest_folder)
-            upload_multiple_to_s3(modelfiles, s3_paths, bucket_name, isbokeh=isbokeh)
+            
+            # Create a zip file
+            zip_filename = os.path.splitext(filename)[0] + '.zip'
+            zip_path = os.path.join(tmpdirname, zip_filename)
+            zip_files(modelfiles, zip_path)
+            
+            # Upload the zip file
+            s3_dest_path = os.path.join(os.path.dirname(s3_path), zip_filename).replace('\\', '/')
+            upload_to_s3(zip_path, s3_dest_path, bucket_name, isbokeh=isbokeh)
+            
             if isbokeh:
                 restore_stdout()
                 print(f'{dbk.s3bokehmsg}Model uploaded to S3 Bucket')
@@ -108,38 +158,48 @@ def handleS3FileSaving(savefunc, s3Uri, params, uselocal=False, isbokeh=False):
         else: bucket_name, _, filename = parseS3Uri(s3Uri)
         params['storagetype'] = dgbhdf5.StorageType.LOCAL.value
         warnings.warn(str(e) + ' Saving model to local storage.')
-        if isbokeh: print(f'{dbk.s3bokehmsg}Error occured: Saving model to local storage.')
+        if isbokeh: print(f'{dbk.s3bokehmsg}Error occurred: Saving model to local storage.')
         return savefunc(filename)
 
 
 @retry(tries=3, delay=2, backoff=2)
 def handleS3FileLoading(loadfunc, s3Uri):
-    """ Handles function for loading model from S3 bucket. 
-    Parameters:
-    loadfunc: function to load model from a file
-    hdf5nm: Model HDF5 filepath
-    bucket_name: S3 bucket name
-    """
     s3Uri = cleanS3Uri(s3Uri)
-    bucket_name, _, filename = parseS3Uri(s3Uri)
-    s3folder = os.path.splitext(filename)[0]
-    s3paths = getFilesInS3Folder(bucket_name, s3folder)
-    local_paths = [os.path.basename(s3path) for s3path in s3paths]
-    local_paths = [os.path.join(getLocalDownloadPath(), f) for f in local_paths]
-    localhdf5path = getHdf5File(local_paths)
-    s3hdf5path = getHdf5File(s3paths)
-    if os.path.exists(localhdf5path) and checkLocalS3FileValidity(localhdf5path, s3hdf5path, bucket_name):
-        odcommon.log_msg('Loading up-to-date model from local storage.')
-        return loadfunc(localhdf5path)
-
-    download_multiple_from_s3(local_paths, bucket_name, s3paths)
-    AddS3InfoToHDF5(localhdf5path, s3hdf5path, bucket_name)
-    return loadfunc(localhdf5path)
+    bucket_name, s3_path, filename = parseS3Uri(s3Uri)
+    
+    local_download_path = getLocalDownloadPath()
+    
+    if filename.endswith('.zip'):
+        # Handle zip file
+        local_zip_path = os.path.join(local_download_path, filename)
+        download_from_s3(local_zip_path, bucket_name, s3_path)
         
+        extract_path = unzip_files(local_zip_path, local_download_path)
+        
+        hdf5_file = getHdf5File(extract_path)
+        if hdf5_file:
+            AddS3InfoToHDF5(hdf5_file, s3_path, bucket_name)
+            return loadfunc(hdf5_file)
+        else:
+            raise Exception("No HDF5 file found in the downloaded zip.")
+    
+    elif filename.endswith('.h5'):
+        # Handle single HDF5 file
+        local_hdf5_path = os.path.join(local_download_path, filename)
+        if os.path.exists(local_hdf5_path) and checkLocalS3FileValidity(local_hdf5_path, s3_path, bucket_name):
+            odcommon.log_msg('Loading up-to-date model from local storage.')
+            return loadfunc(local_hdf5_path)
+        
+        download_from_s3(local_hdf5_path, bucket_name, s3_path)
+        AddS3InfoToHDF5(local_hdf5_path, s3_path, bucket_name)
+        return loadfunc(local_hdf5_path)
+    
+    else:
+        raise InvalidS3Exception('Invalid file format. Must be either .zip or .h5')
 
 def cleanS3Uri(s3Uri):
-    if not s3Uri.endswith('.h5'):
-        return s3Uri+'.h5'
+    if not s3Uri.endswith('.zip'):
+        return s3Uri+'.zip'
     return s3Uri
 
 def getLocalDownloadPath():
@@ -213,13 +273,18 @@ def checkLocalS3FileValidity(localhdf5, s3hdf5path, bucket_name):
     Returns: boolean
     """
 
-    h5file = odhdf5.openFile(localhdf5, 'r')
-    if not odhdf5.hasAttr(h5file, 'S3_LastModified') or not odhdf5.hasAttr(h5file, 'DateCreated'):
-        return False
-    
-    last_modified = odhdf5.getAttr(h5file, 'S3_LastModified')
-    date_created_str = odhdf5.getAttr(h5file, 'DateCreated')
-    h5file.close()
+    h5file = None
+    try:
+        h5file = odhdf5.openFile(localhdf5, 'r')
+        if not odhdf5.hasAttr(h5file, 'S3_LastModified') or not odhdf5.hasAttr(h5file, 'DateCreated'):
+            return False
+        
+        last_modified = odhdf5.getAttr(h5file, 'S3_LastModified')
+        date_created_str = odhdf5.getAttr(h5file, 'DateCreated')
+
+    finally:
+        if h5file:
+            h5file.close()
 
     new_s3_last_modified = getS3ObjectLastModifiedDateTime(bucket_name, s3hdf5path)
     if last_modified:
@@ -273,7 +338,7 @@ def AddS3InfoToHDF5(localhdfpath, s3hdfpath, bucket_name):
     h5file.close()
 
 
-def getHdf5File(paths: list) -> str:
+def getHdf5File(path) -> str:
     """ Get the HDF5 file in a path
     Parameters:
     path: Path to file
@@ -281,17 +346,18 @@ def getHdf5File(paths: list) -> str:
     Returns:
     HDF5 file
     """
+    paths = [os.path.join(path, f) for f in os.listdir(path)]
     for path in paths:
         if path.endswith('.h5'):
             return path
     return None
 
 
-def upload_to_s3(local_path, s3_path, bucket_name):
+def upload_to_s3(local_path, s3_path, bucket_name, isbokeh=False):
     try:
         s3 = boto3.client('s3')
         total_size = os.path.getsize(local_path)
-        progress = S3Progress(local_path, total_size=total_size, upload=True)
+        progress = S3Progress(local_path, total_size=total_size, upload=True, isbokeh=isbokeh)
         progress.set_current_file()
         s3.upload_file(local_path, bucket_name, s3_path, Callback=progress)
     except Exception as e:

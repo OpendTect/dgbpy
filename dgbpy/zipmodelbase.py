@@ -6,7 +6,7 @@
 #________________________________________________________________________
 #
 from abc import ABC, abstractmethod
-import json
+import os, json
 import numpy as np
 import numpy.typing as npt
 from dataclasses import dataclass, field

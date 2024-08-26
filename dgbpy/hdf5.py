@@ -254,7 +254,7 @@ def hasboto3(auth=False):
         return False
 
 def isS3Uri(uri):
-    return uri.startswith('s3://')
+    return uri.lower().startswith('s3://')
 
 def shouldUseS3(modelfnm, params=None, relaxed=True, kwargs=None):   
   """
@@ -960,7 +960,8 @@ def getOutputNames( filenm, indices ):
   h5file.close()
   return ret
 
-def translateFnm( modfnm, modelfnm ):
+def translateFnm( modfnm, modelfnm ):            
+  modfnm = rf"{modfnm}"
   posidxh5fp = PurePosixPath( modelfnm )
   winh5fp = PureWindowsPath( modelfnm )
   posixmodfp = PurePosixPath( modfnm )
