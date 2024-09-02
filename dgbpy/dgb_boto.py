@@ -236,7 +236,7 @@ def checkLocalS3FileValidity(localhdf5, s3hdf5path, bucket_name):
     return True
 
     
-def getS3ObjectLastModifiedDateTime(bucket_name, s3_path):
+def getS3ObjectLastModifiedDateTime(bucket_name, s3_path, **kwargs):
     """ Get the last modified datetime of an object in S3
     Parameters:
     bucket_name: S3 bucket name
@@ -245,7 +245,7 @@ def getS3ObjectLastModifiedDateTime(bucket_name, s3_path):
     Returns:
     Last modified datetime of the object
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', **kwargs)
     response = s3.head_object(Bucket=bucket_name, Key=s3_path)
     return response['LastModified']
 
@@ -287,50 +287,66 @@ def getHdf5File(paths: list) -> str:
     return None
 
 
-def upload_to_s3(local_path, s3_path, bucket_name):
+def upload_to_s3(local_path, s3_path, bucket_name, withprogress=True, **kwargs):
     try:
-        s3 = boto3.client('s3')
-        total_size = os.path.getsize(local_path)
-        progress = S3Progress(local_path, total_size=total_size, upload=True)
-        progress.set_current_file()
+        s3 = boto3.client('s3', **kwargs)
+        progress = None
+        if withprogress:
+          total_size = os.path.getsize(local_path)
+          progress = S3Progress(local_path, total_size=total_size, upload=True)
+          progress.set_current_file()
+
         s3.upload_file(local_path, bucket_name, s3_path, Callback=progress)
     except Exception as e:
         print('Error uploading file to S3')
         raise e
 
 
-def upload_multiple_to_s3(local_paths, s3_paths, bucket_name, isbokeh=False):
+def upload_multiple_to_s3(local_paths, s3_paths, bucket_name, isbokeh=False, withprogress=True, **kwargs):
     try:
-        s3 = boto3.client('s3')
-        total_size = sum([os.path.getsize(local_path) for local_path in local_paths])
-        progress = S3Progress(local_paths, total_size=total_size, upload=True, isbokeh=isbokeh)
+        s3 = boto3.client('s3', **kwargs)
+        progress = None
+        if withprogress:
+          total_size = sum([os.path.getsize(local_path) for local_path in local_paths])
+          progress = S3Progress(local_paths, total_size=total_size, upload=True, isbokeh=isbokeh)
+
         for local_path,s3_path in zip(local_paths, s3_paths):
-            progress.set_current_file()
+            if withprogress:
+                progress.set_current_file()
+
             s3.upload_file(local_path,  bucket_name, s3_path, Callback=progress)
     except Exception as e:
         print('Error uploading file to S3')
         raise e
 
 
-def download_from_s3(local_path, bucket_name, s3_path):
+def download_from_s3(local_path, bucket_name, s3_path, withprogress=True, **kwargs):
     try:
-        s3 = boto3.client('s3')
-        total_size = get_s3_object_size(s3, bucket_name, s3_path)
-        progress = S3Progress(local_path, total_size=total_size, download=True)
-        progress.set_current_file()
+        s3 = boto3.client('s3', **kwargs)
+        progress = None
+        if withprogress:
+          total_size = get_s3_object_size(s3, bucket_name, s3_path)
+          progress = S3Progress(local_path, total_size=total_size, download=True)
+          progress.set_current_file()
+
         s3.download_file(bucket_name, s3_path, local_path, Callback=progress)
     except Exception as e:
         print('Error downloading file from S3')
         raise e
 
 
-def download_multiple_from_s3(local_paths, bucket_name, s3_paths):
+def download_multiple_from_s3(local_paths, bucket_name, s3_paths, withprogress=True, **kwargs):
     try:
-        s3 = boto3.client('s3')
-        total_size = sum([get_s3_object_size(s3, bucket_name, s3_path) for s3_path in s3_paths])
-        progress = S3Progress(local_paths, total_size=total_size, download=True)
+        s3 = boto3.client('s3', **kwargs)
+        progress = None
+        if withprogress:
+          total_size = sum([get_s3_object_size(s3, bucket_name, s3_path) for s3_path in s3_paths])
+          progress = S3Progress(local_paths, total_size=total_size, download=True)
+
         for local_path, s3_path in zip(local_paths, s3_paths):
-            progress.set_current_file()
+            if withprogress:
+              progress.set_current_file()
+
             s3.download_file(bucket_name, s3_path, local_path, Callback=progress)
     except Exception as e:
         print('Error downloading file from S3')
