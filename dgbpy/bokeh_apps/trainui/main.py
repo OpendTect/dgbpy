@@ -333,6 +333,18 @@ def training_app(doc):
       return uitorch.getUiParams( torchpars, torchadvpars )
     return {}
 
+  stoptraining = False
+  
+  def stopTrainingCB( stoptrainingcheckbox ):
+    nonlocal platformfld
+    nonlocal stoptraining
+    selplatform = platformfld.value
+    if selplatform != uisklearn.getPlatformNm():
+      stoptraining = uitorch.isSelected( stoptrainingcheckbox )
+    else:
+      stoptraining = getUiParams['stopaftercurrentepoch']
+    return None
+
   def getProcArgs( platfmnm, pars, outnm ):
     nonlocal trainingpars
     ret = {
@@ -380,6 +392,7 @@ def training_app(doc):
     return True
 
   def doTrain( trainedfnm ):
+    nonlocal stoptraining
     if len(trainedfnm) < 1:
       return False
     if platformfld.value==uikeras.getPlatformNm():
@@ -388,8 +401,9 @@ def training_app(doc):
         return False
 
     modelnm = trainedfnm
-
-    scriptargs = getProcArgs( platformfld.value, getUiParams(), \
+    params = getUiParams()
+    params['stopaftercurrentepoch'] = stoptraining
+    scriptargs = getProcArgs( platformfld.value, params, \
                                 modelnm )
     cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                             scriptargs['dict'], scriptargs['odargs'] )
@@ -541,7 +555,7 @@ def training_app(doc):
 
   platformfld.on_change('value',mlchgCB)
   progressgrp, progressfld = uibokeh.getPbar()
-  buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB )
+  buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB, stopTrainingCB )
   trainpanel.child = column( platformfld, buttonsgrp, progressfld)
 
   def initWin():

@@ -500,7 +500,8 @@ class Trainer:
                  imgdp = None,
                  cbs = None,
                  silent = None,
-                 tofp16 = False
+                 tofp16 = False,
+                 stopaftercurrentepoch = False
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -508,6 +509,7 @@ class Trainer:
         self.epochs, self.device, self.savemodel = epochs, device, model
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
+        self.stopaftercurrentepoch = stopaftercurrentepoch
 
         self.info = self.imgdp[dgbkeys.infodictstr]
         self.set_metrics(metrics)
@@ -626,6 +628,9 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
+                if self.stopaftercurrentepoch:
+                    odcommon.log_msg(f'Stopping the training on user request after {epoch+1} epochs')
+                    break
             return self.savemodel
         except CancelTrainException:
             self('after_cancel_train')

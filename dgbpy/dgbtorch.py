@@ -110,6 +110,7 @@ torch_dict = {
     'transform':default_transforms,
     'withtensorboard': withtensorboard,
     'tofp16': True,
+    'stopaftercurrentepoch': False,
 }
 
 def getMLPlatform():
@@ -178,7 +179,8 @@ def getParams(
     transform=torch_dict['transform'],
     withtensorboard=torch_dict['withtensorboard'],
     savetype = defsavetype,
-    tofp16=torch_dict['tofp16']):
+    tofp16=torch_dict['tofp16'],
+    stopaftercurrentepoch=torch_dict['stopaftercurrentepoch']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
@@ -196,6 +198,7 @@ def getParams(
     'savetype': savetype,
     'withtensorboard': withtensorboard,
     'tofp16': tofp16,
+    'stopaftercurrentepoch': stopaftercurrentepoch
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -475,7 +478,8 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
         earlystopping = params['patience'],
         imgdp=imgdp,
         silent = silent,
-        tofp16=params['tofp16']
+        tofp16=params['tofp16'],
+        stopaftercurrentepoch =  params['stopaftercurrentepoch']
     )
     model = trainer.fit(cbs = cbfn)
     return model
