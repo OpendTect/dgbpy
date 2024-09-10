@@ -86,7 +86,9 @@ keras_dict = {
   'transform': default_transforms,
   'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard,
-  'tofp16': True
+  'tofp16': True,
+  'stopaftercurrentepoch': False
+
 }
 
 def can_use_gpu():
@@ -131,7 +133,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
-               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16']):
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16'],
+               stopaftercurrentepoch=keras_dict['stopaftercurrentepoch']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -147,7 +150,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'transform': transform,
     'scale': scale,
     'withtensorboard': withtensorboard,
-    'tofp16': tofp16
+    'tofp16': tofp16,
+    'stopaftercurrentepoch': stopaftercurrentepoch
   }
   if prefercpu == None:
     prefercpu = get_cpu_preference()
@@ -411,6 +415,16 @@ class LogNrOfSamplesCallback(Callback):
       self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
       restore_stdout()
 
+class StopTrainingCallback(Callback):
+    def __init__(self, stopaftercurrentepoch):
+        super(StopTrainingCallback, self).__init__()
+        self.stopaftercurrentepoch = stopaftercurrentepoch
+    
+    def on_epoch_end(self, epoch, logs=None):
+        if self.stopaftercurrentepoch:
+            log_msg(f'\nStopping training on user request after epoch {epoch + 1}')
+            self.model.stop_training = True
+
 class TransformCallback(Callback):
   def __init__(self, config):
     self.train_datagen = config.get('train_datagen')
@@ -498,8 +512,12 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
     try:
       if not isCrossVal:
         callbacks = init_callbacks(monitor, params,logdir,silent,config,cbfn=cbfn)
+        if params['stopaftercurrentepoch']:
+          callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
         model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
                   validation_data=validate_datagen,callbacks=callbacks)
+        if params['stopaftercurrentepoch']:
+          break
       else:
         nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
         for ifold in range(1, nbfolds+1):
@@ -507,9 +525,13 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
           validate_datagen.set_fold(ichunk, ifold)
           config['ifold'], config['nbfolds'] = ifold, nbfolds
           callbacks = init_callbacks(monitor,params,logdir,silent,config,cbfn=cbfn)
+          if params['stopaftercurrentepoch']:
+            callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
           if ifold != 1: # start transfer from second fold
             transfer(model)
           model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,validation_data=validate_datagen,callbacks=callbacks)
+          if params['stopaftercurrentepoch']:
+            break
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')

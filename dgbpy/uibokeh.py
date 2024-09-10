@@ -35,6 +35,9 @@ def getButton(nm,type=enums.ButtonType.default,callback_fn=None):
     ret.on_click(partial(callback_fn,cb=ret))
   return ret
 
+def getStopTrainingCheckBox():
+  return CheckboxGroup(labels=['Stop training after current epoch'], visible=True)
+
 def getRunStopButton(callback_fn=None):
   return getButton(go_lbl,type=enums.ButtonType.success,callback_fn=callback_fn)
 
@@ -105,27 +108,31 @@ def getPbar():
     }
   return ret, progressfld
 
-def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,timercb):
+def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,timercb, stopaftercurrentepochact):
   runstopbut = getRunStopButton()
   pauseresumebut = getPauseResumeButton()
+  stoptrainingcheckbox = getStopTrainingCheckBox()
   pauseresumebut.visible = False
+  stoptrainingcheckbox.visible = False
   buttonsgrp = row(pauseresumebut,Spacer(width=but_spacer),runstopbut,width_policy='min')
-  buttonsfld = row(Spacer(width=but_spacer),buttonsgrp, sizing_mode='stretch_width', align='end')
+  buttonsfld = column(row(Spacer(width=but_spacer), buttonsgrp, sizing_mode='stretch_width', align='end'), stoptrainingcheckbox)
   ret = {
     'run': runstopbut,
     'pause': pauseresumebut,
     'state': RunState.Ready,
     'progress': progress,
+    'stopaftercurrentepoch': stoptrainingcheckbox,
     timerkey: None
   }
   progressact = partial(progressact, progress['chunk'], progress[dgbkeys.foldstr], progress[parent_bar], 
                         progress[child_bar], progress['status'], progress['storage_msg'])
   runstopbut.on_click(partial(startStopCB,cb=ret,run_fn=runact,abort_fn=abortact,progress_fn=progressact,
-                              timer_fn=timercb) )
+                              timer_fn=timercb, stopaftercurrentepoch_fn=stopaftercurrentepochact) )
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
   return buttonsfld
 
-def startStopCB( cb, run_fn, abort_fn, progress_fn, timer_fn, repeat=2000 ):
+def startStopCB( cb, run_fn, abort_fn, progress_fn, timer_fn, stopaftercurrentepoch_fn, repeat=2000 ):
+  stoptrainingcheckbox = cb['stopaftercurrentepoch']
   if isReady( cb ):
     canrun = run_fn( cb[timerkey] )
     if not canrun:
@@ -134,10 +141,14 @@ def startStopCB( cb, run_fn, abort_fn, progress_fn, timer_fn, repeat=2000 ):
     cb.update({
       'cb': curdoc().add_periodic_callback(partial(timerCB,cb=cb,timer_fn=timer_fn),repeat)
     })
+    stoptrainingcheckbox.visible = True
+    stopaftercurrentepoch_fn(stoptrainingcheckbox)
   else:
     setReady( cb )
     cb[timerkey] = abort_fn( cb[timerkey] )
     isAborted(cb)
+    stoptrainingcheckbox.visible = False
+    stopaftercurrentepoch_fn(stoptrainingcheckbox)
 
 def isAborted(runbutbar):
   progress = runbutbar['progress']
