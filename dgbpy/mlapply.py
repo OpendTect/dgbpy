@@ -352,7 +352,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       cbfn = None
       if bokeh: cbfn = dgbkeras.BokehProgressCallback
       try:
-        model = dgbkeras.train( model, trainingdp, params=params,
+        model = dgbkeras.train( model, trainingdp, outnm, params=params,
                                 trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
       except (TypeError,MemoryError) as e:
         if tempmodelnm != None and os.path.exists(tempmodelnm):
@@ -396,7 +396,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       print('--Training Started--', flush=True)
       cbfn = None
       if bokeh: cbfn = [dgbtorch.tc.BokehProgressCallback()]
-      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
+      model = dgbtorch.train(model=model, imgdp=trainingdp, outfnm=outnm, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
 
     elif platform == dgbkeys.scikitplfnm:
       import dgbpy.dgbscikit as dgbscikit

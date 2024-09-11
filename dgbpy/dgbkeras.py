@@ -11,6 +11,7 @@
 import os
 import re
 import json
+import tempfile
 from datetime import datetime
 import numpy as np
 import math
@@ -29,7 +30,7 @@ try:
   from keras.callbacks import Callback
 except ModuleNotFoundError:
   pass
-from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess
+from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess, saveModel
 
 def hasKeras():
   try:
@@ -415,15 +416,31 @@ class LogNrOfSamplesCallback(Callback):
       self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
       restore_stdout()
 
+class ModelCheckpoint(Callback):
+  def __init__(self, save_function, model, examplefilenm, platform, out_infos, outfnm, params, isbokeh):
+    super().__init__()
+    self.save_function = save_function
+    self.model = model
+    self.examplefilenm = examplefilenm
+    self.platform = platform
+    self.out_infos = out_infos
+    self.outfnm = outfnm
+    self.params = params
+    self.isbokeh = isbokeh
+
+  def on_epoch_end(self, epoch, logs=None):
+    log_msg(f"Model saved for epoch {epoch + 1} at {self.outfnm}")
+    self.save_function(self.model, self.examplefilenm, self.platform, self.out_infos, self.outfnm, self.params, isbokeh=self.isbokeh)
+
 class StopTrainingCallback(Callback):
-    def __init__(self, stopaftercurrentepoch):
-        super(StopTrainingCallback, self).__init__()
-        self.stopaftercurrentepoch = stopaftercurrentepoch
+  def __init__(self, stopaftercurrentepoch):
+    super(StopTrainingCallback, self).__init__()
+    self.stopaftercurrentepoch = stopaftercurrentepoch
     
-    def on_epoch_end(self, epoch, logs=None):
-        if self.stopaftercurrentepoch:
-            log_msg(f'\nStopping training on user request after epoch {epoch + 1}')
-            self.model.stop_training = True
+  def on_epoch_end(self, epoch, logs=None):
+    if self.stopaftercurrentepoch:
+      log_msg(f'\nStopping training on user request after epoch {epoch + 1}')
+      self.model.stop_training = True
 
 class TransformCallback(Callback):
   def __init__(self, config):
@@ -466,7 +483,7 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
   return callbacks
 
 
-def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
+def train(model,training,outfnm,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from dgbpy.keras_classes import TrainingSequence
@@ -485,6 +502,19 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
+  tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model')
+  newhdf5nm = os.path.join(tmpdirname, outfnm)
+  
+  saveTmpCallback = ModelCheckpoint(
+    save_function=saveModel, 
+    model=model, 
+    examplefilenm=training[dgbkeys.infodictstr][dgbkeys.filedictstr], 
+    platform=dgbkeys.kerasplfnm, 
+    out_infos=training[dgbkeys.infodictstr], 
+    outfnm=newhdf5nm, 
+    params=params, 
+    isbokeh=None
+    )
 
   for ichunk in range(nbchunks):
     log_msg('Starting training iteration',str(ichunk+1)+'/'+str(nbchunks))
@@ -512,6 +542,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
     try:
       if not isCrossVal:
         callbacks = init_callbacks(monitor, params,logdir,silent,config,cbfn=cbfn)
+        callbacks.append(saveTmpCallback)
         if params['stopaftercurrentepoch']:
           callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
         model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
@@ -525,6 +556,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
           validate_datagen.set_fold(ichunk, ifold)
           config['ifold'], config['nbfolds'] = ifold, nbfolds
           callbacks = init_callbacks(monitor,params,logdir,silent,config,cbfn=cbfn)
+          callbacks.append(saveTmpCallback)
           if params['stopaftercurrentepoch']:
             callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
           if ifold != 1: # start transfer from second fold

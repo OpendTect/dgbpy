@@ -10,6 +10,7 @@
 
 import re
 import time
+import tempfile
 from functools import partial
 from typing import Iterable
 import math
@@ -25,7 +26,7 @@ from dgbpy.dgbonnx import OnnxModel
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.common as odcommon
-from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess
+from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess, saveModel
 
 import onnxruntime as rt
 def Tensor2Numpy(tensor):
@@ -501,7 +502,8 @@ class Trainer:
                  cbs = None,
                  silent = None,
                  tofp16 = False,
-                 stopaftercurrentepoch = False
+                 stopaftercurrentepoch = False,
+                 tmpsavedict = None,
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -510,6 +512,7 @@ class Trainer:
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
         self.stopaftercurrentepoch = stopaftercurrentepoch
+        self.tmpsavedict = tmpsavedict
 
         self.info = self.imgdp[dgbkeys.infodictstr]
         self.set_metrics(metrics)
@@ -621,6 +624,7 @@ class Trainer:
     def train_fn(self):
         try:
             self('begin_fit')
+            tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model')
             for epoch in range(self.epochs):
                 if not self.do_begin_epoch(epoch): self.all_batches()
                 if self.valid_dl:
@@ -628,6 +632,10 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
+                newhdf5nm = os.path.join(tmpdirname, self.tmpsavedict['outfnm'])
+                saveModel(self.savemodel, self.tmpsavedict['inpfnm'], self.tmpsavedict['platform'],
+                            self.tmpsavedict['infos'], newhdf5nm, self.tmpsavedict['params'], isbokeh=None)
+                odcommon.log_msg(f"Model saved for epoch {epoch + 1} at {newhdf5nm}")
                 if self.stopaftercurrentepoch:
                     odcommon.log_msg(f'Stopping the training on user request after {epoch+1} epochs')
                     break
