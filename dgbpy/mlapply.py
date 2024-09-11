@@ -424,7 +424,10 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     modtype = dgbmlio.getModelType( out_infos )
     outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
     dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, isbokeh=bokeh )
-    result = (outfnm != None and os.path.isfile( outfnm ))
+    if outfnm and not outfnm.endswith('.h5'):
+      result = (os.path.isfile(os.path.splitext(outfnm)[0] + '.h5'))
+    else:
+      result = (outfnm != None and os.path.isfile(outfnm))
     dgbmlio.announceTrainingSuccess()
     return result
   except Exception as e:
