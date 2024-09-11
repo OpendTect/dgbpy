@@ -483,7 +483,7 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
   return callbacks
 
 
-def train(model,training,outfnm=dgbkeys.modelnm,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
+def train(model,training,params=keras_dict,outfnm=dgbkeys.modelnm,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from dgbpy.keras_classes import TrainingSequence

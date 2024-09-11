@@ -352,7 +352,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       cbfn = None
       if bokeh: cbfn = dgbkeras.BokehProgressCallback
       try:
-        model = dgbkeras.train( model, trainingdp, outfnm=outnm, params=params,
+        model = dgbkeras.train( model, trainingdp, params=params, outfnm=outnm,
                                 trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
       except (TypeError,MemoryError) as e:
         if tempmodelnm != None and os.path.exists(tempmodelnm):
