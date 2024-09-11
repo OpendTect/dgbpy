@@ -483,7 +483,7 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
   return callbacks
 
 
-def train(model,training,outfnm,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
+def train(model,training,outfnm=dgbkeys.modelnm,params=keras_dict,trainfile=None,silent=False,cbfn=None,logdir=None,tempnm=None):
   redirect_stdout()
   import keras
   from dgbpy.keras_classes import TrainingSequence
@@ -502,7 +502,7 @@ def train(model,training,outfnm,params=keras_dict,trainfile=None,silent=False,cb
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
-  tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model')
+  tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model_')
   newhdf5nm = os.path.join(tmpdirname, outfnm)
   
   saveTmpCallback = ModelCheckpoint(

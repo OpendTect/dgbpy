@@ -454,7 +454,7 @@ def save( model, outfnm, infos, params=torch_dict ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, outfnm, cbfn=None, logdir=None, silent=False, metrics=False):
+def train(model, imgdp, params, outfnm=dgbkeys.modelnm, cbfn=None, logdir=None, silent=False, metrics=False):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     info = imgdp[dgbkeys.infodictstr]

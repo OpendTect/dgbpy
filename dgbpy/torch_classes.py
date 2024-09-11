@@ -624,7 +624,7 @@ class Trainer:
     def train_fn(self):
         try:
             self('begin_fit')
-            tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model')
+            tmpdirname = tempfile.mkdtemp(prefix='tmp_OdT_model_')
             for epoch in range(self.epochs):
                 if not self.do_begin_epoch(epoch): self.all_batches()
                 if self.valid_dl:
