@@ -24,7 +24,10 @@ TrainType = Enum( 'TrainType', 'New Resume Transfer', module=__name__ )
 def isExecutedFromOdml():
   # need an update
   logfnm = get_log_file()
-  return os.path.exists( logfnm )
+  if logfnm != None:
+    return os.path.exists( logfnm )
+  else:
+    return False
 
 def getOutFnm(outnm, trainingdp, infos, args):
   out_infos = trainingdp[dgbkeys.infodictstr]
