@@ -113,7 +113,8 @@ torch_dict = {
     'withtensorboard': withtensorboard,
     'tofp16': True,
     'stopaftercurrentepoch': False,
-    'tmpsavedict': tmp_save_dict
+    'tmpsavedict': tmp_save_dict,
+    'saveonabort': False
 }
 
 def getMLPlatform():
@@ -184,7 +185,8 @@ def getParams(
     savetype = defsavetype,
     tofp16=torch_dict['tofp16'],
     stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
-    tmpsavedict=torch_dict['tmpsavedict']):
+    tmpsavedict=torch_dict['tmpsavedict'],
+    saveonabort=torch_dict['saveonabort']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
@@ -203,7 +205,8 @@ def getParams(
     'withtensorboard': withtensorboard,
     'tofp16': tofp16,
     'stopaftercurrentepoch': stopaftercurrentepoch,
-    'tmpsavedict':tmpsavedict
+    'tmpsavedict':tmpsavedict,
+    'saveonabort':saveonabort
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -454,7 +457,7 @@ def save( model, outfnm, infos, params=torch_dict ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, outfnm=dgbkeys.modelnm, cbfn=None, logdir=None, silent=False, metrics=False):
+def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False, tempnm=None, outfnm=None):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     info = imgdp[dgbkeys.infodictstr]
@@ -473,6 +476,7 @@ def train(model, imgdp, params, outfnm=dgbkeys.modelnm, cbfn=None, logdir=None, 
       'inpfnm': imgdp[dgbkeys.infodictstr][dgbkeys.filedictstr],
       'platform': dgbkeys.torchplfnm,
       'infos': imgdp[dgbkeys.infodictstr],
+      'tempnm': tempnm,
       'outfnm': outfnm,
       'params': params
     }
@@ -492,7 +496,8 @@ def train(model, imgdp, params, outfnm=dgbkeys.modelnm, cbfn=None, logdir=None, 
         silent = silent,
         tofp16=params['tofp16'],
         stopaftercurrentepoch =  params['stopaftercurrentepoch'],
-        tmpsavedict = tmp_save_dict
+        tmpsavedict = tmp_save_dict,
+        saveonabort = params['saveonabort']
     )
     model = trainer.fit(cbs = cbfn)
     return model

@@ -243,7 +243,8 @@ def getUiParams( torchpars, advtorchpars ):
                              transform=transform,
                              withtensorboard = withtensorboard,
                              tofp16 = tofp16,
-                             stopaftercurrentepoch = False )
+                             stopaftercurrentepoch = False,
+                             saveonabort = True )
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

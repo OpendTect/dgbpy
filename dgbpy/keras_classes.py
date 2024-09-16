@@ -55,7 +55,7 @@ def model_info_dict( keras_model ):
 
 class TrainingSequence(Sequence):
   def __init__(self,trainbatch,forvalidation,model,exfilenm=None,batch_size=1,\
-               scale=None,transform=list(),transform_copy=True,tempnm=None):
+               scale=None,transform=list(),transform_copy=True,tempnm=None,outfnm=None,saveonabort=False,tmpsavedict=None):
       from dgbpy.dgbkeras import get_data_format
       self._trainbatch = trainbatch
       self._forvalid = forvalidation
@@ -68,6 +68,9 @@ class TrainingSequence(Sequence):
       self._channels_format = get_data_format(model)
       self._infos = self._trainbatch[dgbkeys.infodictstr]
       self._data_IDs = []
+      self._outfnm = outfnm
+      self._saveonabort = saveonabort
+      self._tmpsavedict = tmpsavedict
       self.ndims = self._getDims(self._infos)
       self.transform = []
       self.transform_seed = dgbhdf5.getSeed(self._infos)
@@ -147,6 +150,13 @@ class TrainingSequence(Sequence):
   def on_epoch_end(self):
       self._nrdone = self._nrdone+1
       if self._tempnm != None and self._nrdone > 0:
+          if self._saveonabort:
+            import shutil
+            from dgbpy.mlio import saveModel
+            saveModel( self._model, self._exfilenm, self._tmpsavedict['platform'], self._tmpsavedict['out_infos'], 
+                       self._tempnm, self._tmpsavedict['params'], isbokeh=None )
+            shutil.copy( self._tempnm, self._outfnm)
+            odcommon.log_msg(f"Model saved for epoch {self._nrdone} at {self._outfnm}")
           now = datetime.now()
           if now - self._lastsaved > timedelta(minutes=10):
               from dgbpy import dgbkeras
