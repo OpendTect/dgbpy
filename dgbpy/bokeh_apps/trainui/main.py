@@ -339,10 +339,11 @@ def training_app(doc):
     nonlocal platformfld
     nonlocal stoptraining
     selplatform = platformfld.value
-    if selplatform != uisklearn.getPlatformNm():
+    if selplatform == uitorch.getPlatformNm():
       stoptraining = uitorch.isSelected( stoptrainingcheckbox )
-    else:
-      stoptraining = getUiParams['stopaftercurrentepoch']
+    elif selplatform == uikeras.getPlatformNm():
+      stoptraining = uikeras.isSelected( stoptrainingcheckbox )
+    stoptraining = getUiParams()['stopaftercurrentepoch']
     return None
 
   saveonabort = True
@@ -351,10 +352,11 @@ def training_app(doc):
     nonlocal platformfld
     nonlocal saveonabort
     selplatform = platformfld.value
-    if selplatform != uisklearn.getPlatformNm():
+    if selplatform == uitorch.getPlatformNm():
       saveonabort = uitorch.isSelected( saveonabortcheckbox )
-    else:
-      saveonabort = getUiParams['saveonabort']
+    elif selplatform == uikeras.getPlatformNm():
+      saveonabort = uikeras.isSelected( saveonabortcheckbox )
+    saveonabort = getUiParams()['saveonabort']
     return None
 
   def getProcArgs( platfmnm, pars, outnm ):
