@@ -91,6 +91,8 @@ defstoragetype = dgbhdf5.StorageType.LOCAL.value
 
 torch_infos = None
 
+tmp_save_dict = None
+
 torch_dict = {
     dgbkeys.decimkeystr: False,
     'nbchunk': 10,
@@ -111,6 +113,8 @@ torch_dict = {
     'withtensorboard': withtensorboard,
     'tofp16': True,
     'stopaftercurrentepoch': False,
+    'tmpsavedict': tmp_save_dict,
+    'saveonabort': False
 }
 
 def getMLPlatform():
@@ -180,7 +184,9 @@ def getParams(
     withtensorboard=torch_dict['withtensorboard'],
     savetype = defsavetype,
     tofp16=torch_dict['tofp16'],
-    stopaftercurrentepoch=torch_dict['stopaftercurrentepoch']):
+    stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
+    tmpsavedict=torch_dict['tmpsavedict'],
+    saveonabort=torch_dict['saveonabort']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
@@ -198,7 +204,9 @@ def getParams(
     'savetype': savetype,
     'withtensorboard': withtensorboard,
     'tofp16': tofp16,
-    'stopaftercurrentepoch': stopaftercurrentepoch
+    'stopaftercurrentepoch': stopaftercurrentepoch,
+    'tmpsavedict':tmpsavedict,
+    'saveonabort':saveonabort
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -449,7 +457,7 @@ def save( model, outfnm, infos, params=torch_dict ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
-def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False):
+def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False, tempnm=None, outfnm=None):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     info = imgdp[dgbkeys.infodictstr]
@@ -464,6 +472,14 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
       from torch.utils.tensorboard import SummaryWriter
       tensorboard = SummaryWriter(log_dir=logdir)
     set_compute_device(params['prefercpu'])
+    tmp_save_dict = {
+      'inpfnm': imgdp[dgbkeys.infodictstr][dgbkeys.filedictstr],
+      'platform': dgbkeys.torchplfnm,
+      'infos': imgdp[dgbkeys.infodictstr],
+      'tempnm': tempnm,
+      'outfnm': outfnm,
+      'params': params
+    }
     trainer = Trainer(
         model=model,
         criterion=criterion,
@@ -479,7 +495,9 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
         imgdp=imgdp,
         silent = silent,
         tofp16=params['tofp16'],
-        stopaftercurrentepoch =  params['stopaftercurrentepoch']
+        stopaftercurrentepoch =  params['stopaftercurrentepoch'],
+        tmpsavedict = tmp_save_dict,
+        saveonabort = params['saveonabort']
     )
     model = trainer.fit(cbs = cbfn)
     return model

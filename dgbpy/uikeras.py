@@ -215,7 +215,8 @@ def getUiParams( keraspars, advkeraspars ):
                              nbfold=nbfold, \
                              nntype=kerasgrp['modeltypfld'].value, \
                              prefercpu=runoncpu, scale=scale, transform=transform, \
-                             withtensorboard=withtensorboard, tofp16=tofp16, stopaftercurrentepoch=False)
+                             withtensorboard=withtensorboard, tofp16=tofp16, stopaftercurrentepoch=False,
+                             saveonabort=True)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

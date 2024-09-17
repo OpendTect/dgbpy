@@ -21,6 +21,24 @@ from dgbpy.transforms import all_scalers
 
 TrainType = Enum( 'TrainType', 'New Resume Transfer', module=__name__ )
 
+def isExecutedFromOdml():
+  # need an update
+  logfnm = get_log_file()
+  if logfnm != None:
+    return os.path.exists( logfnm )
+  else:
+    return False
+
+def getOutFnm(outnm, trainingdp, infos, args):
+  out_infos = trainingdp[dgbkeys.infodictstr]
+  if infos and dgbkeys.flexshpdictstr in infos:
+    out_infos.update({
+      dgbkeys.flexshpdictstr: infos[dgbkeys.flexshpdictstr]
+      })
+  modtype = dgbmlio.getModelType( out_infos )
+  outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
+  return outfnm, out_infos
+
 def computeScaler_( datasets, infos, scalebyattrib ):
   """ Computes scaler
 
@@ -330,6 +348,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           force=False,
                                           nbchunks=params['nbchunk'],
                                           split=params['split'],nbfolds=params['nbfold'] )
+      outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       tblogdir=None
       if 'withtensorboard' in params and params['withtensorboard']:
         tblogdir = dgbhdf5.getLogDir(dgbkeras.withtensorboard, examplefilenm, platform, logdir, clearlogs, args )
@@ -343,8 +362,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         model = dgbkeras.transfer( model )
 
       tempmodelnm = None
-      logfnm = get_log_file()
-      if logfnm != None:
+      if isExecutedFromOdml():
+        logfnm = get_log_file()
         tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
         tempmodelnm = tempmodelfnm.name + '.h5'
         tempmodelfnm = None
@@ -353,7 +372,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       if bokeh: cbfn = dgbkeras.BokehProgressCallback
       try:
         model = dgbkeras.train( model, trainingdp, params=params,
-                                trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm )
+                                trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm, outfnm=outfnm )
       except (TypeError,MemoryError) as e:
         if tempmodelnm != None and os.path.exists(tempmodelnm):
           model = dgbmlio.getModel( tempmodelnm, True )
@@ -366,6 +385,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
 
     elif platform == dgbkeys.torchplfnm:
       import dgbpy.dgbtorch as dgbtorch
+      import tempfile
       if params == None:
         params = dgbtorch.getParams()
       tblogdir = None
@@ -376,6 +396,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'] )
+      outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       hasunlabels = dgbhdf5.hasUnlabeled(dgbmlio.getInfo(examplefilenm))
       if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and hasunlabels:
         params[dgbkeys.criteriondictstr] = 'DiceLoss'
@@ -396,7 +417,13 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       print('--Training Started--', flush=True)
       cbfn = None
       if bokeh: cbfn = [dgbtorch.tc.BokehProgressCallback()]
-      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh)
+      tempmodelnm = None
+      if isExecutedFromOdml():
+        logfnm = get_log_file()
+        tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
+        tempmodelnm = tempmodelfnm.name + '.h5'
+        tempmodelfnm = None
+      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh, tempnm=tempmodelnm, outfnm=outfnm)
 
     elif platform == dgbkeys.scikitplfnm:
       import dgbpy.dgbscikit as dgbscikit
@@ -406,6 +433,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           scaler=dgbkeys.globalstdtypestr,
                                           force=False,
                                           split=validation_split, nbfolds=None )
+      outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       if type == TrainType.New:
         model = dgbscikit.getDefaultModel( trainingdp[dgbkeys.infodictstr],
                                           params )
@@ -415,16 +443,11 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       log_msg( 'Unsupported machine learning platform' )
       raise AttributeError
 
-    out_infos = trainingdp[dgbkeys.infodictstr]
-    if infos and dgbkeys.flexshpdictstr in infos:
-      out_infos.update({
-        dgbkeys.flexshpdictstr: infos[dgbkeys.flexshpdictstr]
-      })
-
-    modtype = dgbmlio.getModelType( out_infos )
-    outfnm = dgbmlio.getSaveLoc( outnm, modtype, args )
     dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, isbokeh=bokeh )
-    result = (outfnm != None and os.path.isfile( outfnm ))
+    if outfnm and not outfnm.endswith('.h5'):
+      result = (os.path.isfile(os.path.splitext(outfnm)[0] + '.h5'))
+    else:
+      result = (outfnm != None and os.path.isfile(outfnm))
     dgbmlio.announceTrainingSuccess()
     return result
   except Exception as e:

@@ -501,7 +501,9 @@ class Trainer:
                  cbs = None,
                  silent = None,
                  tofp16 = False,
-                 stopaftercurrentepoch = False
+                 stopaftercurrentepoch = False,
+                 tmpsavedict = None,
+                 saveonabort = False
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -510,6 +512,8 @@ class Trainer:
         self.tensorboard, self.silent, self.earlystopping = tensorboard, silent, earlystopping
         self.scheduler = scheduler
         self.stopaftercurrentepoch = stopaftercurrentepoch
+        self.tmpsavedict = tmpsavedict
+        self.saveonabort = saveonabort
 
         self.info = self.imgdp[dgbkeys.infodictstr]
         self.set_metrics(metrics)
@@ -628,6 +632,13 @@ class Trainer:
                         self.dl = self.valid_dl
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
+                if self.saveonabort:
+                    import shutil
+                    from dgbpy.mlio import saveModel
+                    saveModel(self.savemodel, self.tmpsavedict['inpfnm'], self.tmpsavedict['platform'],
+                              self.tmpsavedict['infos'], self.tmpsavedict['tempnm'], self.tmpsavedict['params'], isbokeh=None)
+                    shutil.copy(self.tmpsavedict['tempnm'], self.tmpsavedict['outfnm'])
+                    odcommon.log_msg(f"Model saved for epoch {epoch + 1} at {self.tmpsavedict['outfnm']}")
                 if self.stopaftercurrentepoch:
                     odcommon.log_msg(f'Stopping the training on user request after {epoch+1} epochs')
                     break

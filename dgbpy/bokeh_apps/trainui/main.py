@@ -339,10 +339,24 @@ def training_app(doc):
     nonlocal platformfld
     nonlocal stoptraining
     selplatform = platformfld.value
-    if selplatform != uisklearn.getPlatformNm():
+    if selplatform == uitorch.getPlatformNm():
       stoptraining = uitorch.isSelected( stoptrainingcheckbox )
-    else:
-      stoptraining = getUiParams['stopaftercurrentepoch']
+    elif selplatform == uikeras.getPlatformNm():
+      stoptraining = uikeras.isSelected( stoptrainingcheckbox )
+    stoptraining = getUiParams()['stopaftercurrentepoch']
+    return None
+
+  saveonabort = True
+
+  def saveOnAbortCB( saveonabortcheckbox ):
+    nonlocal platformfld
+    nonlocal saveonabort
+    selplatform = platformfld.value
+    if selplatform == uitorch.getPlatformNm():
+      saveonabort = uitorch.isSelected( saveonabortcheckbox )
+    elif selplatform == uikeras.getPlatformNm():
+      saveonabort = uikeras.isSelected( saveonabortcheckbox )
+    saveonabort = getUiParams()['saveonabort']
     return None
 
   def getProcArgs( platfmnm, pars, outnm ):
@@ -393,6 +407,7 @@ def training_app(doc):
 
   def doTrain( trainedfnm ):
     nonlocal stoptraining
+    nonlocal saveonabort
     if len(trainedfnm) < 1:
       return False
     if platformfld.value==uikeras.getPlatformNm():
@@ -403,6 +418,7 @@ def training_app(doc):
     modelnm = trainedfnm
     params = getUiParams()
     params['stopaftercurrentepoch'] = stoptraining
+    params['saveonabort'] = saveonabort
     scriptargs = getProcArgs( platformfld.value, params, \
                                 modelnm )
     cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
@@ -555,7 +571,7 @@ def training_app(doc):
 
   platformfld.on_change('value',mlchgCB)
   progressgrp, progressfld = uibokeh.getPbar()
-  buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB, stopTrainingCB )
+  buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB, stopTrainingCB, saveOnAbortCB )
   trainpanel.child = column( platformfld, buttonsgrp, progressfld)
 
   def initWin():
