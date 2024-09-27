@@ -87,6 +87,7 @@ keras_dict = {
   'transform': default_transforms,
   'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard,
+  'tblogdir': None,
   'tofp16': True,
   'stopaftercurrentepoch': False,
   'saveonabort': False
@@ -134,8 +135,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
-               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16'],
-               stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'], saveonabort=keras_dict['saveonabort']):
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tblogdir=keras_dict['tblogdir'],
+               tofp16=keras_dict['tofp16'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'], saveonabort=keras_dict['saveonabort']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -151,6 +152,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'transform': transform,
     'scale': scale,
     'withtensorboard': withtensorboard,
+    'tblogdir': tblogdir,
     'tofp16': tofp16,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'saveonabort': saveonabort

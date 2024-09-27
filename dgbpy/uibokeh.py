@@ -15,6 +15,10 @@ from dgbpy.bokehcore import *
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 
+import os
+from odpy.oscommand import (execCommand, kill)
+from odpy.common import log_msg
+
 but_width = 80
 but_height = 32
 but_spacer = 5
@@ -26,6 +30,7 @@ timerkey = 'timerobj'
 parent_bar = 'epoch_bar'
 child_bar = 'iter_bar'
 widget_margin = (4, 0, 0, 0)
+tb_proc = None
 
 RunState = Enum( 'RunState', 'Ready Running Pause', module=__name__ )
 
@@ -46,6 +51,15 @@ def getRunStopButton(callback_fn=None):
 
 def getPauseResumeButton(callback_fn=None):
   return getButton(pause_lbl,type=enums.ButtonType.primary,callback_fn=callback_fn)
+
+def getStartTBButton(callback_fn=None):
+  return getButton('Start', callback_fn=callback_fn)
+
+def getStopTBButton(callback_fn=None):
+  return getButton('Stop', callback_fn=callback_fn)
+
+def getShowTBButton(callback_fn=None):
+  return getButton('Show', callback_fn=callback_fn)
 
 class TrainStatusUI():
   def __init__(self):
@@ -137,6 +151,25 @@ def getRunButtonsBar(progress,runact,abortact,pauseact,resumeact,progressact,tim
   pauseresumebut.on_click(partial(pauseResumeCB,cb=ret,pause_fn=pauseact,resume_fn=resumeact))
   return buttonsfld
 
+def getTBButtonBar( tblogdir ):
+  log_msg(f'tblogdir in uibokeh.getTBButton {tblogdir}')
+  starttbbut = getStartTBButton()
+  stoptbbut = getStopTBButton()
+  showtbbut = getShowTBButton()
+  starttbbut.visible = False
+  stoptbbut.visible = False
+  showtbbut.visible = False
+  tbbuttonsgrp = row([starttbbut, stoptbbut, showtbbut])
+  ret = {
+    'start': starttbbut,
+    'stop': stoptbbut,
+    'show': showtbbut
+  }
+  starttbbut.on_click(partial(startTensorboardCB, cb=ret, tblogdir=tblogdir))
+  stoptbbut.on_click(partial(stopTensorboardCB, cb=ret))
+  showtbbut.on_click(partial(showTensorboardCB, cb=ret))
+  return tbbuttonsgrp, ret
+
 def startStopCB( cb, run_fn, abort_fn, progress_fn, timer_fn, stopaftercurrentepoch_fn, saveonabort_fn, repeat=2000 ):
   stoptrainingcheckbox = cb['stopaftercurrentepoch']
   saveonabortcheckbox = cb['saveonabort']
@@ -208,6 +241,29 @@ def endBarUpdateCB(ret):
   ret[child_bar].reset()
   ret[parent_bar].visible(False)
   ret[parent_bar].reset()
+
+def startTensorboardCB( cb, tblogdir ):
+  global tb_proc
+  from dgbpy.servicemgr import ServiceMgr
+  log_msg(f'tblogdir in uibokeh.startTensorboardCB: {tblogdir}')
+  tensorboard_port = 21070
+  local_ip = 'localhost'
+  if ServiceMgr._is_port_in_use(tensorboard_port, local_ip):
+    tensorboard_port +=1
+  window_title = os.path.basename(os.path.dirname(tblogdir))
+  tbcmd = ["tensorboard", "--logdir", os.path.dirname(tblogdir), "--window_title", window_title, "--port", str(tensorboard_port)]
+  tb_proc = execCommand(tbcmd, background=True)
+  log_msg(f'Tensorboard ready at: http://localhost:{str(tensorboard_port)}/')
+  return tb_proc
+
+def stopTensorboardCB( cb ):
+  global tb_proc
+  if tb_proc:
+    kill( tb_proc )
+    log_msg('Tensorboard has been stopped!')
+
+def showTensorboardCB( cb ):
+  log_msg('show button is clicked!')
 
 def setReady( runbutbar ):
   runbutbar['state'] = RunState.Ready

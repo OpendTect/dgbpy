@@ -45,7 +45,8 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     pass
 #    self.stop()
 
-  def _is_port_in_use(self, port, local_ip):
+  @staticmethod
+  def _is_port_in_use(port, local_ip): # make it static
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       if s.connect_ex(('127.0.0.1', port)) == 0:
         return True

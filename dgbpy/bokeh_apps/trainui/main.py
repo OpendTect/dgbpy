@@ -255,6 +255,15 @@ def training_app(doc):
       return (None,)
     return grps
 
+  def tbOption( info, trainingpars, platformnm ):
+    from dgbpy.dgbkeras import keras_dict
+    if os.path.isfile(info[dgbkeys.filedictstr]):
+      logdir = trainingpars['ComArgs']['logdir'][0]
+      examplefilenm = info[dgbkeys.filedictstr]
+      tblogdir = dgbhdf5.getLogDir( True, examplefilenm, platformnm, logdir, False, None )
+      keras_dict['tblogdir'] = tblogdir
+      getKerasUiPars()
+
   def mlchgCB( attrnm, old, new):
     nonlocal info
     nonlocal keraspars
@@ -267,6 +276,7 @@ def training_app(doc):
     nonlocal tensorboardfld
     nonlocal progress
     nonlocal adparameterspanel
+    nonlocal trainingpars
     set_info()
     keraspars, kerasadvpars = getKerasUiPars()
     torchpars, torchadvpars = getTorchUiPars()
@@ -275,6 +285,7 @@ def training_app(doc):
     parsgroups = setPlatformGrp(torchpars,keraspars,sklearnpars)
     advparsgroups = (torchadvpars, kerasadvpars, sklearnadvpars)
     selParsGrp( new )
+    tbOption( info, trainingpars, new )
 
   def updateUI():
     nonlocal platformfld
@@ -524,6 +535,12 @@ def training_app(doc):
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
+      if progress.get('in_validation_phase', False):
+        progress['in_validation_phase'] = False
+        chunk.text = uibokeh.setProgValue(type="Training on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
+      else:
+        progress['in_validation_phase'] = True
+        chunk.text = uibokeh.setProgValue(type="Validating on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
       progress['after_iter'] = False
       return
 
@@ -541,6 +558,7 @@ def training_app(doc):
         progress['_foldTemp'] = progress['ifold']
         fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
       progress['state'] = ProgState.Running
+      progress['in_validation_phase'] = False
       return
 
     # update progress widget after each chunk, epoch and iteration
@@ -567,7 +585,8 @@ def training_app(doc):
       progress['status']=TrainStatus.Default
     progress['_chunkTemp'] = progress['ichunk']
     progress['_foldTemp'] = progress['ifold']
-
+    if progress.get('in_validation_phase', False):
+      chunk.text = uibokeh.setProgValue(type="Validating on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
 
   platformfld.on_change('value',mlchgCB)
   progressgrp, progressfld = uibokeh.getPbar()
