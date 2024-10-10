@@ -20,7 +20,7 @@ from functools import partial
 import time
 from enum import Enum
 
-from odpy.common import log_msg, redirect_stdout, restore_stdout
+from odpy.common import log_msg, redirect_stdout, restore_stdout, get_settings_filename
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -30,7 +30,7 @@ try:
   from keras.callbacks import Callback
 except ModuleNotFoundError:
   pass
-from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess, saveModel
+from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess, saveModel, getStoredParams
 
 def hasKeras():
   try:
@@ -87,10 +87,18 @@ keras_dict = {
   'transform': default_transforms,
   'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard,
+  'tblogdir': None,
   'tofp16': True,
   'stopaftercurrentepoch': False,
   'saveonabort': False
 }
+
+settings_mltrain_path = get_settings_filename('settings_mltrain.json')
+if os.path.exists(settings_mltrain_path):
+  with open(settings_mltrain_path, 'r') as file:
+    settings_mltrain = json.load(file)
+    if settings_mltrain.get(dgbkeys.kerasplfnm):
+      keras_dict = getStoredParams(keras_dict, settings_mltrain[dgbkeys.kerasplfnm])
 
 def can_use_gpu():
   from tensorflow import config as tfconfig
@@ -134,8 +142,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                learnrate=keras_dict['learnrate'],epochdrop=keras_dict['epochdrop'],
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
-               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tofp16=keras_dict['tofp16'],
-               stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'], saveonabort=keras_dict['saveonabort']):
+               scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tblogdir=keras_dict['tblogdir'],
+               tofp16=keras_dict['tofp16'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'], saveonabort=keras_dict['saveonabort']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -151,6 +159,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'transform': transform,
     'scale': scale,
     'withtensorboard': withtensorboard,
+    'tblogdir': tblogdir,
     'tofp16': tofp16,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'saveonabort': saveonabort
