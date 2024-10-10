@@ -28,12 +28,12 @@ try:
 except ModuleNotFoundError:
   pass
 from scipy.spatial import distance
-from odpy.common import log_msg, redirect_stdout, restore_stdout
+from odpy.common import log_msg, redirect_stdout, restore_stdout, get_settings_filename
 from odpy.oscommand import printProcessTime
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
-from dgbpy.mlio import announceTrainingSuccess, announceTrainingFailure
+from dgbpy.mlio import announceTrainingSuccess, announceTrainingFailure, getStoredParams
 from multiprocessing import cpu_count
 
 tot_cpu = cpu_count()
@@ -122,6 +122,13 @@ scikit_dict = {
   'savetype': defsavetype,
   'scaler': None,
 }
+
+settings_mltrain_path = get_settings_filename('settings_mltrain.json')
+if os.path.exists(settings_mltrain_path):
+  with open(settings_mltrain_path, 'r') as file:
+    settings_mltrain = json.load(file)
+    if settings_mltrain.get(dgbkeys.scikitplfnm):
+      scikit_dict = getStoredParams(scikit_dict, settings_mltrain[dgbkeys.scikitplfnm])
 
 def getMLPlatform():
   return platform[0]

@@ -306,7 +306,7 @@ def getLogDir( withtensorboard, examplenm, platform, basedir, clearlogs, args ):
       except:
          return None
 
-  if surveydictstr in args:
+  if args is not None and surveydictstr in args:
     jobnm = args[surveydictstr][0] + '_run'
   else:
     jobnm = 'run'

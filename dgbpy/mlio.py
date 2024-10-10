@@ -540,6 +540,27 @@ def getSaveLoc( outnm, ftype, args ):
   except Exception:
     return os.path.join( os.getcwd(), outnm )
   
+def getStoredParams(uiparams, params):
+  tabs = {
+          "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
+          "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
+                        dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
+                        dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr],
+          "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
+                      dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
+          }
+
+  for tab, keys in tabs.items():
+    tab_params = params.get(tab, {})
+    for key in keys:
+      value = tab_params.get(key)
+      if isinstance(value, str) and value.lower() in ['true', 'false']:
+        value = value.lower() == 'true'
+      if value is not None:
+        uiparams[key] = value
+  
+  return uiparams
+
 def announceShowTensorboard():
   restore_stdout()
   print('--ShowTensorboard--', flush=True)
