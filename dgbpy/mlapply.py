@@ -297,24 +297,25 @@ def transform(x_train,scaler):
         inp /= scaler.scale_[iattr]
 
 def getSettingsMltrain(platform, params, settings_mltrain):
-  tabs = {
-          "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
-          "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
-                         dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
-                         dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr],
-          "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
-                       dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
-        }
-  last_platform = settings_mltrain["lastplatform"]
-  if platform != last_platform:
+  settings_mltrain["lastplatform"] = platform
+  if platform not in settings_mltrain:
     settings_mltrain[platform] = {}
+  tabs = {
+        "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
+        "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
+                       dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
+                       dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr],
+        "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
+                     dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
+    }
   for tab, keys in tabs.items():
     settings_mltrain[platform].setdefault(tab, {})
     for key in keys:
       if key in params:
         settings_mltrain[platform][tab][key] = params[key]
-  settings_mltrain["lastplatform"] = platform
-  return settings_mltrain
+  new_settings_mltrain = {**{"lastplatform": platform}, **settings_mltrain}
+
+  return new_settings_mltrain
 
 def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
              params=None, outnm=dgbkeys.modelnm, logdir=None, clearlogs=False, modelin=None,
@@ -345,15 +346,14 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
   if bokeh:
     import json
     settings_mltrain_path = get_settings_filename('settings_mltrain.json')
-    if not os.path.exists(settings_mltrain_path):
-      with open(settings_mltrain_path, 'w') as file:
-        json.dump(default_data or {}, file, indent=4)
-    else:
-      with open(settings_mltrain_path, "r") as file:
+    if os.path.exists(settings_mltrain_path):
+      with open(settings_mltrain_path, 'r') as file:
         settings_mltrain = json.load(file)
-      settings_mltrain = getSettingsMltrain(platform, params, settings_mltrain)
-      with open(settings_mltrain_path, "w") as file:
-        json.dump(settings_mltrain, file, indent=4)
+    else:
+      settings_mltrain = {}
+    updated_settings = getSettingsMltrain(platform, params, settings_mltrain)
+    with open(settings_mltrain_path, 'w') as file:
+        json.dump(updated_settings, file, indent=4)
 
   try:
     (model,infos) = (None,None)

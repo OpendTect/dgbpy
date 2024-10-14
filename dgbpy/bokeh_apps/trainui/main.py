@@ -165,7 +165,6 @@ def training_app(doc):
 
   trainingcb = None
   doabort = False
-  trainingstate = {'is_training': False}
   trainscriptfp = os.path.join(os.path.dirname(os.path.dirname(srcfile)),'..','mlapplyrun.py')
   traintabnm = 'Training'
   paramtabnm = 'Parameters'
@@ -256,14 +255,11 @@ def training_app(doc):
       return (None,)
     return grps
 
-  def tbOption( info, trainingpars, platformnm, trainingstate ):
+  def tbOption( info, trainingpars, platformnm ):
     if os.path.isfile(info[dgbkeys.filedictstr]):
       logdir = trainingpars['ComArgs']['logdir'][0]
       examplefilenm = info[dgbkeys.filedictstr]
-      if trainingstate:
-        tblogdir = None
-      else:
-        tblogdir = dgbhdf5.getLogDir( True, examplefilenm, platformnm, logdir, False, None )
+      tblogdir = dgbhdf5.getLogDir( True, examplefilenm, platformnm, logdir, False, None )
       if platformnm == dgbkeys.kerasplfnm:
         from dgbpy.dgbkeras import keras_dict
         keras_dict['tblogdir'] = tblogdir
@@ -282,11 +278,9 @@ def training_app(doc):
     nonlocal advparsgroups
     nonlocal kerasadvpars
     nonlocal torchadvpars
-    nonlocal tensorboardfld
     nonlocal progress
     nonlocal adparameterspanel
     nonlocal trainingpars
-    nonlocal trainingstate
     set_info()
     keraspars, kerasadvpars = getKerasUiPars()
     torchpars, torchadvpars = getTorchUiPars()
@@ -295,7 +289,7 @@ def training_app(doc):
     parsgroups = setPlatformGrp(torchpars,keraspars,sklearnpars)
     advparsgroups = (torchadvpars, kerasadvpars, sklearnadvpars)
     selParsGrp( new )
-    tbOption(info, trainingpars, new, trainingstate['is_training'])
+    tbOption(info, trainingpars, new)
 
   def updateUI():
     nonlocal platformfld
@@ -469,7 +463,12 @@ def training_app(doc):
     proc = rectrainingcb[uibokeh.timerkey]
     nonlocal trainingcb
     nonlocal doabort
-    nonlocal trainingstate
+    nonlocal parameterspanel
+    nonlocal adparameterspanel
+    nonlocal mainpanel
+    nonlocal platformfld
+    parameterspanel = TabPanel(title=paramtabnm)
+    adparameterspanel = TabPanel(title=adparamtabnm)
     if doabort:
       return (False,rectrainingcb)
     if proc == None:
@@ -477,8 +476,11 @@ def training_app(doc):
         rectrainingcb[uibokeh.timerkey] = trainingcb[uibokeh.timerkey]
       return (True,rectrainingcb)
     if isRunning(proc):
-      trainingstate['is_training'] = True
-      updateUI()
+      parameterspanel.disabled = True
+      adparameterspanel.disabled = True
+      parameterspanel.child = row(parsresetbut, parsbackbut)
+      adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+      mainpanel.tabs = [trainpanel,parameterspanel,adparameterspanel]
       return (True,rectrainingcb)
     try:
       proc.status()
@@ -488,8 +490,18 @@ def training_app(doc):
         odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
       elif this_service:
         this_service.sendObject('bokeh_app_msg', {'training_finished': ''})
-      trainingstate['is_training'] = False
-      updateUI()
+      parameterspanel.disabled = False
+      adparameterspanel.disabled = False
+      parsgrp,advparsgrp = getParsGrp( platformfld.value )
+      if not parsgrp:
+        parameterspanel.child = row(parsresetbut, parsbackbut)
+        adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+        parameterspanel.disabled = True
+        adparameterspanel.disabled = True
+      else:
+        parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
+        setAdvPanel(advparsgrp)
+      mainpanel.tabs = [trainpanel,parameterspanel,adparameterspanel]
       rectrainingcb[uibokeh.timerkey] = None
       trainingcb[uibokeh.timerkey] = None
       return (False,rectrainingcb)
