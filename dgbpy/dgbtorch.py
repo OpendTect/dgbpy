@@ -14,6 +14,8 @@ from enum import Enum
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
 import odpy.hdf5 as odhdf5
+import odpy.common as odcommon
+from dgbpy.mlio import getStoredParams
 
 try:
   import torch
@@ -111,11 +113,19 @@ torch_dict = {
     'scale': dgbkeys.globalstdtypestr,
     'transform':default_transforms,
     'withtensorboard': withtensorboard,
+    'tblogdir': None,
     'tofp16': True,
     'stopaftercurrentepoch': False,
     'tmpsavedict': tmp_save_dict,
     'saveonabort': False
 }
+
+settings_mltrain_path = odcommon.get_settings_filename('settings_mltrain.json')
+if os.path.exists(settings_mltrain_path):
+  with open(settings_mltrain_path, 'r') as file:
+    settings_mltrain = json.load(file)
+    if settings_mltrain.get(dgbkeys.torchplfnm):
+      torch_dict = getStoredParams(torch_dict, settings_mltrain[dgbkeys.torchplfnm])
 
 def getMLPlatform():
   return platform[0]
@@ -182,6 +192,7 @@ def getParams(
     scale=torch_dict['scale'],
     transform=torch_dict['transform'],
     withtensorboard=torch_dict['withtensorboard'],
+    tblogdir=torch_dict['tblogdir'],
     savetype = defsavetype,
     tofp16=torch_dict['tofp16'],
     stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
@@ -203,6 +214,7 @@ def getParams(
     'transform': transform,
     'savetype': savetype,
     'withtensorboard': withtensorboard,
+    'tblogdir': tblogdir,
     'tofp16': tofp16,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'tmpsavedict':tmpsavedict,

@@ -118,9 +118,23 @@ def createAdvanedUiLeftPane():
   uiobjs = {
     'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), \
                                 disabled= not is_mixed_precision_compatible(), margin=(5, 5, 0, 5)),
-    'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
-    'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
+    'tensorboardheadfld': Div(text="""<strong>Tensorboard Options</strong>""", height = 10),
+    'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 5, 25)),
+    'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 5, 25))
   }
+
+  tblogdir = keras_dict['tblogdir']
+  if tblogdir != None:
+    tbbuttonsgrp, tbobjs = uibokeh.getTBButtonBar( tblogdir )
+    
+    def getTensorboardButton(attr, old, new):
+      is_checked = len(uiobjs['tensorboardfld'].active) > 0
+      tbobjs['start'].visible = is_checked
+
+    uiobjs['tensorboardfld'].on_change('active', getTensorboardButton)
+    uiobjs['tensorboardrow'] = tbbuttonsgrp
+  else:
+    uiobjs['tensorboardrow'] = Div(text="TensorBoard is disabled.", visible=False)
 
   if not dgbhdf5.isLogOutput(info):
     aug_labels = uibokeh.set_augment_mthds(info)
@@ -133,7 +147,14 @@ def createAdvanedUiLeftPane():
       }
     uiobjs = {**transformUi, **uiobjs}
 
-  parsgrp = column(*list(uiobjs.values()))
+  parsgrp = column(
+    *[uiobjs[key] for key in uiobjs if key not in ['tofp16fld', 'tensorboardheadfld', 'tensorboardfld', 'tensorboardrow', 'cleartensorboardfld']],
+    uiobjs['tofp16fld'],
+    uiobjs['tensorboardheadfld'],
+    uiobjs['tensorboardfld'],
+    uiobjs['tensorboardrow'],           
+    uiobjs['cleartensorboardfld']
+  )
   return parsgrp, uiobjs
 
 def createAdvanedUiRightPane():
@@ -213,10 +234,10 @@ def getUiParams( keraspars, advkeraspars ):
                              validation_split = validation_split, \
                              savetype=savetype, \
                              nbfold=nbfold, \
-                             nntype=kerasgrp['modeltypfld'].value, \
+                             nntype=kerasgrp['modeltypfld'].value,
                              prefercpu=runoncpu, scale=scale, transform=transform, \
-                             withtensorboard=withtensorboard, tofp16=tofp16, stopaftercurrentepoch=False,
-                             saveonabort=True)
+                             withtensorboard=withtensorboard, tblogdir=None,
+                             tofp16=tofp16, stopaftercurrentepoch=False,saveonabort=True)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

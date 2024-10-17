@@ -255,6 +255,20 @@ def training_app(doc):
       return (None,)
     return grps
 
+  def tbOption( info, trainingpars, platformnm ):
+    if os.path.isfile(info[dgbkeys.filedictstr]):
+      logdir = trainingpars['ComArgs']['logdir'][0]
+      examplefilenm = info[dgbkeys.filedictstr]
+      tblogdir = dgbhdf5.getLogDir( True, examplefilenm, platformnm, logdir, False, None )
+      if platformnm == dgbkeys.kerasplfnm:
+        from dgbpy.dgbkeras import keras_dict
+        keras_dict['tblogdir'] = tblogdir
+        getKerasUiPars()
+      elif platformnm == dgbkeys.torchplfnm:
+        from dgbpy.dgbtorch import torch_dict
+        torch_dict['tblogdir'] = tblogdir
+        getTorchUiPars()
+        
   def mlchgCB( attrnm, old, new):
     nonlocal info
     nonlocal keraspars
@@ -264,9 +278,9 @@ def training_app(doc):
     nonlocal advparsgroups
     nonlocal kerasadvpars
     nonlocal torchadvpars
-    nonlocal tensorboardfld
     nonlocal progress
     nonlocal adparameterspanel
+    nonlocal trainingpars
     set_info()
     keraspars, kerasadvpars = getKerasUiPars()
     torchpars, torchadvpars = getTorchUiPars()
@@ -275,6 +289,7 @@ def training_app(doc):
     parsgroups = setPlatformGrp(torchpars,keraspars,sklearnpars)
     advparsgroups = (torchadvpars, kerasadvpars, sklearnadvpars)
     selParsGrp( new )
+    tbOption(info, trainingpars, new)
 
   def updateUI():
     nonlocal platformfld
@@ -448,6 +463,12 @@ def training_app(doc):
     proc = rectrainingcb[uibokeh.timerkey]
     nonlocal trainingcb
     nonlocal doabort
+    nonlocal parameterspanel
+    nonlocal adparameterspanel
+    nonlocal mainpanel
+    nonlocal platformfld
+    parameterspanel = TabPanel(title=paramtabnm)
+    adparameterspanel = TabPanel(title=adparamtabnm)
     if doabort:
       return (False,rectrainingcb)
     if proc == None:
@@ -455,6 +476,11 @@ def training_app(doc):
         rectrainingcb[uibokeh.timerkey] = trainingcb[uibokeh.timerkey]
       return (True,rectrainingcb)
     if isRunning(proc):
+      parameterspanel.disabled = True
+      adparameterspanel.disabled = True
+      parameterspanel.child = row(parsresetbut, parsbackbut)
+      adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+      mainpanel.tabs = [trainpanel,parameterspanel,adparameterspanel]
       return (True,rectrainingcb)
     try:
       proc.status()
@@ -464,6 +490,18 @@ def training_app(doc):
         odcommon.log_msg( 'See OpendTect log file for more details (if available).' )
       elif this_service:
         this_service.sendObject('bokeh_app_msg', {'training_finished': ''})
+      parameterspanel.disabled = False
+      adparameterspanel.disabled = False
+      parsgrp,advparsgrp = getParsGrp( platformfld.value )
+      if not parsgrp:
+        parameterspanel.child = row(parsresetbut, parsbackbut)
+        adparameterspanel.child = row(parsAdvancedResetBut, parsbackbut)
+        parameterspanel.disabled = True
+        adparameterspanel.disabled = True
+      else:
+        parameterspanel.child = column( parsgrp, row(parsresetbut, parsbackbut))
+        setAdvPanel(advparsgrp)
+      mainpanel.tabs = [trainpanel,parameterspanel,adparameterspanel]
       rectrainingcb[uibokeh.timerkey] = None
       trainingcb[uibokeh.timerkey] = None
       return (False,rectrainingcb)
@@ -524,6 +562,12 @@ def training_app(doc):
     # reset child bar after training for validation batches
     if progress['after_iter']:
       child.reset()
+      if progress.get('in_validation_phase', False):
+        progress['in_validation_phase'] = False
+        chunk.text = uibokeh.setProgValue(type="Training on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
+      else:
+        progress['in_validation_phase'] = True
+        chunk.text = uibokeh.setProgValue(type="Validating on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
       progress['after_iter'] = False
       return
 
@@ -541,6 +585,7 @@ def training_app(doc):
         progress['_foldTemp'] = progress['ifold']
         fold.text = uibokeh.setProgValue(type="Cross Validation Fold",current=progress['_foldTemp'],total=progress['n_folds'])
       progress['state'] = ProgState.Running
+      progress['in_validation_phase'] = False
       return
 
     # update progress widget after each chunk, epoch and iteration
@@ -567,7 +612,8 @@ def training_app(doc):
       progress['status']=TrainStatus.Default
     progress['_chunkTemp'] = progress['ichunk']
     progress['_foldTemp'] = progress['ifold']
-
+    if progress.get('in_validation_phase', False):
+      chunk.text = uibokeh.setProgValue(type="Validating on Chunk", current=progress['_chunkTemp'], total=progress['n_chunks'])
 
   platformfld.on_change('value',mlchgCB)
   progressgrp, progressfld = uibokeh.getPbar()

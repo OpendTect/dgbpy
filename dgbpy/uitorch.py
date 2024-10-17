@@ -142,9 +142,24 @@ def createAdvanedUiLeftPane():
   disable_scaling, scaler = setup_scaler_ui(info)
   uiobjs = {
     'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), margin=(5, 5, 0, 5)),
+    'tensorboardheadfld': Div(text="""<strong>Tensorboard Options</strong>""", height = 10),
     'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
     'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
   }
+
+  tblogdir = torch_dict['tblogdir']
+  if tblogdir != None:
+    tbbuttonsgrp, tbobjs = uibokeh.getTBButtonBar( tblogdir )
+
+    def getTensorboardButton(attr, old, new):
+      is_checked = len(uiobjs['tensorboardfld'].active) > 0
+      tbobjs['start'].visible = is_checked
+
+    uiobjs['tensorboardfld'].on_change('active', getTensorboardButton)
+    uiobjs['tensorboardrow'] = tbbuttonsgrp
+  else:
+    uiobjs['tensorboardrow'] = Div(text="TensorBoard is disabled.", visible=False)
+
   if not dgbhdf5.isLogInput(info):
     aug_labels = uibokeh.set_augment_mthds(info)
     transformUi = {
@@ -156,7 +171,14 @@ def createAdvanedUiLeftPane():
     }
     uiobjs = {**transformUi, **uiobjs}
   
-  parsgrp = column(*list(uiobjs.values()))
+  parsgrp = column(
+    *[uiobjs[key] for key in uiobjs if key not in ['tofp16fld', 'tensorboardheadfld', 'tensorboardfld', 'tensorboardrow', 'cleartensorboardfld']],
+    uiobjs['tofp16fld'],
+    uiobjs['tensorboardheadfld'],
+    uiobjs['tensorboardfld'],
+    uiobjs['tensorboardrow'],           
+    uiobjs['cleartensorboardfld']
+  )
   return parsgrp, uiobjs
 
 def getSaveTypes( exclude=['pickle'] ):
@@ -242,6 +264,7 @@ def getUiParams( torchpars, advtorchpars ):
                              savetype = savetype,
                              transform=transform,
                              withtensorboard = withtensorboard,
+                             tblogdir = None,
                              tofp16 = tofp16,
                              stopaftercurrentepoch = False,
                              saveonabort = True )
