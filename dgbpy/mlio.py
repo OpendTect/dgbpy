@@ -63,7 +63,7 @@ def datasetCount( dsets ):
   ret.update({ 'size': totsz })
   return ret
 
-def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
+def getDatasetNms( dsets, seed=None, validation_split=None, valid_inputs=None ):
   """ Gets train and validation indices of dataset
 
   Parameters:
@@ -97,6 +97,7 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
       nrpts = len(dsetnms)
       if dorandom:
         nrpts = int(nrpts*validation_split)
+        np.random.seed(seed)
         np.random.shuffle( dsetnms )
       if inp in valid_inputs:
         if dorandom:
@@ -330,7 +331,7 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
-def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
+def saveModel( model, inpfnm, platform, infos, outfnm, params, summary, **kwargs ):
   """ Saves trained model for any platform workflow
 
   Parameters:
@@ -344,7 +345,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
   isbokeh = kwargs.get('isbokeh', False)
   if dgbhdf5.shouldUseS3(outfnm, params, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
-    save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
+    save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, summary, isHandled=True)
     return dgb_boto.handleS3FileSaving(save_function, outfnm, params, isbokeh=isbokeh)
 
   from odpy.common import log_msg
@@ -358,7 +359,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
   log_msg( 'Saving model.' )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    dgbkeras.save( model, outfnm )
+    dgbkeras.save( model, summary, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if dgbscikit.isClustering(model):
@@ -368,7 +369,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
     dgbscikit.save( model, outfnm, savetype )
   elif platform == dgbkeys.torchplfnm or platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    dgbtorch.save( model, outfnm, infos, params )
+    dgbtorch.save( model, outfnm, infos, summary, params )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError

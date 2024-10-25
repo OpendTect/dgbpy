@@ -7,7 +7,7 @@
 # _________________________________________________________________________
 # various tools machine learning using PyTorch platform
 #
-import os, json
+import os, json, random
 import warnings
 import numpy as np
 from enum import Enum
@@ -93,6 +93,8 @@ defstoragetype = dgbhdf5.StorageType.LOCAL.value
 
 torch_infos = None
 
+summary = None
+
 tmp_save_dict = None
 
 torch_dict = {
@@ -115,6 +117,7 @@ torch_dict = {
     'withtensorboard': withtensorboard,
     'tblogdir': None,
     'tofp16': True,
+    'seed': None,
     'stopaftercurrentepoch': False,
     'tmpsavedict': tmp_save_dict,
     'saveonabort': False
@@ -195,6 +198,7 @@ def getParams(
     tblogdir=torch_dict['tblogdir'],
     savetype = defsavetype,
     tofp16=torch_dict['tofp16'],
+    seed=torch_dict['seed'],
     stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
     tmpsavedict=torch_dict['tmpsavedict'],
     saveonabort=torch_dict['saveonabort']):
@@ -216,6 +220,7 @@ def getParams(
     'withtensorboard': withtensorboard,
     'tblogdir': tblogdir,
     'tofp16': tofp16,
+    'seed': seed,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'tmpsavedict':tmpsavedict,
     'saveonabort':saveonabort
@@ -227,7 +232,8 @@ def getParams(
     ret['nbchunk'] = 1
   return ret
 
-def getDefaultModel(setup,type=torch_dict['type']):
+def getDefaultModel(setup,type=torch_dict['type'], seed=torch_dict['seed']):
+  setSeed(seed)
   isclassification = setup[dgbhdf5.classdictstr]
   inp_shape = setup[dgbkeys.inpshapedictstr]
   attribs = dgbhdf5.getNrAttribs(setup)
@@ -428,13 +434,14 @@ def get_model_architecture(model, model_classname, infos):
     model_instance.load_state_dict(model)
   return model_instance, dummy_input
 
-def save( model, outfnm, infos, params=torch_dict ):
+def save( model, outfnm, infos, summary, params=torch_dict ):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   odhdf5.setAttr( h5file, dgbkeys.trainconfigdictstr, json.dumps( params ))
+  odhdf5.setAttr( h5file, dgbkeys.trainsummarydictstr, json.dumps( summary ))
   modelgrp = h5file.create_group( 'model' )
   save_type = SaveType( params['savetype'] )
   odhdf5.setAttr( modelgrp, 'type', save_type.value )
@@ -469,8 +476,37 @@ def save( model, outfnm, infos, params=torch_dict ):
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
 
+def getTrainingSummary(callback, metric='Valid_loss'):
+  logs = callback.get_epoch_logs()
+  if not logs:
+    return None
+  best_epoch = None
+  best_metric_value = float('inf')
+  for epoch, log in enumerate(logs):
+    if metric in log:
+      if float(log[metric]) < best_metric_value:
+        best_metric_value = float(log[metric])
+        best_epoch = epoch
+  result = {
+        'best_epoch': best_epoch + 1 if best_epoch is not None else None,  # Epochs are 0-indexed
+        'training_infos': logs
+        }
+  return result
+
+def setSeed(seed):
+  import torch
+  os.environ['PYTHONHASHSEED'] = str(seed)
+  random.seed(seed)
+  np.random.seed(seed)
+  if seed != None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+      torch.cuda.manual_seed(seed)
+      torch.cuda.manual_seed_all(seed)
+
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False, tempnm=None, outfnm=None):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
+    setSeed(params['seed'])
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     info = imgdp[dgbkeys.infodictstr]
     criterion = get_criterion(info, params)
@@ -490,7 +526,8 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
       'infos': imgdp[dgbkeys.infodictstr],
       'tempnm': tempnm,
       'outfnm': outfnm,
-      'params': params
+      'params': params,
+      'summary': summary
     }
     trainer = Trainer(
         model=model,
@@ -507,12 +544,13 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
         imgdp=imgdp,
         silent = silent,
         tofp16=params['tofp16'],
+        seed=params['seed'],
         stopaftercurrentepoch =  params['stopaftercurrentepoch'],
         tmpsavedict = tmp_save_dict,
         saveonabort = params['saveonabort']
     )
-    model = trainer.fit(cbs = cbfn)
-    return model
+    model, training_summary = trainer.fit(cbs = cbfn)
+    return model, training_summary
 
 def transfer(model, info=None ):
   """

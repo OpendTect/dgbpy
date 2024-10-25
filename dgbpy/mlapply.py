@@ -149,7 +149,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbkeys.globalstdtypest
     if dgbhdf5.isLogInput(infos) and nbfolds:
       datasets.append( dgbmlio.getCrossValidationIndices(dset,seed=seed,valid_inputs=split,nbfolds=nbfolds) )
     else:
-      datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split) )
+      datasets.append( dgbmlio.getDatasetNms(dset, seed=seed, validation_split=split) )
   infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.seeddictstr: seed})
 
   scaler, doscale = dgbhdf5.isDefaultScaler(scaler, infos)
@@ -304,7 +304,8 @@ def getSettingsMltrain(platform, params, settings_mltrain):
         "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
         "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
                        dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
-                       dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr],
+                       dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr,
+                       dgbkeys.seeddictstr],
         "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
                      dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
     }
@@ -342,7 +343,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     *
 
   """
-
+  summary = None
   if bokeh:
     import json
     settings_mltrain_path = get_settings_filename('settings_mltrain.json')
@@ -380,7 +381,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           scaler=params[dgbkeys.scaledictstr],
                                           force=False,
                                           nbchunks=params['nbchunk'],
-                                          split=params['split'],nbfolds=params['nbfold'] )
+                                          split=params['split'],nbfolds=params['nbfold'],
+                                          seed=params['seed'] )
       outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       tblogdir=None
       if 'withtensorboard' in params and params['withtensorboard']:
@@ -388,7 +390,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       if type == TrainType.New:
         model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                         type=params['type'],
-                                        learnrate=params['learnrate'])
+                                        learnrate=params['learnrate'],
+                                        seed=params['seed'])
         log_msg('Using a default keras model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the keras model for transfer training')
@@ -404,8 +407,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       cbfn = None
       if bokeh: cbfn = dgbkeras.BokehProgressCallback
       try:
-        model = dgbkeras.train( model, trainingdp, params=params,
-                                trainfile=examplefilenm, silent=True, cbfn = cbfn, logdir=tblogdir,tempnm=tempmodelnm, outfnm=outfnm )
+        model, summary = dgbkeras.train( model, trainingdp, params=params,
+                                         trainfile=examplefilenm, silent=True, cbfn = cbfn,
+                                         logdir=tblogdir,tempnm=tempmodelnm, outfnm=outfnm )
       except (TypeError,MemoryError) as e:
         if tempmodelnm != None and os.path.exists(tempmodelnm):
           model = dgbmlio.getModel( tempmodelnm, True )
@@ -428,7 +432,8 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           scaler=params[dgbkeys.scaledictstr],
                                           nbchunks=params['nbchunk'],
                                           force=False,
-                                          split=params['split'],nbfolds=params['nbfold'] )
+                                          split=params['split'],nbfolds=params['nbfold'],
+                                          seed=params['seed'] )
       outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       hasunlabels = dgbhdf5.hasUnlabeled(dgbmlio.getInfo(examplefilenm))
       if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and hasunlabels:
@@ -438,7 +443,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
           params[dgbkeys.criteriondictstr] = 'DiceLoss'
         else:
           params[dgbkeys.criteriondictstr] = None
-        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'])
+        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'], seed=params['seed'])
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the torch model for transfer training')
@@ -456,7 +461,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
         tempmodelnm = tempmodelfnm.name + '.h5'
         tempmodelfnm = None
-      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh, tempnm=tempmodelnm, outfnm=outfnm)
+      model, summary = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh, tempnm=tempmodelnm, outfnm=outfnm)
 
     elif platform == dgbkeys.scikitplfnm:
       import dgbpy.dgbscikit as dgbscikit
@@ -476,7 +481,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       log_msg( 'Unsupported machine learning platform' )
       raise AttributeError
 
-    dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, isbokeh=bokeh )
+    dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, summary, isbokeh=bokeh )
     if outfnm and not outfnm.endswith('.h5'):
       result = (os.path.isfile(os.path.splitext(outfnm)[0] + '.h5'))
     else:
