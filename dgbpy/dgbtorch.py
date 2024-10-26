@@ -120,7 +120,8 @@ torch_dict = {
     'seed': None,
     'stopaftercurrentepoch': False,
     'tmpsavedict': tmp_save_dict,
-    'saveonabort': False
+    'saveonabort': False,
+    'summary': None
 }
 
 settings_mltrain_path = odcommon.get_settings_filename('settings_mltrain.json')
@@ -201,7 +202,8 @@ def getParams(
     seed=torch_dict['seed'],
     stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
     tmpsavedict=torch_dict['tmpsavedict'],
-    saveonabort=torch_dict['saveonabort']):
+    saveonabort=torch_dict['saveonabort'],
+    summary=torch_dict['summary']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'type': nntype,
@@ -223,7 +225,8 @@ def getParams(
     'seed': seed,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'tmpsavedict':tmpsavedict,
-    'saveonabort':saveonabort
+    'saveonabort':saveonabort,
+    'summary': summary,
   }
   if prefercpu == None:
     prefercpu = not can_use_gpu()
@@ -434,14 +437,16 @@ def get_model_architecture(model, model_classname, infos):
     model_instance.load_state_dict(model)
   return model_instance, dummy_input
 
-def save( model, outfnm, infos, summary, params=torch_dict ):
+def save( model, outfnm, infos, params=torch_dict ):
   h5file = odhdf5.openFile( outfnm, 'w' )
   odhdf5.setAttr( h5file, 'backend', 'PyTorch' )
   odhdf5.setAttr( h5file, 'torch_version', torch.__version__ )
   odhdf5.setAttr( h5file, 'type', model.__class__.__name__ )
   odhdf5.setAttr( h5file, 'model_config', json.dumps((str(model)) ))
   odhdf5.setAttr( h5file, dgbkeys.trainconfigdictstr, json.dumps( params ))
-  odhdf5.setAttr( h5file, dgbkeys.trainsummarydictstr, json.dumps( summary ))
+  if params['summary']:
+    training_summary = params['summary']
+    odhdf5.setAttr( h5file, dgbkeys.trainsummarydictstr, json.dumps( training_summary ))
   modelgrp = h5file.create_group( 'model' )
   save_type = SaveType( params['savetype'] )
   odhdf5.setAttr( modelgrp, 'type', save_type.value )
@@ -475,23 +480,6 @@ def save( model, outfnm, infos, summary, params=torch_dict ):
     exported_model = np.frombuffer( exported_modelstr, dtype='S1', count=len(exported_modelstr) )
     modelgrp.create_dataset('object',data=exported_model)
   h5file.close()
-
-def getTrainingSummary(callback, metric='Valid_loss'):
-  logs = callback.get_epoch_logs()
-  if not logs:
-    return None
-  best_epoch = None
-  best_metric_value = float('inf')
-  for epoch, log in enumerate(logs):
-    if metric in log:
-      if float(log[metric]) < best_metric_value:
-        best_metric_value = float(log[metric])
-        best_epoch = epoch
-  result = {
-        'best_epoch': best_epoch + 1 if best_epoch is not None else None,  # Epochs are 0-indexed
-        'training_infos': logs
-        }
-  return result
 
 def setSeed(seed):
   import torch
@@ -527,7 +515,6 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
       'tempnm': tempnm,
       'outfnm': outfnm,
       'params': params,
-      'summary': summary
     }
     trainer = Trainer(
         model=model,
@@ -549,8 +536,8 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
         tmpsavedict = tmp_save_dict,
         saveonabort = params['saveonabort']
     )
-    model, training_summary = trainer.fit(cbs = cbfn)
-    return model, training_summary
+    model = trainer.fit(cbs = cbfn)
+    return model
 
 def transfer(model, info=None ):
   """

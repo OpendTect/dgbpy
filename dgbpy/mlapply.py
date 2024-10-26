@@ -343,7 +343,6 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
     *
 
   """
-  summary = None
   if bokeh:
     import json
     settings_mltrain_path = get_settings_filename('settings_mltrain.json')
@@ -407,9 +406,9 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       cbfn = None
       if bokeh: cbfn = dgbkeras.BokehProgressCallback
       try:
-        model, summary = dgbkeras.train( model, trainingdp, params=params,
-                                         trainfile=examplefilenm, silent=True, cbfn = cbfn,
-                                         logdir=tblogdir,tempnm=tempmodelnm, outfnm=outfnm )
+        model = dgbkeras.train( model, trainingdp, params=params,
+                                trainfile=examplefilenm, silent=True, cbfn = cbfn,
+                                logdir=tblogdir,tempnm=tempmodelnm, outfnm=outfnm )
       except (TypeError,MemoryError) as e:
         if tempmodelnm != None and os.path.exists(tempmodelnm):
           model = dgbmlio.getModel( tempmodelnm, True )
@@ -461,7 +460,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         tempmodelfnm = tempfile.NamedTemporaryFile( dir=os.path.dirname(logfnm) )
         tempmodelnm = tempmodelfnm.name + '.h5'
         tempmodelfnm = None
-      model, summary = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh, tempnm=tempmodelnm, outfnm=outfnm)
+      model = dgbtorch.train(model=model, imgdp=trainingdp, cbfn=cbfn, params=params, logdir=tblogdir, silent=bokeh, tempnm=tempmodelnm, outfnm=outfnm)
 
     elif platform == dgbkeys.scikitplfnm:
       import dgbpy.dgbscikit as dgbscikit
@@ -481,7 +480,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
       log_msg( 'Unsupported machine learning platform' )
       raise AttributeError
 
-    dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, summary, isbokeh=bokeh )
+    dgbmlio.saveModel( model, examplefilenm, platform, out_infos, outfnm, params, isbokeh=bokeh )
     if outfnm and not outfnm.endswith('.h5'):
       result = (os.path.isfile(os.path.splitext(outfnm)[0] + '.h5'))
     else:

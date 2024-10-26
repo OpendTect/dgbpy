@@ -154,7 +154,7 @@ class TrainingSequence(Sequence):
             import shutil
             from dgbpy.mlio import saveModel
             saveModel( self._model, self._exfilenm, self._tmpsavedict['platform'], self._tmpsavedict['out_infos'], 
-                       self._tempnm, self._tmpsavedict['params'], self._tmpsavedict['summary'], isbokeh=None )
+                       self._tempnm, self._tmpsavedict['params'], isbokeh=None )
             shutil.copy( self._tempnm, self._outfnm)
             odcommon.log_msg(f"Model saved for epoch {self._nrdone} at {self._outfnm}")
           now = datetime.now()

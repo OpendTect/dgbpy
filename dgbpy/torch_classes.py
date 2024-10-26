@@ -476,6 +476,30 @@ class TransformCallback(Callback):
         # set new transform seed for each epoch
         self.run.train_dl.set_transform_seed() 
 
+class SaveTrainingSummaryCallback:
+    def __init__(self, progress_callback, tmpsavedict, metric='Valid_loss'):
+        self.progress_callback = progress_callback
+        self.tmpsavedict = tmpsavedict
+        self.metric = metric
+    def on_train_end(self):
+        training_summary = self.get_training_summary()
+        self.tmpsavedict['params']['summary'] = training_summary
+    def get_training_summary(self):
+        logs = self.progress_callback.get_epoch_logs()
+        if not logs:
+            return None
+        best_epoch = None
+        best_metric_value = float('inf')
+        for epoch, log in enumerate(logs):
+            if self.metric in log:
+                if float(log[self.metric]) < best_metric_value:
+                    best_metric_value = float(log[self.metric])
+                    best_epoch = epoch
+        result = {
+            'best_epoch': best_epoch + 1 if best_epoch is not None else None,
+            'training_infos': logs
+        }
+        return result
 
 class LRSchedulerCallback(Callback):
     def __init__(self, scheduler):
@@ -648,8 +672,8 @@ class Trainer:
                         import shutil
                         from dgbpy.mlio import saveModel
                         saveModel(self.savemodel, self.tmpsavedict['inpfnm'], self.tmpsavedict['platform'],
-                                self.tmpsavedict['infos'], self.tmpsavedict['tempnm'], self.tmpsavedict['params'],
-                                self.tmpsavedict['summary'], isbokeh=None)
+                                  self.tmpsavedict['infos'], self.tmpsavedict['tempnm'], self.tmpsavedict['params'],
+                                  isbokeh=None)
                         shutil.copy(self.tmpsavedict['tempnm'], self.tmpsavedict['outfnm'])
                         odcommon.log_msg(f"Model saved for epoch {epoch + 1} at {self.tmpsavedict['outfnm']}")
                 if self.stopaftercurrentepoch:
@@ -693,10 +717,10 @@ class Trainer:
             
             self.savemodel = self.fit_one_chunk(ichunk, cbs)
         progress_callback = next((callback for callback in self.cbs if isinstance(callback, AvgStatsCallback)), None)
-        if progress_callback is not None:
-            from dgbpy.dgbtorch import getTrainingSummary
-            training_summary = getTrainingSummary(progress_callback)
-        return self.savemodel, training_summary
+        if progress_callback:
+            summary_callback = SaveTrainingSummaryCallback(progress_callback=progress_callback, tmpsavedict=self.tmpsavedict)
+            summary_callback.on_train_end()
+        return self.savemodel
     
     ALL_CBS = { 'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
                 'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',

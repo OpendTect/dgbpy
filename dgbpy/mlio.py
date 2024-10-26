@@ -331,7 +331,7 @@ def unnormalize_class_vector( arr, classes ):
   for i in reversed(range( len(classes) ) ):
     arr[arr == i] = classes[i]
 
-def saveModel( model, inpfnm, platform, infos, outfnm, params, summary, **kwargs ):
+def saveModel( model, inpfnm, platform, infos, outfnm, params, **kwargs ):
   """ Saves trained model for any platform workflow
 
   Parameters:
@@ -345,7 +345,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, summary, **kwargs
   isbokeh = kwargs.get('isbokeh', False)
   if dgbhdf5.shouldUseS3(outfnm, params, kwargs=kwargs):
     import dgbpy.dgb_boto as dgb_boto
-    save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, summary, isHandled=True)
+    save_function = lambda modelfnm: saveModel(model, inpfnm, platform, infos, modelfnm, params, isHandled=True)
     return dgb_boto.handleS3FileSaving(save_function, outfnm, params, isbokeh=isbokeh)
 
   from odpy.common import log_msg
@@ -359,7 +359,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, summary, **kwargs
   log_msg( 'Saving model.' )
   if platform == dgbkeys.kerasplfnm:
     import dgbpy.dgbkeras as dgbkeras
-    dgbkeras.save( model, summary, outfnm )
+    dgbkeras.save( model, outfnm )
   elif platform == dgbkeys.scikitplfnm:
     import dgbpy.dgbscikit as dgbscikit
     if dgbscikit.isClustering(model):
@@ -369,7 +369,7 @@ def saveModel( model, inpfnm, platform, infos, outfnm, params, summary, **kwargs
     dgbscikit.save( model, outfnm, savetype )
   elif platform == dgbkeys.torchplfnm or platform == dgbkeys.onnxplfnm:
     import dgbpy.dgbtorch as dgbtorch
-    dgbtorch.save( model, outfnm, infos, summary, params )
+    dgbtorch.save( model, outfnm, infos, params )
   else:
     log_msg( 'Unsupported machine learning platform' )
     raise AttributeError

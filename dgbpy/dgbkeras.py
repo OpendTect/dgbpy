@@ -70,8 +70,6 @@ defbatchstr = 'defaultbatchsz'
 
 keras_infos = None
 
-summary = None
-
 default_transforms = []
 keras_dict = {
   dgbkeys.decimkeystr: False,
@@ -94,7 +92,8 @@ keras_dict = {
   'tofp16': True,
   'seed': None,
   'stopaftercurrentepoch': False,
-  'saveonabort': False
+  'saveonabort': False,
+  'summary': None
 }
 
 settings_mltrain_path = get_settings_filename('settings_mltrain.json')
@@ -147,7 +146,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
                scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tblogdir=keras_dict['tblogdir'],
-               tofp16=keras_dict['tofp16'], seed=keras_dict['seed'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'], saveonabort=keras_dict['saveonabort']):
+               tofp16=keras_dict['tofp16'], seed=keras_dict['seed'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'],
+               saveonabort=keras_dict['saveonabort'], summary=keras_dict['summary']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -167,7 +167,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'tofp16': tofp16,
     'seed':seed,
     'stopaftercurrentepoch': stopaftercurrentepoch,
-    'saveonabort': saveonabort
+    'saveonabort': saveonabort,
+    'summary': summary
   }
   if prefercpu == None:
     prefercpu = get_cpu_preference()
@@ -455,6 +456,29 @@ class TransformCallback(Callback):
   def on_epoch_begin(self, epoch, logs=None):
     self.train_datagen.set_transform_seed()
 
+class SaveTrainingSummaryCallback(Callback):
+  def __init__(self, progress_callback, metric='val_loss'):
+    super().__init__()
+    self.progress_callback = progress_callback
+    self.metric = metric
+  def on_train_end(self, logs=None):
+    training_summary = self.get_training_summary()
+    keras_dict['summary'] = training_summary
+  def get_training_summary(self):
+    logs = self.progress_callback.get_epoch_logs()
+    if not logs:
+      return None
+    best_epoch = None
+    best_metric_value = float('inf')
+    for epoch, log in enumerate(logs):
+      if self.metric in log:
+        if log[self.metric] < best_metric_value:
+          best_metric_value = log[self.metric]
+          best_epoch = epoch
+    result = {
+              'best_epoch': best_epoch + 1 if best_epoch is not None else None,
+              'training_infos': logs}
+    return result
 
 def epoch0endCB(epoch, logs):
   if epoch==0:
@@ -488,23 +512,6 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
     callbacks = [cb]+callbacks
   return callbacks
 
-def getTrainingSummary(progress_callback, metric='val_loss'):
-  logs = progress_callback.get_epoch_logs()
-  if not logs:
-    return None
-  best_epoch = None
-  best_metric_value = float('inf')
-  for epoch, log in enumerate(logs):
-    if metric in log:
-      if log[metric] < best_metric_value:
-        best_metric_value = log[metric]
-        best_epoch = epoch
-  result = {
-        'best_epoch': best_epoch + 1 if best_epoch is not None else None,
-        'training_infos': logs
-        }
-  return result
-
 def setSeed(seed=keras_dict['seed']):
   import tensorflow as tf
   os.environ['PYTHONHASHSEED'] = str(seed)
@@ -535,7 +542,6 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
     'platform':dgbkeys.kerasplfnm,
     'params':params,
     'out_infos':training[dgbkeys.infodictstr],
-    'summary':summary
   }
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm,
                                     outfnm=outfnm, saveonabort=save_on_abort, tmpsavedict=tmp_save_dict )
@@ -570,13 +576,11 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
         callbacks = init_callbacks(monitor, params,logdir,silent,config,cbfn=cbfn)
         if params['stopaftercurrentepoch']:
           callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
+        progress_callback = next((callback for callback in callbacks if isinstance(callback, ProgressNoBarCallback)), None)
+        if progress_callback:
+          callbacks.append(SaveTrainingSummaryCallback(progress_callback))
         model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,
                             validation_data=validate_datagen,callbacks=callbacks)
-        progress_callback = next((callback for callback in callbacks if isinstance(callback, ProgressNoBarCallback)), None)
-        if progress_callback is not None:
-          training_summary = getTrainingSummary(progress_callback)
-        if params['stopaftercurrentepoch']:
-          break
       else:
         nbfolds = len(infos[dgbkeys.trainseldicstr][ichunk])
         for ifold in range(1, nbfolds+1):
@@ -586,14 +590,12 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
           callbacks = init_callbacks(monitor,params,logdir,silent,config,cbfn=cbfn)
           if params['stopaftercurrentepoch']:
             callbacks.append(StopTrainingCallback(params['stopaftercurrentepoch']))
+          progress_callback = next((callback for callback in callbacks if isinstance(callback, ProgressNoBarCallback)), None)
+          if progress_callback:
+            callbacks.append(SaveTrainingSummaryCallback(progress_callback))
           if ifold != 1: # start transfer from second fold
             transfer(model)
           model.fit(x=train_datagen,epochs=params['epochs'],verbose=0,validation_data=validate_datagen,callbacks=callbacks)
-          progress_callback = next((callback for callback in callbacks if isinstance(callback, ProgressNoBarCallback)), None)
-          if progress_callback is not None:
-            training_summary = getTrainingSummary(progress_callback)
-          if params['stopaftercurrentepoch']:
-            break
     except Exception as e:
       log_msg('')
       log_msg('Training failed because of insufficient memory')
@@ -611,7 +613,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
   infos = updateModelShape( infos, model, True )
   infos = updateModelShape( infos, model, False )
 
-  return model, training_summary
+  return model
 
 def updateModelShape( infos, model, forinput ):
   if forinput:
@@ -646,14 +648,16 @@ def updateModelShape( infos, model, forinput ):
   infos[shapekey] = ret
   return infos
 
-def save( model, summary, outfnm ):
-  # try:
-  model.save( outfnm, save_format='h5' )
-  h5file = odhdf5.openFile( outfnm, 'a' )
-  odhdf5.setAttr( h5file, dgbkeys.trainsummarydictstr, json.dumps( summary ))
-  h5file.close()
-  # except Exception:
-  #   model.save( outfnm )
+def save( model, outfnm ):
+  try:
+    model.save( outfnm, save_format='h5' )
+  except Exception:
+    model.save( outfnm )
+  if keras_dict['summary']:
+    training_summary = keras_dict['summary']
+    h5file = odhdf5.openFile( outfnm, 'a' )
+    odhdf5.setAttr(h5file, dgbkeys.trainsummarydictstr, json.dumps( training_summary ))
+    h5file.close()
 
 def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   redirect_stdout()
