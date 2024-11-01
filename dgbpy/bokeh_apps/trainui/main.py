@@ -358,7 +358,8 @@ def training_app(doc):
       stoptraining = uitorch.isSelected( stoptrainingcheckbox )
     elif selplatform == uikeras.getPlatformNm():
       stoptraining = uikeras.isSelected( stoptrainingcheckbox )
-    stoptraining = getUiParams()['stopaftercurrentepoch']
+    if selplatform==uikeras.getPlatformNm(True)[0] or selplatform==uitorch.getPlatformNm(True)[0]:
+      stoptraining = getUiParams()['stopaftercurrentepoch']
     return None
 
   saveonabort = True
@@ -371,7 +372,8 @@ def training_app(doc):
       saveonabort = uitorch.isSelected( saveonabortcheckbox )
     elif selplatform == uikeras.getPlatformNm():
       saveonabort = uikeras.isSelected( saveonabortcheckbox )
-    saveonabort = getUiParams()['saveonabort']
+    if selplatform==uikeras.getPlatformNm(True)[0] or selplatform==uitorch.getPlatformNm(True)[0]:
+      saveonabort = getUiParams()['saveonabort']
     return None
 
   def getProcArgs( platfmnm, pars, outnm ):
@@ -491,7 +493,10 @@ def training_app(doc):
       elif this_service:
         this_service.sendObject('bokeh_app_msg', {'training_finished': ''})
       parameterspanel.disabled = False
-      adparameterspanel.disabled = False
+      if platformfld.value==uikeras.getPlatformNm(True)[0] or platformfld.value==uitorch.getPlatformNm(True)[0]:
+        adparameterspanel.disabled = False
+      else:
+        adparameterspanel.disabled = True
       parsgrp,advparsgrp = getParsGrp( platformfld.value )
       if not parsgrp:
         parameterspanel.child = row(parsresetbut, parsbackbut)

@@ -63,7 +63,7 @@ def datasetCount( dsets ):
   ret.update({ 'size': totsz })
   return ret
 
-def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
+def getDatasetNms( dsets, validation_split=None, valid_inputs=None, seed=None ):
   """ Gets train and validation indices of dataset
 
   Parameters:
@@ -97,6 +97,7 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
       nrpts = len(dsetnms)
       if dorandom:
         nrpts = int(nrpts*validation_split)
+        np.random.seed(seed)
         np.random.shuffle( dsetnms )
       if inp in valid_inputs:
         if dorandom:
@@ -117,7 +118,7 @@ def getDatasetNms( dsets, validation_split=None, valid_inputs=None ):
     dgbkeys.validdictstr: valid
   }
 
-def getCrossValidationIndices(dsets, seed=None, valid_inputs=1, nbfolds=5):
+def getCrossValidationIndices(dsets, valid_inputs=1, nbfolds=5, seed=None):
   """ Gets train and validation data for cross validation.
 
   Parameters:
