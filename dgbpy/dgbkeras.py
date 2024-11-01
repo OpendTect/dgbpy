@@ -668,6 +668,7 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   from tensorflow.keras.models import load_model
   try:
     ret = load_model( modelfnm, compile=fortrain, custom_objects=dgb_defs )
+    setSeed(pars['seed'])
     if fortrain and not infos == None:
         iscompiled = True
         try:

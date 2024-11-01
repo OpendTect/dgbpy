@@ -332,10 +332,14 @@ def load( modelfnm, infos = False ):
   try:
     h5file = odhdf5.openFile( modelfnm, 'r' )
     modelname = odhdf5.getText( h5file, 'type' )
+    try:
+      seed = json.loads(odhdf5.getText( h5file, 'training_config'))['seed']
+    except:
+      seed = torch_dict['seed']
     modelgrp = h5file['model']
     savetypestr = odhdf5.getText( modelgrp, 'type' )
     savetype = None if savetypestr=='torch' else SaveType( savetypestr )
-
+    setSeed(seed)
     if savetype == SaveType.Onnx:
       modfnm = odhdf5.getText( modelgrp, 'path' )
       modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )

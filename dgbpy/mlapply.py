@@ -147,9 +147,9 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbkeys.globalstdtypest
   datasets = []
   for dset in dsets:
     if dgbhdf5.isLogInput(infos) and nbfolds:
-      datasets.append( dgbmlio.getCrossValidationIndices(dset,seed=seed,valid_inputs=split,nbfolds=nbfolds) )
+      datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split,nbfolds=nbfolds,seed=seed) )
     else:
-      datasets.append( dgbmlio.getDatasetNms(dset, seed=seed, validation_split=split) )
+      datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split, seed=seed) )
   infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.seeddictstr: seed})
 
   scaler, doscale = dgbhdf5.isDefaultScaler(scaler, infos)

@@ -63,7 +63,7 @@ def datasetCount( dsets ):
   ret.update({ 'size': totsz })
   return ret
 
-def getDatasetNms( dsets, seed=None, validation_split=None, valid_inputs=None ):
+def getDatasetNms( dsets, validation_split=None, valid_inputs=None, seed=None ):
   """ Gets train and validation indices of dataset
 
   Parameters:
@@ -118,7 +118,7 @@ def getDatasetNms( dsets, seed=None, validation_split=None, valid_inputs=None ):
     dgbkeys.validdictstr: valid
   }
 
-def getCrossValidationIndices(dsets, seed=None, valid_inputs=1, nbfolds=5):
+def getCrossValidationIndices(dsets, valid_inputs=1, nbfolds=5, seed=None):
   """ Gets train and validation data for cross validation.
 
   Parameters:
