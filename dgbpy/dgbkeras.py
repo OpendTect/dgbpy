@@ -90,9 +90,8 @@ keras_dict = {
   'withtensorboard': withtensorboard,
   'tblogdir': None,
   'tofp16': True,
-  'seed': None,
+  'userandomseed': 42,
   'stopaftercurrentepoch': False,
-  'saveonabort': False,
   'summary': None
 }
 
@@ -146,8 +145,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
                scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tblogdir=keras_dict['tblogdir'],
-               tofp16=keras_dict['tofp16'], seed=keras_dict['seed'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'],
-               saveonabort=keras_dict['saveonabort'], summary=keras_dict['summary']):
+               tofp16=keras_dict['tofp16'], userandomseed=keras_dict['userandomseed'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'],
+               summary=keras_dict['summary']):
   ret = {
     dgbkeys.decimkeystr: dodec,
     'nbchunk': nbchunk,
@@ -165,9 +164,8 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'withtensorboard': withtensorboard,
     'tblogdir': tblogdir,
     'tofp16': tofp16,
-    'seed':seed,
+    'userandomseed':userandomseed,
     'stopaftercurrentepoch': stopaftercurrentepoch,
-    'saveonabort': saveonabort,
     'summary': summary
   }
   if prefercpu == None:
@@ -265,7 +263,7 @@ def getModelsByInfo( infos ):
 
 def getDefaultModel(setup,type=keras_dict['type'],
                      learnrate=keras_dict['learnrate'],
-                     seed=keras_dict['seed'],
+                     seed=keras_dict['userandomseed'],
                      data_format='channels_first'):
   setSeed(seed)
   isclassification = setup[dgbhdf5.classdictstr]
@@ -512,7 +510,7 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
     callbacks = [cb]+callbacks
   return callbacks
 
-def setSeed(seed=keras_dict['seed']):
+def setSeed(seed=keras_dict['userandomseed']):
   import tensorflow as tf
   os.environ['PYTHONHASHSEED'] = str(seed)
   random.seed(seed) 
@@ -526,7 +524,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
   import tensorflow as tf
   restore_stdout()
   
-  setSeed(params[dgbkeys.seeddictstr])
+  setSeed(params[dgbkeys.userandomseeddictstr])
 
   infos = training[dgbkeys.infodictstr]
   classification = infos[dgbkeys.classdictstr]
@@ -537,14 +535,13 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
     monitor = 'loss'
   batchsize = params['batch']
   transform, scale = params['transform'], params['scale']
-  save_on_abort = params['saveonabort']
   tmp_save_dict = {
     'platform':dgbkeys.kerasplfnm,
     'params':params,
     'out_infos':training[dgbkeys.infodictstr],
   }
   train_datagen = TrainingSequence( training, False, model, exfilenm=trainfile, batch_size=batchsize, scale=scale, transform=transform, tempnm=tempnm,
-                                    outfnm=outfnm, saveonabort=save_on_abort, tmpsavedict=tmp_save_dict )
+                                    outfnm=outfnm, tmpsavedict=tmp_save_dict )
   validate_datagen = TrainingSequence( training, True, model, exfilenm=trainfile, batch_size=batchsize, scale=scale )
   nbchunks = len( infos[dgbkeys.trainseldicstr] )
 
@@ -668,7 +665,8 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   from tensorflow.keras.models import load_model
   try:
     ret = load_model( modelfnm, compile=fortrain, custom_objects=dgb_defs )
-    setSeed(pars['seed'])
+    if pars is not None:
+      setSeed(pars['userandomseed'])
     if fortrain and not infos == None:
         iscompiled = True
         try:

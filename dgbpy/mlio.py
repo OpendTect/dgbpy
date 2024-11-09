@@ -13,7 +13,7 @@ import numpy as np
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
-from odpy.common import restore_stdout, redirect_stdout
+from odpy.common import restore_stdout, redirect_stdout, log_msg
 
 nladbdirid = '100060'
 mlinpgrp = 'Deep Learning Example Data'
@@ -543,10 +543,11 @@ def getSaveLoc( outnm, ftype, args ):
   
 def getStoredParams(uiparams, params):
   tabs = {
-          "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
+          "training": [dgbkeys.stoptrainkeystr],
           "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
                         dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
-                        dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr],
+                        dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr,
+                        dgbkeys.userandomseeddictstr],
           "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
                       dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
           }
@@ -555,6 +556,8 @@ def getStoredParams(uiparams, params):
     tab_params = params.get(tab, {})
     for key in keys:
       value = tab_params.get(key)
+      if isinstance(value, str) and value.lower() == 'null':
+        value = None
       if isinstance(value, str) and value.lower() in ['true', 'false']:
         value = value.lower() == 'true'
       if value is not None:

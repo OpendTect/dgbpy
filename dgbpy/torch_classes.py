@@ -533,8 +533,7 @@ class Trainer:
                  tofp16 = False,
                  seed = None,
                  stopaftercurrentepoch = False,
-                 tmpsavedict = None,
-                 saveonabort = False
+                 tmpsavedict = None
                  ):
 
         self.model, self.criterion, self.optimizer = model, criterion, optimizer
@@ -545,7 +544,6 @@ class Trainer:
         self.seed = seed
         self.stopaftercurrentepoch = stopaftercurrentepoch
         self.tmpsavedict = tmpsavedict
-        self.saveonabort = saveonabort
 
         self.info = self.imgdp[dgbkeys.infodictstr]
         self.set_metrics(metrics)
@@ -668,14 +666,13 @@ class Trainer:
                         if not self('begin_validate'): self.all_batches()
                 self('after_epoch')
                 if self.tmpsavedict['tempnm'] != None:
-                    if self.saveonabort:
-                        import shutil
-                        from dgbpy.mlio import saveModel
-                        saveModel(self.savemodel, self.tmpsavedict['inpfnm'], self.tmpsavedict['platform'],
-                                  self.tmpsavedict['infos'], self.tmpsavedict['tempnm'], self.tmpsavedict['params'],
-                                  isbokeh=None)
-                        shutil.copy(self.tmpsavedict['tempnm'], self.tmpsavedict['outfnm'])
-                        odcommon.log_msg(f"Model saved for epoch {epoch + 1} at {self.tmpsavedict['outfnm']}")
+                    import shutil
+                    from dgbpy.mlio import saveModel
+                    saveModel(self.savemodel, self.tmpsavedict['inpfnm'], self.tmpsavedict['platform'],
+                                self.tmpsavedict['infos'], self.tmpsavedict['tempnm'], self.tmpsavedict['params'],
+                                isbokeh=None)
+                    shutil.copy(self.tmpsavedict['tempnm'], self.tmpsavedict['outfnm'])
+                    odcommon.log_msg(f"Model saved for epoch {epoch + 1} at {self.tmpsavedict['outfnm']}")
                 if self.stopaftercurrentepoch:
                     odcommon.log_msg(f'Stopping the training on user request after {epoch+1} epochs')
                     break

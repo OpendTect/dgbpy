@@ -150,7 +150,7 @@ def getScaledTrainingData( filenm, flatten=False, scaler=dgbkeys.globalstdtypest
       datasets.append( dgbmlio.getCrossValidationIndices(dset,valid_inputs=split,nbfolds=nbfolds,seed=seed) )
     else:
       datasets.append( dgbmlio.getDatasetNms(dset, validation_split=split, seed=seed) )
-  infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.seeddictstr: seed})
+  infos.update({dgbkeys.trainseldicstr: datasets, dgbkeys.userandomseeddictstr: seed})
 
   scaler, doscale = dgbhdf5.isDefaultScaler(scaler, infos)
   scalebyattrib = doscale
@@ -301,11 +301,11 @@ def getSettingsMltrain(platform, params, settings_mltrain):
   if platform not in settings_mltrain:
     settings_mltrain[platform] = {}
   tabs = {
-        "training": [dgbkeys.stoptrainkeystr, dgbkeys.saveonabortkeystr],
+        "training": [dgbkeys.stoptrainkeystr],
         "parameters": [dgbkeys.typekeystr, dgbkeys.splitkeystr, dgbkeys.batchkeystr,
                        dgbkeys.epochskeystr, dgbkeys.patiencekeystr, dgbkeys.learnratekeystr,
                        dgbkeys.epochdropkeystr, dgbkeys.decimkeystr, dgbkeys.prefercpustr,
-                       dgbkeys.seeddictstr],
+                       dgbkeys.userandomseeddictstr],
         "advanced": [dgbkeys.scaledictstr, dgbkeys.transformkeystr, dgbkeys.tofp16keystr,
                      dgbkeys.withtensorboardkeystr, dgbkeys.savetypekeystr]
     }
@@ -381,7 +381,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           force=False,
                                           nbchunks=params['nbchunk'],
                                           split=params['split'],nbfolds=params['nbfold'],
-                                          seed=params['seed'] )
+                                          seed=params['userandomseed'] )
       outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       tblogdir=None
       if 'withtensorboard' in params and params['withtensorboard']:
@@ -390,7 +390,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
         model = dgbkeras.getDefaultModel(trainingdp[dgbkeys.infodictstr],
                                         type=params['type'],
                                         learnrate=params['learnrate'],
-                                        seed=params['seed'])
+                                        seed=params['userandomseed'])
         log_msg('Using a default keras model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the keras model for transfer training')
@@ -432,7 +432,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
                                           nbchunks=params['nbchunk'],
                                           force=False,
                                           split=params['split'],nbfolds=params['nbfold'],
-                                          seed=params['seed'] )
+                                          seed=params['userandomseed'] )
       outfnm, out_infos = getOutFnm( outnm, trainingdp, infos, args )
       hasunlabels = dgbhdf5.hasUnlabeled(dgbmlio.getInfo(examplefilenm))
       if type != TrainType.New and dgbkeys.trainconfigdictstr in infos and hasunlabels:
@@ -442,7 +442,7 @@ def doTrain( examplefilenm, platform=dgbkeys.kerasplfnm, type=TrainType.New,
           params[dgbkeys.criteriondictstr] = 'DiceLoss'
         else:
           params[dgbkeys.criteriondictstr] = None
-        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'], seed=params['seed'])
+        model = dgbtorch.getDefaultModel(trainingdp[dgbkeys.infodictstr], type=params['type'], seed=params['userandomseed'])
         log_msg('Using a default torch model architecture')
       elif type == TrainType.Transfer:
         log_msg( 'Setting up the torch model for transfer training')
