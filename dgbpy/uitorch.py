@@ -73,6 +73,7 @@ def getUiPars(uipars=None):
   defbatchsz = torch_dict['batch']
   defmodel = modeltypes[0]
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  userandomseed = torch_dict[dgbkeys.userandomseeddictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
   if isCrossVal:
     validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
@@ -94,7 +95,7 @@ def getUiPars(uipars=None):
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', margin=uibokeh.widget_margin),
       'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, margin=uibokeh.widget_margin),
       'sizefld': Div( text='Size: Unknown' , margin=uibokeh.widget_margin),
-      'seedfld': CheckboxGroup( labels=['Random seed'] , margin=uibokeh.widget_margin),
+      'userandomseedfld': TextInput( title='Random seed', value=str(userandomseed), margin=uibokeh.widget_margin ),
       'dodecimatefld': CheckboxGroup( labels=['Decimate input'] , margin=uibokeh.widget_margin),
       'chunkfld': Slider( start=1, end=100, title='Number of Chunks' , margin=uibokeh.widget_margin),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu(), margin=uibokeh.widget_margin)
@@ -121,7 +122,6 @@ def getUiPars(uipars=None):
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   uiobjs['foldfld'].value = dict['nbfold']
-  uiobjs['seedfld'].active = [0]
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -247,9 +247,9 @@ def getUiParams( torchpars, advtorchpars ):
     epochdrop = 1
   runoncpu = not torchgrp['rundevicefld'].visible or \
              not isSelected( torchgrp['rundevicefld'] )
-  if isSelected( torchgrp['seedfld'] ):
-    seed = None
-  else:
+  try:
+    seed = int(torchgrp['userandomseedfld'].value)
+  except:
     seed = 42
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
@@ -272,9 +272,8 @@ def getUiParams( torchpars, advtorchpars ):
                              withtensorboard = withtensorboard,
                              tblogdir = None,
                              tofp16 = tofp16,
-                             seed=seed,
-                             stopaftercurrentepoch = False,
-                             saveonabort = True )
+                             userandomseed=seed,
+                             stopaftercurrentepoch = False )
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )

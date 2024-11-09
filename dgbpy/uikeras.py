@@ -61,6 +61,7 @@ def getUiPars(uipars=None):
   defmodel = modeltypes[0]
   defbatchsz = keras_dict['batch']
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
+  userandomseed = dict[dgbkeys.userandomseeddictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
   if isCrossVal:
     validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
@@ -82,7 +83,7 @@ def getUiPars(uipars=None):
       'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', margin=uibokeh.widget_margin),
       'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, margin=uibokeh.widget_margin),
       'sizefld': Div( text='Size: Unknown' , margin=uibokeh.widget_margin),
-      'seedfld': CheckboxGroup( labels=['Random seed'], margin=uibokeh.widget_margin),
+      'userandomseedfld': TextInput( title='Random seed', value=str(userandomseed), margin=uibokeh.widget_margin ),
       'dodecimatefld': CheckboxGroup( labels=['Decimate input'], margin=uibokeh.widget_margin),
       'chunkfld': Slider(start=1,end=100, title='Number of Chunks', margin=uibokeh.widget_margin),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu(), margin=uibokeh.widget_margin)
@@ -109,7 +110,6 @@ def getUiPars(uipars=None):
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   uiobjs['foldfld'].value = dict['nbfold']
-  uiobjs['seedfld'].active = [0]
   uiobjs['dodecimatefld'].active = []
   uiobjs['chunkfld'].value = dict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
@@ -222,9 +222,9 @@ def getUiParams( keraspars, advkeraspars ):
     epochdrop = 1
   runoncpu = not kerasgrp['rundevicefld'].visible or \
              not isSelected( kerasgrp['rundevicefld'] )
-  if isSelected( kerasgrp['seedfld'] ):
-    seed = None
-  else:
+  try:
+    seed = int(kerasgrp['userandomseedfld'].value)
+  except:
     seed = 42
   scale = getUiScaler(advkerasgrp)
   transform = getUiTransforms(advkerasgrp)
@@ -243,7 +243,7 @@ def getUiParams( keraspars, advkeraspars ):
                              nntype=kerasgrp['modeltypfld'].value,
                              prefercpu=runoncpu, scale=scale, transform=transform, \
                              withtensorboard=withtensorboard, tblogdir=None,
-                             tofp16=tofp16, seed=seed, stopaftercurrentepoch=False,saveonabort=True)
+                             tofp16=tofp16, userandomseed=seed, stopaftercurrentepoch=False)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
