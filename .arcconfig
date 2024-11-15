@@ -3,5 +3,5 @@
   "arc.land.onto" :	["od7.0"],
   "arc.land.onto.default" :	"od7.0",
   "phabricator.uri" :	"https://phabricator.dgbes.com",
-  "base" :		"git:merge-base(origin/main), arc:prompt"
+  "base" :		"git:merge-base(origin/od7.0), arc:prompt"
 }
