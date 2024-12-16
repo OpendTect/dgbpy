@@ -435,6 +435,9 @@ def training_app(doc):
     if isRunning(proc):
       proc = kill( proc )
       progress = initProgressDict()
+      if this_service:
+        this_service.sendObject('bokeh_app_msg', {'training_finished': ''})
+
     return None
 
   def doPause( proc ):
