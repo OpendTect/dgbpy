@@ -358,8 +358,6 @@ def training_app(doc):
       stoptraining = uitorch.isSelected( stoptrainingcheckbox )
     elif selplatform == uikeras.getPlatformNm():
       stoptraining = uikeras.isSelected( stoptrainingcheckbox )
-    if selplatform==uikeras.getPlatformNm(True)[0] or selplatform==uitorch.getPlatformNm(True)[0]:
-      stoptraining = getUiParams()['stopaftercurrentepoch']
     return None
 
   def getProcArgs( platfmnm, pars, outnm ):
