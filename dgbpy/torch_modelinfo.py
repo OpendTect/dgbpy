@@ -55,7 +55,8 @@ def model_info_dict( torch_model ):
     minfo['model_type'] = __model_type(torch_model)
     minfo['model_impl'] = __model_impl(torch_model)
     minfo['model_classname'] = __model_classname(torch_model)
-    minfo['version'] = 1.0
+    minfo['model_version'] = 'unknown'
+    minfo['platform_version'] = 'unknown'
     minfo['num_inputs'] = __num_inputs(torch_model)
     minfo['num_outputs'] = __num_outputs(torch_model)
     minfo['input_names'] = __input_names(torch_model)

@@ -51,6 +51,8 @@ def model_info_dict( keras_model ):
   minfo['data_format'] = dataformat(keras_model)
   minfo['num_inputs'] = minfo['input_shape'][-1] if minfo['data_format']=='channels_last' else minfo['input_shape'][1]
   minfo['num_outputs'] = minfo['output_shape'][-1] if minfo['data_format']=='channels_last' else minfo['output_shape'][1]
+  minfo['model_version'] = 'unknown'
+  minfo['platform_version'] = 'unknown'
   return minfo
 
 class TrainingSequence(Sequence):

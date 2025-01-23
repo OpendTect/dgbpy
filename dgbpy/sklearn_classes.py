@@ -35,6 +35,8 @@ def model_info( modelfnm ):
 
 def model_info_dict( skl_model ):
     minfo = {}
+    minfo['platform_version'] = 'unknown' 
+    minfo['model_version'] = 'unknown' 
     minfo['esttype'] = getattr(skl_model,'_estimator_type','Unknown')
     minfo['modtype'] = getattr(type(skl_model),'__name__', None)
     minfo['modclass'] = getattr(skl_model.__class__,'__name__', None)
