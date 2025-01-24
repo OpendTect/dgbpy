@@ -53,7 +53,8 @@ def model_info( modelfnm ):
 def model_info_dict( onnx_model ):
     minfo = {}
     minfo['model_type'] = __model_type(onnx_model)
-    minfo['version'] = onnx_model.producer_version
+    minfo['model_version'] = onnx_model.model_version
+    minfo['platform_version'] = onnx_model.producer_version
     minfo['num_inputs'] = __num_inputs(onnx_model)
     minfo['num_outputs'] = __num_outputs(onnx_model)
     minfo['input_names'] = __input_names(onnx_model)

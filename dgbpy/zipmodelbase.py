@@ -58,7 +58,9 @@ class ZipModelInfo():
     output_names: [str]     = field(default_factory=list)
     input_shape: [int]      = field(default_factory=list) # use 0 to indicate dynamic axis size
     output_shape: [int]     = field(default_factory=list) # use 0 to indicate dynamic axis size
-    data_format: str        = 'channels_first'
+    data_format: str        = field(default='channels_first')
+    model_version: str      = field(default='unknown')
+    platform_version: str   = field(default='unknown')
 
     def info(self) -> dict:
         return json.dumps({
@@ -73,7 +75,9 @@ class ZipModelInfo():
                     'output_names': self.output_names,
                     'input_shape': [shp if shp else 0 for shp in self.input_shape] ,
                     'output_shape': [shp if shp else 0 for shp in self.output_shape],
-                    'data_format': self.data_format
+                    'data_format': self.data_format,
+                    'model_version': self.model_version,
+                    'platform_version': self.platform_version
         })
 
 class ZipPredictModel(ABC):
