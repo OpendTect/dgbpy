@@ -89,7 +89,7 @@ keras_dict = {
   'scale': dgbkeys.globalstdtypestr,
   'withtensorboard': withtensorboard,
   'tblogdir': None,
-  'tofp16': True,
+  'tofp16': False,
   'userandomseed': 42,
   'stopaftercurrentepoch': False,
   'summary': None
