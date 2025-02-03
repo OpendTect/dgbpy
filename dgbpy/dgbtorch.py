@@ -116,7 +116,7 @@ torch_dict = {
     'transform':default_transforms,
     'withtensorboard': withtensorboard,
     'tblogdir': None,
-    'tofp16': True,
+    'tofp16': False,
     'userandomseed': 42,
     'stopaftercurrentepoch': False,
     'tmpsavedict': tmp_save_dict,
