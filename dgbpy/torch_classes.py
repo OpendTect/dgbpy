@@ -610,7 +610,6 @@ class Trainer:
                 if not self.in_train: return
                 self.gradScaler.scale(self.loss).backward()
                 self('after_backward')
-                self.gradScaler.unscale_(self.optimizer)
                 self.gradScaler.step(self.optimizer)
                 self.gradScaler.update() 
                 self('after_step')
