@@ -819,6 +819,8 @@ def getTotalSize( info ):
       nrpts += len(grp)
       continue
     for collnm in collection:
+      if not collnm in grp:
+        continue
       nrpts += len(grp[collnm][xdatadictstr])
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
