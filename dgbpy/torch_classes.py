@@ -595,6 +595,17 @@ class Trainer:
         else:
             self.loss = self.criterion(self.out, self.target)
 
+    def auto_clip_gradients(self):
+        """
+        Automatically clip gradients for the given model based on the median of
+        per-parameter L2 gradient norms. This function avoids setting a fixed hyperparameter.
+        """
+        grad_norms = [p.grad.data.norm(2).item() for p in self.model.parameters() if p.grad is not None]
+        if not grad_norms:
+            return 
+        clip_value = np.median(grad_norms)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), clip_value)
+
     def one_batch(self, i, input, target):
         try:
             self.iter = i
@@ -610,6 +621,8 @@ class Trainer:
                 if not self.in_train: return
                 self.gradScaler.scale(self.loss).backward()
                 self('after_backward')
+                self.gradScaler.unscale_(self.optimizer)
+                self.auto_clip_gradients()
                 self.gradScaler.step(self.optimizer)
                 self.gradScaler.update() 
                 self('after_step')
