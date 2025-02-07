@@ -114,6 +114,7 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
       action = self._actions.get(key)
       if action:
         result = action(params)
+        break
 
     obj = dict()
     obj[key] = result
