@@ -111,7 +111,10 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     payload = inpacket.getTextPayload()
     result = {}
     for key, params in payload.items():
-      result = self._actions.get(key)(params)
+      action = self._actions.get(key)
+      if action:
+        result = action(params)
+        break
 
     obj = dict()
     obj[key] = result
