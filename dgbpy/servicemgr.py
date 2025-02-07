@@ -112,7 +112,10 @@ class ServiceMgr(tornado.tcpserver.TCPServer):
     result = {}
     for key, params in payload.items():
       action = self._actions.get(key)
-      if action: action(params)
+      if not action:
+        continue
+      else:
+        result = action(params)
 
     obj = dict()
     obj[key] = result
