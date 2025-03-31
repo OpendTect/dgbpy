@@ -60,6 +60,7 @@ class ZipModelInfo():
     output_shape: [int]     = field(default_factory=list) # use 0 to indicate dynamic axis size
     data_format: str        = field(default='channels_first')
     model_version: str      = field(default='unknown')
+    model_name: str         = field(default='unknown')
     platform_version: str   = field(default='unknown')
 
     def info(self) -> dict:
@@ -77,6 +78,7 @@ class ZipModelInfo():
                     'output_shape': [shp if shp else 0 for shp in self.output_shape],
                     'data_format': self.data_format,
                     'model_version': self.model_version,
+                    'model_name': self.model_name,
                     'platform_version': self.platform_version
         })
 
