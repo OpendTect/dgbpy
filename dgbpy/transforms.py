@@ -35,7 +35,7 @@ class BaseTransform(ABC):
             For example, if self.multiplier = 2, then the transform will be applied twice 
               for cases like Flip that can be done in multiple directions.
     """
-    def __init__(self, p=0.2):
+    def __init__(self, p=0.2, **kwargs):
         self.p = p
         self.uniform_prob = np.random.uniform(0,1)
         self.do_label_transform = False
@@ -75,7 +75,7 @@ class BaseTransform(ABC):
 
 
 class Flip(BaseTransform):
-    def __init__(self, p=0.2):
+    def __init__(self, p=0.2, **kwargs):
         super().__init__()
         self.p = p
         self.multiplier = 1
@@ -108,7 +108,7 @@ class Flip(BaseTransform):
             return np.rot90(arr,self.aug_axis,self.aug_dims).copy()
 
 class GaussianNoise(BaseTransform):
-    def __init__(self, p=0.2, std=0.1):
+    def __init__(self, p=0.2, std=0.1, **kwargs):
         super().__init__()
         self.p = p
         self.std = std
@@ -129,7 +129,7 @@ def hasOpenCV():
   return True
 
 class Rotate(BaseTransform):
-    def __init__(self, p=0.2, angle=15):
+    def __init__(self, p=0.2, angle=15, **kwargs):
         super().__init__()
         self.p = p
         self.angle = angle
@@ -220,7 +220,7 @@ class FlipPolarity(BaseTransform):
 
 
 class ScaleTransform(BaseTransform):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         from dgbpy.dgbscikit import scale
         self.scale = scale
@@ -230,7 +230,7 @@ class ScaleTransform(BaseTransform):
         return dgbhdf5.doOutputScaling(info)   
         
 class Normalization(ScaleTransform, BaseTransform):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         from dgbpy.dgbscikit import getNewMinMaxScaler
         self.getNewMinMaxScaler = getNewMinMaxScaler
@@ -240,7 +240,7 @@ class Normalization(ScaleTransform, BaseTransform):
         return self.scale(arr, self.scaler)
 
 class StandardScaler(ScaleTransform, BaseTransform):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         from dgbpy.dgbscikit import getScaler
         self.getScaler = getScaler
@@ -250,7 +250,7 @@ class StandardScaler(ScaleTransform, BaseTransform):
         return self.scale(arr, self.scaler)
 
 class MinMaxScaler(ScaleTransform, BaseTransform):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         from dgbpy.dgbscikit import getNewMinMaxScaler
         self.getNewMinMaxScaler = getNewMinMaxScaler
@@ -260,22 +260,33 @@ class MinMaxScaler(ScaleTransform, BaseTransform):
         return self.scale(arr, self.scaler)
 
 class RangeScaler(ScaleTransform, BaseTransform):
-    def __init__(self):
+    """
+        Scales the data to a range of -1 to 1.
+        If the standard deviation is 0, the data is returned unchanged.
+        Parameters:
+            std_clip: float
+                The number of standard deviations to clip the data to.
+    """
+    def __init__(self, **kwargs):
         super().__init__()
         from dgbpy.dgbscikit import getNewRangeScaler
         self.getNewRangeScaler = getNewRangeScaler
+        self.clip = kwargs.get('clip', 4)
 
     def transform(self, arr):
-        self.scaler = self.getNewRangeScaler()
+        if arr.std() == 0.0:
+            return arr
+        self.scaler = self.getNewRangeScaler(arr, self.clip)
         return self.scale(arr, self.scaler)
 
 
-all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr)
+all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr, dgbkeys.rangestdtypestr)
 
 scale_transforms = {
     dgbkeys.localstdtypestr: StandardScaler,
     dgbkeys.normalizetypestr: Normalization,
-    dgbkeys.minmaxtypestr: MinMaxScaler
+    dgbkeys.minmaxtypestr: MinMaxScaler,
+    dgbkeys.rangestdtypestr: RangeScaler
 }
 all_transforms = {
     'Flip': Flip,
