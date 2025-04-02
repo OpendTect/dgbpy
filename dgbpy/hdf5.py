@@ -200,6 +200,9 @@ def applyArrTranspose( info ):
     return info[arrayorderdictstr] == reversestr
   return info == reversestr
 
+def isZipModelFile( filenm ):
+  return filenm.lower().endswith(".zip")
+
 class StorageType(Enum):
   AWS = "AWS"
   LOCAL = "LOCAL"
