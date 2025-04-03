@@ -170,6 +170,9 @@ class ZipTrainableModel(ZipPredictModel):
 
 def load(modelfnm: str):
     model = None
+    if dgbhdf5.isZipModelFile(modelfnm):
+        model = load_modelimpl(modelfnm)
+        return model
     try:
         h5file = odhdf5.openFile( modelfnm, 'r' )
         modelgrp = h5file['model']
@@ -177,13 +180,20 @@ def load(modelfnm: str):
         if savetype == dgbkeys.zipmodelstr:
             modfnm = odhdf5.getText( modelgrp, 'path' )
             modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-            sys.path.insert(0, str(modfnm))
-            from zipmodel import ZipModel
-            model = ZipModel()
+            model = load_modelimpl(modfnm)
+        else:
+            raise ValueError(f"File {modelfnm} is not a valid ZipModel file")
     except Exception as e:
         raise e
     finally:
         h5file.close()
+    return model
+
+def load_modelimpl (modelfnm: str):
+    model = None
+    sys.path.insert(0, str(modelfnm))
+    from zipmodel import ZipModel
+    model = ZipModel()
     return model
 
 def apply( model, infos, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs ):
