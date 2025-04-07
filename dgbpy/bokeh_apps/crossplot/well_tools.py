@@ -5,7 +5,7 @@ from dgbpy.bokehcore import *
 import logging
 import odpy.common as odcommon
 from well_data import WellInfo, WellCrossplotData
-from bokeh.models import Legend, LegendItem
+from bokeh.models import Legend, LegendItem, PanTool, BoxZoomTool, ResetTool
 from bokeh.palettes import Category20_20 as palette
 import itertools
 
@@ -138,7 +138,7 @@ class MultiWellCrossPlot:
 		self.log_select = MultiWellLogSelector(self.wd.wellinfo, titles=['Crossplot X Log', 'Crossplot Y log'])
 		self.color_select = ColorSelector(self.wd.wellinfo)
 		self.depth_select = DepthRangeSelector(self.wd.wellinfo)
-		self.xplotfig = figure(toolbar_location='right', title='Crossplot')
+		self.xplotfig = figure(toolbar_location='right', title='Crossplot', tools=[PanTool(), BoxZoomTool(), ResetTool()])
 		self.xplot = {}
 		self.well_select.apply_but.on_click(self.on_apply)
 		self.well_select.well_select.on_change("value", self.on_well_select)
