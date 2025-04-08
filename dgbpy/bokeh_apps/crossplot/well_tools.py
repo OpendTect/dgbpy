@@ -5,7 +5,7 @@ from dgbpy.bokehcore import *
 import logging
 import odpy.common as odcommon
 from well_data import WellInfo, WellCrossplotData
-from bokeh.models import Legend, LegendItem
+import bokeh as bk
 from bokeh.palettes import Category20_20 as palette
 import itertools
 
@@ -17,14 +17,14 @@ colors = itertools.cycle(palette)
 class MulitWellSelector:
 	def __init__(self, wellinfo):
 		self.wellinfo = wellinfo
-		self.apply_but = Button(label='Apply', button_type='success')
-		self.well_select = MultiSelect(title='Select wells', options=self.wellinfo.names())
+		self.apply_but = bk.models.Button(label='Apply', button_type='success')
+		self.well_select = bk.models.MultiSelect(title='Select wells', options=self.wellinfo.names())
 
 	def select_wells(self, wellnms):
 		self.well_select.update(value=wellnms)
 
 	def get_controls(self):
-		controls = column(self.apply_but, self.well_select)
+		controls = bk.layouts.column(self.apply_but, self.well_select)
 		return controls
 
 class MultiWellLogSelector:
@@ -35,7 +35,7 @@ class MultiWellLogSelector:
 		self.withdepth = withdepth
 		self.log_select = {}
 		for title in titles:
-			self.log_select[title] = Select(title=title)
+			self.log_select[title] = bk.models.Select(title=title)
 
 		self.select_wells([self.wellinfo.names()[0]])
 
@@ -53,7 +53,7 @@ class MultiWellLogSelector:
 				log_select.value = log_select.options[0]
 
 	def get_controls(self):
-		controls = column(list(self.log_select.values()))
+		controls = bk.layouts.column(list(self.log_select.values()))
 		return controls
 
 class ColorSelector:
@@ -62,7 +62,7 @@ class ColorSelector:
 		self.common = common
 		self.withdepth = withdepth
 		self.withwell = withwell
-		self.color_select = Select(title='Color by')
+		self.color_select = bk.models.Select(title='Color by')
 		self.select_wells([self.wellinfo.names()[0]])
 
 	def select_wells(self, wellnms):
@@ -83,23 +83,23 @@ class ColorSelector:
 			self.color_select.update(value=sellogs[0])
 
 	def get_controls(self):
-		controls = column(self.color_select)
+		controls = bk.layouts.column(self.color_select)
 		return controls
 
 class DepthRangeSelector:
 	def __init__(self, wellinfo):
 		self.wd = wellinfo
 		self.selmarkers = []
-		self.slider = RangeSlider(step=1, title="Depth Range")
-		self.depthtab = TabPanel(child=self.slider, title="Depth Range")
-		self.topmarker = Select(title="Top")
-		self.topoffset = Spinner(title="Above", low=-500, high=500, step=1, value=0, width=80)
-		self.botmarker = Select(title="Base")
-		self.botoffset = Spinner(title="Below", low=-500, high=500, step=1, value=0, width=80)
-		marker_controls = column(	row(self.topmarker, self.topoffset), 
-									row(self.botmarker, self.botoffset))
-		self.markertab = TabPanel(child=marker_controls, title="Marker Range")
-		self.tabs = Tabs(tabs=[self.depthtab,self.markertab])
+		self.slider = bk.models.RangeSlider(step=1, title="Depth Range")
+		self.depthtab = bk.models.TabPanel(child=self.slider, title="Depth Range")
+		self.topmarker = bk.models.Select(title="Top")
+		self.topoffset = bk.models.Spinner(title="Above", low=-500, high=500, step=1, value=0, width=80)
+		self.botmarker = bk.models.Select(title="Base")
+		self.botoffset = bk.models.Spinner(title="Below", low=-500, high=500, step=1, value=0, width=80)
+		marker_controls = bk.layouts.column(	bk.layouts.row(self.topmarker, self.topoffset), 
+									bk.layouts.row(self.botmarker, self.botoffset))
+		self.markertab = bk.models.TabPanel(child=marker_controls, title="Marker Range")
+		self.tabs = bk.models.Tabs(tabs=[self.depthtab,self.markertab])
 		self.select_wells([self.wd.names()[0]])
 		self.topmarker.on_change("value", self.on_topmarker_chg)
 		self.botmarker.on_change("value", self.on_botmarker_chg)
@@ -138,7 +138,7 @@ class MultiWellCrossPlot:
 		self.log_select = MultiWellLogSelector(self.wd.wellinfo, titles=['Crossplot X Log', 'Crossplot Y log'])
 		self.color_select = ColorSelector(self.wd.wellinfo)
 		self.depth_select = DepthRangeSelector(self.wd.wellinfo)
-		self.xplotfig = figure(toolbar_location='right', title='Crossplot')
+		self.xplotfig = bk.plotting.figure(toolbar_location='right', title='Crossplot', tools=[bk.models.PanTool(), bk.models.BoxZoomTool(), bk.models.ResetTool()])
 		self.xplot = {}
 		self.well_select.apply_but.on_click(self.on_apply)
 		self.well_select.well_select.on_change("value", self.on_well_select)
@@ -168,7 +168,7 @@ class MultiWellCrossPlot:
 				if well in self.xplot:
 					self.xplot[well].glyph.update(fill_color=usecolor, line_color=usecolor)
 	
-			self.xplotfig.legend.items = [LegendItem(label=well, renderers=[self.xplot[well]]) for well in wellnms]
+			self.xplotfig.legend.items = [bk.models.LegendItem(label=well, renderers=[self.xplot[well]]) for well in wellnms]
 
 	def hideall(self):
 		for well in self.xplot:
@@ -190,7 +190,7 @@ class MultiWellCrossPlot:
 										legend_label=well, color=usecolor)
 
 		if self.color_select.color_select.value=='Well':
-			self.xplotfig.legend.items = [LegendItem(label=well, renderers=[self.xplot[well]]) for well in wellnms]
+			self.xplotfig.legend.items = [bk.models.LegendItem(label=well, renderers=[self.xplot[well]]) for well in wellnms]
 
 		ds = self.depth_select
 		if ds.tabs.active==0:
@@ -213,10 +213,10 @@ class MultiWellCrossPlot:
 			self.wd.filter_marker_range(ds.topmarker.value, ds.botmarker.value, ds.topoffset.value, ds.botoffset.value)
 
 	def get_controls(self):
-		controls = column(	self.well_select.get_controls(), self.log_select.get_controls(), self.color_select.get_controls(),
+		controls = bk.layouts.column(	self.well_select.get_controls(), self.log_select.get_controls(), self.color_select.get_controls(),
 							self.depth_select.get_controls())
 		self.xplotfig.sizing_mode = 'stretch_both'
-		self.dashboard = row(controls, self.xplotfig)
+		self.dashboard = bk.layouts.row(controls, self.xplotfig)
 		self.dashboard.sizing_mode = 'stretch_both'
 		return self.dashboard
 
