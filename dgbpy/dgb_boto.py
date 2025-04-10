@@ -135,7 +135,25 @@ def handleS3FileLoading(loadfunc, s3Uri):
     download_multiple_from_s3(local_paths, bucket_name, s3paths)
     AddS3InfoToHDF5(localhdf5path, s3hdf5path, bucket_name)
     return loadfunc(localhdf5path)
-        
+
+def s3_uri_exists(s3Uri: str, **kwargs) -> bool:
+    """
+    Checks if a given S3 URI points to an existing object.
+
+    Parameters:
+    s3_uri: The S3 URI string (e.g., "s3://bucket-name/path/to/object").
+    kwargs: Additional keyword arguments to pass to the boto3 client.
+
+    Returns:
+    True if the bucket and object exist, False otherwise.
+    """
+    try:
+        bucket_name, s3_path, _ = parseS3Uri(s3Uri)
+        s3 = boto3.client('s3', **kwargs)   
+        s3.head_object(Bucket=bucket_name, Key=s3_path)
+        return True
+    except Exception as e:
+        return False
 
 def cleanS3Uri(s3Uri):
     if not s3Uri.endswith('.h5'):
