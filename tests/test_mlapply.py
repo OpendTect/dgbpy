@@ -6,6 +6,7 @@ import fnmatch, pytest
 import dgbpy.keystr as dbk
 import dgbpy.mlapply as dgbml
 import dgbpy.dgbkeras as dgbkeras
+import dgbpy.dgbtorch as dgbtorch
 from init_data import *
 if dgbkeras.hasKeras():
     from test_dgkeras import default_pars as keras_params
@@ -70,11 +71,13 @@ def test_doTrain_invalid_platform(examplefilenm, capsys):
         captured = capsys.readouterr()
         assert 'Unsupported machine learning platform' in captured.out
 
+@pytest.mark.skipif(not dgbkeras.hasKeras(), reason="Keras is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_keras_new_trainingtype(examplefilenm):
     kwargs = keras_test_cases()
     assert dgbml.doTrain(examplefilenm, **kwargs) == True
 
+@pytest.mark.skipif(not dgbkeras.hasKeras(), reason="Keras is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_keras_resume_trainingtype(examplefilenm):
     kwargs = keras_test_cases(examplefilenm)
@@ -84,6 +87,7 @@ def test_doTrain_keras_resume_trainingtype(examplefilenm):
     kwargs['type'] = dgbml.TrainType.Resume
     assert dgbml.doTrain(examplefilenm, **kwargs) == True
 
+@pytest.mark.skipif(not dgbkeras.hasKeras(), reason="Keras is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_keras_transfer_trainingtype(examplefilenm):
     kwargs = keras_test_cases(examplefilenm)
@@ -122,13 +126,14 @@ def get_pretrained_modelfilenm(examplefilenm):
     return None
 
     
-
+@pytest.mark.skipif(not dgbtorch.hasTorch(), reason="Torch is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_torch_new_trainingtype(examplefilenm):
     kwargs = torch_test_cases(examplefilenm)
     assert dgbml.doTrain(examplefilenm, **kwargs) == True
     models.append(kwargs['outnm'])
 
+@pytest.mark.skipif(not dgbtorch.hasTorch(), reason="Torch is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_torch_resume_trainingtype(examplefilenm):
     kwargs = torch_test_cases(examplefilenm)
@@ -143,6 +148,7 @@ def test_doTrain_torch_resume_trainingtype(examplefilenm):
     kwargs['outnm'] = f'torch_test_{get_filenm_from_path(examplefilenm)}_resume.h5' 
     assert dgbml.doTrain(examplefilenm, **kwargs) == True    
 
+@pytest.mark.skipif(not dgbtorch.hasTorch(), reason="Torch is not available")
 @pytest.mark.parametrize('examplefilenm', examples)
 def test_doTrain_torch_transfer_trainingtype(examplefilenm):
     kwargs = torch_test_cases(examplefilenm)
