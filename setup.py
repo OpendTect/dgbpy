@@ -26,6 +26,7 @@ setup(
         'odpy>=1.1.0',
         'scikit-learn>=0.24.2',
         'psutil>=5.7.0',
+        'tensorboard==2.19.0',
         'torch>=1.9.0',
         'fastprogress>=1.0.0',
         'onnxruntime-gpu>=1.0.0',
