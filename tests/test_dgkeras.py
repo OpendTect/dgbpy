@@ -5,6 +5,8 @@ import os, pytest
 import dgbpy.keystr as dbk
 import dgbpy.dgbkeras as dgbkeras
 import dgbpy.hdf5 as dgbhdf5
+if not dgbkeras.hasKeras():
+    pytest.skip(allow_module_level=True)
 import dgbpy.keras_classes as kc
 import keras
 from init_data import *
@@ -242,8 +244,8 @@ def test_apply(data):
         check_apply_res(current_conditions, pred)
 
 @pytest.mark.parametrize('data',
-                         (get_2d_seismic_imgtoimg_data(nrclasses=5), get_3d_seismic_imgtoimg_data(nrclasses=5)),
-                         ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
+                        (get_2d_seismic_imgtoimg_data(nrclasses=5), get_3d_seismic_imgtoimg_data(nrclasses=5)),
+                        ids=['2D_seismic_imgtoimg', '3D_seismic_imgto_img'])
 def test_apply_result____img2img_classes_gt_2_should_do_argmax(data):
     pars = default_pars()
     info = data[dbk.infodictstr]

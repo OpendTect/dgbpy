@@ -187,7 +187,7 @@ class MultiWellCrossPlot:
 			else:
 				usecolor = "blue" if self.color_select.color_select.value=='None' else next(colors)
 				self.xplot[well] = self.xplotfig.circle("xlog", "ylog", source = self.wd.cdsdata[well], view=self.wd.cdsviews[well], 
-										legend_label=well, color=usecolor)
+										legend_label=well, color=usecolor, size=6)
 
 		if self.color_select.color_select.value=='Well':
 			self.xplotfig.legend.items = [bk.models.LegendItem(label=well, renderers=[self.xplot[well]]) for well in wellnms]

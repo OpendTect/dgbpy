@@ -55,7 +55,7 @@ class Well:
         ld = ld.replace(to_replace=undefval, value=float('Nan'))
         self.logdata = bm.ColumnDataSource(ld)
         self.logdataviewidx = self.logdata.data['index']
-        self.logdataview = bm.CDSView(source=self.logdata, filters=[])
+        self.logdataview = bm.CDSView()
 
     def getLogLimits(self, lognm):
         limits = self.limits.get(lognm)

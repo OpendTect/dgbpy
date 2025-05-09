@@ -5,8 +5,10 @@ import os
 import fnmatch, pytest
 import dgbpy.keystr as dbk
 import dgbpy.mlapply as dgbml
+import dgbpy.dgbkeras as dgbkeras
 from init_data import *
-from test_dgkeras import default_pars as keras_params
+if dgbkeras.hasKeras():
+    from test_dgkeras import default_pars as keras_params
 from test_dgbscikit import default_pars as scikit_params
 from test_dgbtorch import default_pars as torch_params
 

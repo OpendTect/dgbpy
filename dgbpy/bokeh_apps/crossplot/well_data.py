@@ -171,7 +171,7 @@ class WellCrossplotData:
         self.cdsdata[well].update(data={'depth': data['dah'], 'xlog': data[xlog], 'ylog': data[ylog]})
       else:
         self.cdsdata[well] = ColumnDataSource(data={'depth': data['dah'], 'xlog': data[xlog], 'ylog': data[ylog]})
-        self.cdsviews[well] = CDSView(filters=[], source=self.cdsdata[well])
+        self.cdsviews[well] = CDSView()
       logkys = data.get('logkeys', {})
       
     self.logsel = [logkys[xlog], logkys[ylog]]
@@ -183,7 +183,7 @@ class WellCrossplotData:
   def filter_depth_range(self, mindepth, maxdepth):
     for well in self.cdsdata:
       zfilter = [True if z>=mindepth and z<=maxdepth else False for z in self.cdsdata[well].data['depth']]
-      self.cdsviews[well].update(filters=[BooleanFilter(zfilter)])
+      self.cdsviews[well].update(filter=BooleanFilter(zfilter))
 
   def filter_marker_range(self, topmarker, botmarker, topoffset, botoffset ):
     for well in self.cdsdata:
