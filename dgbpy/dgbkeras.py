@@ -295,188 +295,190 @@ def hasFastprogress():
 
 if hasFastprogress():
     from fastprogress.fastprogress import master_bar, progress_bar
-class ProgressBarCallback(Callback):
-  def __init__(self, config):
-    """This method is called before training begins """
-    self.train_datagen = config.get('train_datagen')
-    self.valid_datagen = config.get('valid_datagen')
 
-  def on_train_begin(self, logs=None):
-    epochs = self.params['epochs']
-    self.mbar = master_bar(range(epochs))
-    self.logger = partial(self.mbar.write, table=True)  
-
-  def on_epoch_begin (self, epoch, logs=None): 
-    self.epoch = epoch
-    self.pb = progress_bar(self.train_datagen, parent=self.mbar)
-    self.mbar.update(epoch)
-    self.start_time = time.time()
-
-  def on_epoch_end(self, epoch, logs=None):
-    if not epoch:
-      names = [i.name for i in self.model.metrics] 
-      results = ['Epochs']
-      for name in names: results += [f'Train {name}']
-      for name in names: results += [f'Valid {name}']
-      results+=['Time']
-      self.logger(results) 
-    stats = [f'{stat:.4f}' for stat in logs.values()]
-    stats += [dgbkeys.format_time(time.time() - self.start_time)]
-    self.logger([epoch+1]+stats)
-
-  def on_test_begin(self, logs=None):
-    self.pb = progress_bar(self.valid_datagen, parent=self.mbar)
-    self.mbar.update(self.epoch)
-
-  def on_train_batch_end(self, batch, logs=None): 
-    self.pb.update(batch)
-
-  def on_test_batch_end(self, batch, logs=None): 
-    self.pb.update(batch)
-
-  def on_train_end(self, logs=None):
-   self.mbar.on_iter_end()
-
-class ProgressNoBarCallback(Callback):
-  def __init__(self, config):
-    self.epoch_logs = []
-
-  def on_train_begin(self, logs=None):
-    self.logger = log_msg
-
-  def on_epoch_begin(self, epoch, logs=None):
-    self.start_time = time.time()
-
-  def on_epoch_end(self, epoch, logs=None):
-    _logs = logs.copy()
-    _logs.update({'Time': dgbkeys.format_time(time.time() - self.start_time)})
-    self.logger(f'----------------- Epoch {epoch+1} ------------------')
-    for key,val in _logs.items():
-      self.logger(f'{key}: {val}')
-    self.epoch_logs.append(_logs)
-  
-  def get_epoch_logs(self):
-    return self.epoch_logs
-
-class BokehProgressCallback(Callback):
-    """Send progress message to bokeh"""
+if hasKeras():
+  class ProgressBarCallback(Callback):
     def __init__(self, config):
-      self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
-      self.ichunk, self.nbchunks = config.get('ichunk'), config.get('nbchunks')
-      self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
-      self.isCrossVal = config.get('isCrossVal')
+      """This method is called before training begins """
+      self.train_datagen = config.get('train_datagen')
+      self.valid_datagen = config.get('valid_datagen')
 
     def on_train_begin(self, logs=None):
-      self.on_train_begin_chunk()
-      self.on_train_begin_fold()
-  
-    def on_epoch_begin(self, epoch, logs=None):
-      self.ntrain_steps = len(self.train_datagen)
-      self.nvalid_steps = len(self.valid_datagen)
-      if epoch==0:
-        restore_stdout()
-        print('--Epoch '+str(epoch)+' of '+str(self.params['epochs'])+' --', flush=True)
-        restore_stdout()
+      epochs = self.params['epochs']
+      self.mbar = master_bar(range(epochs))
+      self.logger = partial(self.mbar.write, table=True)
+
+    def on_epoch_begin (self, epoch, logs=None):
+      self.epoch = epoch
+      self.pb = progress_bar(self.train_datagen, parent=self.mbar)
+      self.mbar.update(epoch)
+      self.start_time = time.time()
 
     def on_epoch_end(self, epoch, logs=None):
-      restore_stdout()
-      print('--Epoch '+str(epoch+1)+' of '+str(self.params['epochs'])+' --', flush=True)
-      restore_stdout()
+      if not epoch:
+        names = [i.name for i in self.model.metrics]
+        results = ['Epochs']
+        for name in names: results += [f'Train {name}']
+        for name in names: results += [f'Valid {name}']
+        results+=['Time']
+        self.logger(results)
+      stats = [f'{stat:.4f}' for stat in logs.values()]
+      stats += [dgbkeys.format_time(time.time() - self.start_time)]
+      self.logger([epoch+1]+stats)
 
-    def on_train_batch_begin(self, batch, logs=None):
-      if batch == 0:
-        restore_stdout()
-        print('--Iter '+str(batch)+' of '+str(self.ntrain_steps)+' --', flush=True)
-        restore_stdout()
-
-    def on_test_batch_begin(self, batch, logs=None):
-      if batch == 0:
-        restore_stdout()
-        print('--Iter '+str(batch)+' of '+str(self.nvalid_steps)+' --', flush=True)
-        restore_stdout()
+    def on_test_begin(self, logs=None):
+      self.pb = progress_bar(self.valid_datagen, parent=self.mbar)
+      self.mbar.update(self.epoch)
 
     def on_train_batch_end(self, batch, logs=None):
-      restore_stdout()
-      print('--Iter '+str(batch+1)+' of '+str(self.ntrain_steps)+' --', flush=True)
-      restore_stdout()
+      self.pb.update(batch)
 
     def on_test_batch_end(self, batch, logs=None):
-      restore_stdout()
-      print('--Iter '+str(batch+1)+' of '+str(self.nvalid_steps)+' --', flush=True)
-      restore_stdout()
-    
-    def on_train_begin_chunk(self):
-      restore_stdout()
-      print('--Chunk_Number '+str(self.ichunk)+' of '+str(self.nbchunks)+' --', flush=True)
-      restore_stdout()
+      self.pb.update(batch)
+
+    def on_train_end(self, logs=None):
+      self.mbar.on_iter_end()
+
+  class ProgressNoBarCallback(Callback):
+    def __init__(self, config):
+      self.epoch_logs = []
+
+    def on_train_begin(self, logs=None):
+      self.logger = log_msg
+
+    def on_epoch_begin(self, epoch, logs=None):
+      self.start_time = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+      _logs = logs.copy()
+      _logs.update({'Time': dgbkeys.format_time(time.time() - self.start_time)})
+      self.logger(f'----------------- Epoch {epoch+1} ------------------')
+      for key,val in _logs.items():
+        self.logger(f'{key}: {val}')
+      self.epoch_logs.append(_logs)
+
+    def get_epoch_logs(self):
+      return self.epoch_logs
+
+  class BokehProgressCallback(Callback):
+      """Send progress message to bokeh"""
+      def __init__(self, config):
+        self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
+        self.ichunk, self.nbchunks = config.get('ichunk'), config.get('nbchunks')
+        self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
+        self.isCrossVal = config.get('isCrossVal')
+
+      def on_train_begin(self, logs=None):
+        self.on_train_begin_chunk()
+        self.on_train_begin_fold()
+
+      def on_epoch_begin(self, epoch, logs=None):
+        self.ntrain_steps = len(self.train_datagen)
+        self.nvalid_steps = len(self.valid_datagen)
+        if epoch==0:
+          restore_stdout()
+          print('--Epoch '+str(epoch)+' of '+str(self.params['epochs'])+' --', flush=True)
+          restore_stdout()
+
+      def on_epoch_end(self, epoch, logs=None):
+        restore_stdout()
+        print('--Epoch '+str(epoch+1)+' of '+str(self.params['epochs'])+' --', flush=True)
+        restore_stdout()
+
+      def on_train_batch_begin(self, batch, logs=None):
+        if batch == 0:
+          restore_stdout()
+          print('--Iter '+str(batch)+' of '+str(self.ntrain_steps)+' --', flush=True)
+          restore_stdout()
+
+      def on_test_batch_begin(self, batch, logs=None):
+        if batch == 0:
+          restore_stdout()
+          print('--Iter '+str(batch)+' of '+str(self.nvalid_steps)+' --', flush=True)
+          restore_stdout()
+
+      def on_train_batch_end(self, batch, logs=None):
+        restore_stdout()
+        print('--Iter '+str(batch+1)+' of '+str(self.ntrain_steps)+' --', flush=True)
+        restore_stdout()
+
+      def on_test_batch_end(self, batch, logs=None):
+        restore_stdout()
+        print('--Iter '+str(batch+1)+' of '+str(self.nvalid_steps)+' --', flush=True)
+        restore_stdout()
+
+      def on_train_begin_chunk(self):
+        restore_stdout()
+        print('--Chunk_Number '+str(self.ichunk)+' of '+str(self.nbchunks)+' --', flush=True)
+        restore_stdout()
+
+      def on_train_begin_fold(self):
+        if self.isCrossVal:
+          restore_stdout()
+          print('--Fold_bkh '+str(self.ifold)+' of '+str(self.nbfolds)+' --', flush=True)
+          restore_stdout()
+
+  class LogNrOfSamplesCallback(Callback):
+    def __init__(self, config):
+      self.logger = log_msg
+      self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
+      self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
+      self.batchsize, self.isCrossVal = config.get('batchsize'), config.get('isCrossVal')
+    def on_train_begin(self, logs=None):
+      if self.batchsize == 1:
+        log_msg( 'Training on', len(self.train_datagen), 'samples' )
+        log_msg( 'Validate on', len(self.valid_datagen), 'samples' )
+      else:
+        log_msg( 'Training on', len(self.train_datagen), 'batches of', self.batchsize, 'samples' )
+        log_msg( 'Validate on', len(self.valid_datagen), 'batches of', self.batchsize, 'samples' )
+      self.on_train_begin_fold()
 
     def on_train_begin_fold(self):
       if self.isCrossVal:
         restore_stdout()
-        print('--Fold_bkh '+str(self.ifold)+' of '+str(self.nbfolds)+' --', flush=True)
+        self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
         restore_stdout()
 
-class LogNrOfSamplesCallback(Callback):
-  def __init__(self, config):
-    self.logger = log_msg
-    self.train_datagen, self.valid_datagen = config.get('train_datagen'), config.get('valid_datagen')
-    self.ifold, self.nbfolds = config.get('ifold'), config.get('nbfolds')
-    self.batchsize, self.isCrossVal = config.get('batchsize'), config.get('isCrossVal')
-  def on_train_begin(self, logs=None):
-    if self.batchsize == 1:
-      log_msg( 'Training on', len(self.train_datagen), 'samples' )
-      log_msg( 'Validate on', len(self.valid_datagen), 'samples' )
-    else:
-      log_msg( 'Training on', len(self.train_datagen), 'batches of', self.batchsize, 'samples' )
-      log_msg( 'Validate on', len(self.valid_datagen), 'batches of', self.batchsize, 'samples' )
-    self.on_train_begin_fold()
+  class StopTrainingCallback(Callback):
+    def __init__(self, stopaftercurrentepoch):
+      super(StopTrainingCallback, self).__init__()
+      self.stopaftercurrentepoch = stopaftercurrentepoch
 
-  def on_train_begin_fold(self):
-    if self.isCrossVal:
-      restore_stdout()
-      self.logger(f'----------------- Fold {self.ifold}/{self.nbfolds} ------------------')
-      restore_stdout()
+    def on_epoch_end(self, epoch, logs=None):
+      if self.stopaftercurrentepoch:
+        log_msg(f'\nStopping training on user request after epoch {epoch + 1}')
+        self.model.stop_training = True
 
-class StopTrainingCallback(Callback):
-  def __init__(self, stopaftercurrentepoch):
-    super(StopTrainingCallback, self).__init__()
-    self.stopaftercurrentepoch = stopaftercurrentepoch
-    
-  def on_epoch_end(self, epoch, logs=None):
-    if self.stopaftercurrentepoch:
-      log_msg(f'\nStopping training on user request after epoch {epoch + 1}')
-      self.model.stop_training = True
+  class TransformCallback(Callback):
+    def __init__(self, config):
+      self.train_datagen = config.get('train_datagen')
 
-class TransformCallback(Callback):
-  def __init__(self, config):
-    self.train_datagen = config.get('train_datagen')
+    def on_epoch_begin(self, epoch, logs=None):
+      self.train_datagen.set_transform_seed()
 
-  def on_epoch_begin(self, epoch, logs=None):
-    self.train_datagen.set_transform_seed()
-
-class SaveTrainingSummaryCallback(Callback):
-  def __init__(self, progress_callback, metric='val_loss'):
-    super().__init__()
-    self.progress_callback = progress_callback
-    self.metric = metric
-  def on_train_end(self, logs=None):
-    training_summary = self.get_training_summary()
-    keras_dict['summary'] = training_summary
-  def get_training_summary(self):
-    logs = self.progress_callback.get_epoch_logs()
-    if not logs:
-      return None
-    best_epoch = None
-    best_metric_value = float('inf')
-    for epoch, log in enumerate(logs):
-      if self.metric in log:
-        if log[self.metric] < best_metric_value:
-          best_metric_value = log[self.metric]
-          best_epoch = epoch
-    result = {
-              'best_epoch': best_epoch + 1 if best_epoch is not None else None,
-              'training_infos': logs}
-    return result
+  class SaveTrainingSummaryCallback(Callback):
+    def __init__(self, progress_callback, metric='val_loss'):
+      super().__init__()
+      self.progress_callback = progress_callback
+      self.metric = metric
+    def on_train_end(self, logs=None):
+      training_summary = self.get_training_summary()
+      keras_dict['summary'] = training_summary
+    def get_training_summary(self):
+      logs = self.progress_callback.get_epoch_logs()
+      if not logs:
+        return None
+      best_epoch = None
+      best_metric_value = float('inf')
+      for epoch, log in enumerate(logs):
+        if self.metric in log:
+          if log[self.metric] < best_metric_value:
+            best_metric_value = log[self.metric]
+            best_epoch = epoch
+      result = {
+                'best_epoch': best_epoch + 1 if best_epoch is not None else None,
+                'training_infos': logs}
+      return result
 
 def epoch0endCB(epoch, logs):
   if epoch==0:

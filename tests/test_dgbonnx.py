@@ -21,7 +21,12 @@ all_data = lambda **kwargs: (
 test_data_ids = ['2D_seismic_imgtoimg', '3D_seismic_imgto_img', 'seismic_classification', 'loglog_regression', 'log_classification']
 
 def default_pars():
-    pars = dgbkeras.keras_dict
+    if dgbkeras.hasKeras():
+        pars = dgbkeras.keras_dict
+    elif dgbtorch.hasTorch():
+        pars = dgbtorch.torch_dict
+    else:
+        pars = {}
     pars['epochs'] = 1
     pars['batch'] = 2
     pars[dbk.prefercpustr] = True

@@ -137,7 +137,7 @@ def exampleplot_app(doc):
         elif shape[-1] == 1:
             titlelist = ['z-slice ']
             dim = 2
-        initpos = np.divide(shape,2).astype(np.int).tolist()
+        initpos = np.divide(shape,2).astype(int).tolist()
         for  i in range(len(initpos)):
             if initpos[i]>0:
                 initpos[i] -= 1

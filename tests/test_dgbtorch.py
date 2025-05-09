@@ -8,6 +8,8 @@ import dgbpy.keystr as dbk
 import dgbpy.dgbtorch as dgbtorch
 from dgbpy.dgbtorch import SaveType
 import dgbpy.hdf5 as dgbhdf5
+if not dgbtorch.hasTorch():
+    pytest.skip(allow_module_level=True)
 import dgbpy.torch_classes as tc
 import torch
 import torch.nn as nn

@@ -13,13 +13,18 @@
 
 import numpy as np
 import onnx
-import tensorflow as tf
+try:
+    import tensorflow as tf
+    hasKeras = True
+except:
+    hasKeras = False
 import torch
 from onnx2torch import convert
 
 def make_models(shape, numin, numout, data_format):
     make_onnx_model(shape, numin, numout, data_format)
-    make_keras_model(shape, numin, numout, data_format)
+    if hasKeras():
+        make_keras_model(shape, numin, numout, data_format)
     if data_format=='channels_first':
         make_pytorch_model(shape, numin, numout)
 

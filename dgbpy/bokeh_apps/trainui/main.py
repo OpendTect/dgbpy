@@ -68,14 +68,15 @@ def training_app(doc):
 
   def getPlatformInfo( platform ):
       infos = {}
-      if platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform:
+      allplatform = get_default_platform()
+      if (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) or platform in allplatform:
         from dgbpy.dgbtorch import get_torch_infos
         infos = get_torch_infos()
-      elif platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform:
+      elif (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) or platform in allplatform:
         from dgbpy.dgbkeras import get_keras_infos
         infos = get_keras_infos()
 
-      if this_service:
+      if this_service and bool(infos):
         this_service.sendObject('bokeh_app_msg', {'GetInfos': json.loads(infos)})
 
       return infos
