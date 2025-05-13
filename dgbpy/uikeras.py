@@ -64,28 +64,33 @@ def getUiPars(uipars=None):
   userandomseed = dict[dgbkeys.userandomseeddictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
   if isCrossVal:
-    validfld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
-                      title='Number of input for validation', margin=uibokeh.widget_margin)
+    validsld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
+                      title='Number of input for validation', width=220)
   else:
-    validfld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,
-                      title='Validation Percentage Split', margin=uibokeh.widget_margin)
+    validsld = Slider(start=0.0,end=0.5,step=0.01,value=0.2,
+                      title='Validation Split', width=220)
   if kc.UserModel.isImg2Img( defmodel ):
       defbatchsz = 4
   uiobjs = {}
   if not uipars:
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes, width=300, margin=uibokeh.widget_margin),
-      'validfld' : validfld,
+      'validsld': validsld,
+      'validinp': TextInput(value=str(keras_dict['split']), title='', width=60),
       'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal, margin=uibokeh.widget_margin),
-      'batchfld': Select(title='Batch Size',options=cudacores, width=300, margin=uibokeh.widget_margin),
-      'epochfld': Slider(start=1,end=1000, title='Epochs', margin=uibokeh.widget_margin),
-      'patiencefld': Slider(start=1,end=100, title='Early Stopping', margin=uibokeh.widget_margin),
-      'lrfld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', margin=uibokeh.widget_margin),
-      'edfld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, margin=uibokeh.widget_margin),
+      'batchfld': Select(title='Batch Size', options=cudacores, width=300, margin=uibokeh.widget_margin),
+      'epochsld': Slider(start=1, end=1000, title='Epochs', width=220),
+      'epochinp': TextInput(value=str(keras_dict['epochs']), title='', width=60),
+      'patiencesld': Slider(start=1, end=100, title='Early Stopping', width=220),
+      'patienceinp': TextInput(value=str(keras_dict['patience']), title='', width=60),
+      'lrsld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', width=220),
+      'lrinp': TextInput(value=str(np.log10(dict['learnrate'])), title='', width=60),
+      'edsld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, width=220),
+      'edinp': TextInput(value=str(keras_dict['epochdrop']), title='', width=60),
       'sizefld': Div( text='Size: Unknown' , margin=uibokeh.widget_margin),
       'userandomseedfld': TextInput( title='Random seed', value=str(userandomseed), margin=uibokeh.widget_margin ),
-      'dodecimatefld': CheckboxGroup( labels=['Decimate input'], margin=uibokeh.widget_margin),
-      'chunkfld': Slider(start=1,end=100, title='Number of Chunks', margin=uibokeh.widget_margin),
+      'dodecimatefld': CheckboxGroup( labels=['Decimate input'] , margin=uibokeh.widget_margin),
+      'chunkfld': Slider( start=1, end=100, title='Number of Chunks' , margin=uibokeh.widget_margin),
       'rundevicefld': CheckboxGroup( labels=['Train on GPU'], visible=can_use_gpu(), margin=uibokeh.widget_margin)
     }
     if estimatedsz:
@@ -96,17 +101,52 @@ def getUiPars(uipars=None):
     except AttributeError:
       log_msg( '[WARNING] Bokeh version too old, consider updating it.' )
       pass
-    parsgrp = column(*list(uiobjs.values()))
+
+    def syncFunctions( sliderKey, inputKey ):
+      def sliderToInput( attr, old, new ):
+          uiobjs[inputKey].value = str(new)
+
+      def inputToSlider( attr, old, new ):
+          if new.isdigit():
+              val = int(new)
+              slider = uiobjs[sliderKey]
+              if slider.start <= val <= slider.end:
+                  slider.value = val
+
+      return sliderToInput, inputToSlider
+
+    uikeys = [('validsld', 'validinp', 'validfld'),
+              ('epochsld', 'epochinp', 'epochfld'),
+              ('patiencesld', 'patienceinp', 'patiencefld'),
+              ('lrsld', 'lrinp', 'lrfld'),
+              ('edsld', 'edinp', 'edfld')]
+
+    for sliderKey, inputKey, fieldKey in uikeys:
+      sliderHandler, inputHandler = syncFunctions(sliderKey, inputKey)
+      uiobjs[sliderKey].on_change('value', sliderHandler)
+      uiobjs[inputKey].on_change('value', inputHandler)
+      uiobjs[fieldKey] = row(uiobjs[sliderKey], uiobjs[inputKey], margin=uibokeh.widget_margin)
+
+    parsobj = []
+    for key in ['modeltypfld', 'validfld', 'foldfld', 'batchfld', 'epochfld',
+                'patiencefld', 'lrfld', 'edfld', 'sizefld', 'userandomseedfld',
+                'dodecimatefld', 'chunkfld', 'rundevicefld']:
+      parsobj.append(uiobjs[key])
+    parsgrp = column(*parsobj)
     uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
     uiobjs = uipars['uiobjects']
     
   uiobjs['modeltypfld'].value = defmodel
   uiobjs['batchfld'].value = str(defbatchsz)
-  uiobjs['epochfld'].value = dict['epochs']
-  uiobjs['patiencefld'].value = dict['patience']
-  uiobjs['lrfld'].value = np.log10(dict['learnrate'])
-  uiobjs['edfld'].value = 100*dict['epochdrop']/uiobjs['epochfld'].value
+  uiobjs['epochsld'].value = dict['epochs']
+  uiobjs['epochinp'].value = str(uiobjs['epochsld'].value)
+  uiobjs['lrsld'].value = np.log10(dict['learnrate'])
+  uiobjs['lrinp'].value = str(uiobjs['lrsld'].value)
+  uiobjs['patiencesld'].value = dict['patience']
+  uiobjs['patienceinp'].value = str(uiobjs['epochsld'].value)
+  uiobjs['edsld'].value = 100*dict['epochdrop']/uiobjs['epochsld'].value
+  uiobjs['edinp'].value = str(uiobjs['edsld'].value)
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
   uiobjs['foldfld'].value = dict['nbfold']
@@ -210,10 +250,10 @@ def getUiScaler(advkerasgrp):
 def getUiParams( keraspars, advkeraspars ):
   kerasgrp = keraspars['uiobjects']
   advkerasgrp = advkeraspars['uiobjects']
-  nrepochs = kerasgrp['epochfld'].value
-  epochdroprate = kerasgrp['edfld'].value / 100
+  nrepochs = kerasgrp['epochsld'].value
+  epochdroprate = kerasgrp['edsld'].value / 100
   epochdrop = int(nrepochs*epochdroprate)
-  validation_split = kerasgrp['validfld'].value
+  validation_split = kerasgrp['validsld'].value
   savetype = list(SaveType)[advkerasgrp['savetypefld'].active].value
   nbfold = keras_dict['nbfold']
   if kerasgrp['foldfld'].visible:
@@ -232,10 +272,10 @@ def getUiParams( keraspars, advkeraspars ):
   tofp16 = bool(advkerasgrp['tofp16fld'].active) and not advkerasgrp['tofp16fld'].disabled
   return getParams( dodec=isSelected(kerasgrp['dodecimatefld']), \
                              nbchunk=kerasgrp['chunkfld'].value, \
-                             epochs=kerasgrp['epochfld'].value, \
+                             epochs=kerasgrp['epochsld'].value, \
                              batch=int(kerasgrp['batchfld'].value), \
-                             patience=kerasgrp['patiencefld'].value, \
-                             learnrate= 10 ** kerasgrp['lrfld'].value, \
+                             patience=kerasgrp['patiencesld'].value, \
+                             learnrate= 10 ** kerasgrp['lrsld'].value, \
                              epochdrop=epochdrop, \
                              validation_split = validation_split, \
                              savetype=savetype, \

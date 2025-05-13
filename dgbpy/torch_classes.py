@@ -602,7 +602,7 @@ class Trainer:
             self.optimizer.zero_grad() 
             self('begin_batch')
             if self.tofp16:
-                with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                with torch.amp.autocast('cuda'):
                     self.out = self.model(self.input)
                     self('after_pred')
                     self.compute_loss_func()
