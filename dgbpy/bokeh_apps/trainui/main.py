@@ -68,11 +68,11 @@ def training_app(doc):
 
   def getPlatformInfo( platform ):
       infos = {}
-      allplatform = get_default_platform()
-      if (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) or platform in allplatform:
+      allplatforms = [pltfrm[0] for pltfrm in get_platforms()]
+      if (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) and list(platform.keys())[0] in allplatforms:
         from dgbpy.dgbtorch import get_torch_infos
         infos = get_torch_infos()
-      elif (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) or platform in allplatform:
+      elif (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) and list(platform.keys())[0] in allplatforms:
         from dgbpy.dgbkeras import get_keras_infos
         infos = get_keras_infos()
 
