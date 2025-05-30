@@ -617,6 +617,9 @@ def apply( model, info, samples, scaler, isclassification, withpred, withprobs, 
       ret.update({dgbkeys.confdictstr: res})
 
   if withpred:
+    ret.update({dgbkeys.preddictstr: predictions})
+
+  if isclassification and withpred and withprobs and withconfidence and doprobabilities:
     ret.update({dgbkeys.preddictstr: np.argmax(predictions, axis=1).reshape(1, -1)})
   
   if doprobabilities:
