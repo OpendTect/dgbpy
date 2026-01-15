@@ -35,6 +35,7 @@ class ModelApplier:
         self.scaler_ = None
         self.info_ = self._get_info(modelfnm)
         self.needtranspose_ = False
+        self.needztranspose_ = False
         self._set_transpose()
         self.model_ = None
         self.applyinfo_ = None
@@ -58,8 +59,10 @@ class ModelApplier:
         if dgbhdf5.isSeisClass( self.info_ ) or \
             dgbhdf5.isImg2Img( self.info_ ):
             self.needtranspose_ = dgbhdf5.applyArrTranspose( self.info_ )
+            self.needztranspose_ = dgbhdf5.applyArrZTranspose( self.info_ )
         else:
             self.needtranspose_ = False
+            self.needztranspose_ = False
     
     def setOutputs(self, outputs):
         if self.fakeapply_:
@@ -160,11 +163,15 @@ class ModelApplier:
 
         if self.needtranspose_:
             samples = np.transpose( samples, axes=(0,1,4,3,2) )
+        elif self.needztranspose_:
+            samples = np.transpose( samples, axes=(0,1,4,2,3) )
         return samples
 
     def postprocess(self,samples):
         if self.needtranspose_:
             samples = np.transpose( samples, axes=(0,1,4,3,2) )
+        elif self.needztranspose_:
+            samples = np.transpose( samples, axes=(0,1,3,4,2) )
 
         if self.is2dinp_ and len(samples.shape)==5:
             samples = samples[:,:,samples.shape[2]//2,:,:]
