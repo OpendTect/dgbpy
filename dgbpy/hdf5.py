@@ -200,6 +200,11 @@ def applyArrTranspose( info ):
     return info[arrayorderdictstr] == reversestr
   return info == reversestr
 
+def applyArrZTranspose( info ):
+  if isinstance(info,dict) and arrayorderdictstr in info:
+    return info[arrayorderdictstr] == reversezstr
+  return info == reversezstr
+
 def isZipModelFile( filenm ):
   return filenm.lower().endswith(".zip")
 
