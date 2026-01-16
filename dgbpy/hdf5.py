@@ -107,7 +107,8 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
 def getTrainingConfig( h5file ):
   if trainconfigdictstr in h5file.attrs:
     config = h5file.attrs[trainconfigdictstr]
-    return json.loads(config)
+    if len(config) > 1:
+      return json.loads(config)
   return {}
 
 def isRegression( info ):
@@ -580,16 +581,22 @@ def getInfo( filenm, quick ):
   scalingtypestr='Input.Scaling.Type'
   if odhdf5.hasAttr(info,scalingtypestr):
     scalingtype = odhdf5.getText(info,scalingtypestr)
+    if scalingtype == 'None':
+      scalingtype = None
 
-  scalingvalrg = [0,255]
-  scalingvalstr = 'Input.Scaling.Value Range'
-  if odhdf5.hasAttr(info,scalingvalstr):
-    scalingvalrg = odhdf5.getDInterval(info,scalingvalstr)
+  if scalingtype is None or scalingtype == globalstdtypestr:
+    scalingvalrg = None
+    scaleclip = None
+  else:
+    scalingvalrg = [0,255]
+    scalingvalstr = 'Input.Scaling.Value Range'
+    if odhdf5.hasAttr(info,scalingvalstr):
+      scalingvalrg = odhdf5.getDInterval(info,scalingvalstr)
 
-  scaleclip = 4.0
-  scaleclipvalstr = 'Input.Scaling.Scale'
-  if odhdf5.hasAttr(info,scaleclipvalstr):
-    scaleclip = odhdf5.getDValue(info,scaleclipvalstr)
+    scaleclip = 4.0
+    scaleclipvalstr = 'Input.Scaling.Scale'
+    if odhdf5.hasAttr(info,scaleclipvalstr):
+      scaleclip = odhdf5.getDValue(info,scaleclipvalstr)
 
   unscaleoutput = False
   outunscalestr = 'Output.Unscale'

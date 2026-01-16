@@ -69,7 +69,10 @@ class ModelApplier:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
         else:
             self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
-        self.scaler_ = self.getScaler( outputs )
+
+        if dgbhdf5.applyGlobalStd( self.info_ ):
+          self.scaler_ = self.getScaler( outputs )
+
         if self.info_[dgbkeys.plfdictstr] == dgbkeys.kerasplfnm:
             if dgbkeys.prefercpustr in outputs:
                 dgbkeras.set_compute_device( outputs[dgbkeys.prefercpustr] )
