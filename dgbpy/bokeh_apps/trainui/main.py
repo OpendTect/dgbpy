@@ -69,12 +69,14 @@ def training_app(doc):
   def getPlatformInfo( platform ):
       infos = {}
       allplatforms = [pltfrm[0] for pltfrm in get_platforms()]
-      if (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) and list(platform.keys())[0] in allplatforms:
-        from dgbpy.dgbtorch import get_torch_infos
-        infos = get_torch_infos()
-      elif (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) and list(platform.keys())[0] in allplatforms:
+      if (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) and list(platform.keys())[0] in allplatforms:
+        # Should not fail if keras/tensorflow is not present
         from dgbpy.dgbkeras import get_keras_infos
         infos = get_keras_infos()
+      elif (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) and list(platform.keys())[0] in allplatforms:
+        # Should not fail if torch is not present
+        from dgbpy.dgbtorch import get_torch_infos
+        infos = get_torch_infos()
 
       if this_service and bool(infos):
         this_service.sendObject('bokeh_app_msg', {'GetInfos': json.loads(infos)})
@@ -626,7 +628,7 @@ def training_app(doc):
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
-    this_service.addAction('GetInfos', getPlatformInfo)
+    this_service.addAction('GetInfos', getPlatformInfo) #TODO move to bokehserver itself, does not belong to this app
     mh = MsgHandler()
     mh.add_servmgr(this_service)
     mh.add('--Training Started--', 'bokeh_app_msg', {'training_started': ''})

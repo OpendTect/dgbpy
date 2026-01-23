@@ -416,7 +416,7 @@ def getModel( modelfnm, fortrain=False, pars=None, **kwargs ):
   return (model,infos)
 
 def getApplyInfoFromFile( modelfnm, outsubsel=None ):
-  """ Gets model apply info from file name
+  """ Gets model apply info from example/model file name
 
   Parameters:
     * modelfnm (str): model file path/name in hdf5 format
@@ -429,7 +429,7 @@ def getApplyInfoFromFile( modelfnm, outsubsel=None ):
   return getApplyInfo( getInfo(modelfnm), outsubsel )
 
 def getApplyInfo( infos, outsubsel=None ):
-  """ Gets model apply info from example file info
+  """ Gets model apply info from example/model file info
 
   Parameters:
     * infos (dict): example file info
@@ -443,7 +443,12 @@ def getApplyInfo( infos, outsubsel=None ):
   firstoutnm = dgbhdf5.getMainOutputs(infos)[0]
   if isclassification:
     names = firstoutnm
-    preddtype = 'uint8'
+    if dgbhdf5.isImg2Img(infos):
+      preddtype = 'float32'
+    else:
+      classinfo = np.array( infos[dgbkeys.classesdictstr] )
+      hasunlabels = dgbhdf5.hasUnlabeled( infos )
+      preddtype = dgbhdf5.getOutdType( classinfo, hasunlabels ).__name__
   else:
     names = []
     preddtype = 'float32'

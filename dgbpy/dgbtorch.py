@@ -329,10 +329,12 @@ def load( modelfnm, infos = False ):
   try:
     h5file = odhdf5.openFile( modelfnm, 'r' )
     modelname = odhdf5.getText( h5file, 'type' )
-    try:
-      seed = json.loads(odhdf5.getText( h5file, 'training_config'))['userandomseed']
-    except:
-      seed = torch_dict['userandomseed']
+    seed = torch_dict['userandomseed']
+    trainingconfig = dgbhdf5.getTrainingConfig( h5file )
+    if trainingconfig is not None:
+      if 'userandomseed' in trainingconfig:
+        seed = trainingconfig['userandomseed']
+
     modelgrp = h5file['model']
     savetypestr = odhdf5.getText( modelgrp, 'type' )
     savetype = None if savetypestr=='torch' else SaveType( savetypestr )
