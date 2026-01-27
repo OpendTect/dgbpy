@@ -22,17 +22,24 @@ import dgbpy.keystr as dgbkeys
 from dgbpy import hdf5 as dgbhdf5
 from dgbpy import mlio as dgbmlio
 from dgbpy import mlapply as dgbmlapply
-from dgbpy import dgbtorch
-from dgbpy import dgbscikit, dgbkeras
 
+class ParentExitCommand(Exception):
+    pass
 class ExitCommand(Exception):
     pass
 
 class ModelApplier:
-    def __init__(self, modelfnm, applydir=dgbkeys.inlinestr, isfake=False):
+    def __init__(self, modelfnm):
         self.pars_ = None
-        self.fakeapply_ = isfake
+        self.fakeapply_ = False
         self.scaler_ = None
+        self.img2img_ = None
+        self.is1dmodel_ = None
+        self.is2dmodel_ = None
+        self.is3dmodel_ = None
+        self.isflat_inlinemodel_ = False
+        self.isflat_xlinemodel_ = False
+        self.datais2d_ = False
         self.info_ = self._get_info(modelfnm)
         self.needtranspose_ = False
         self.needztranspose_ = False
@@ -40,15 +47,79 @@ class ModelApplier:
         self.model_ = None
         self.applyinfo_ = None
         self.batchsize_ = None
-        self.debugstr = ''
-        self.applydir_ = applydir
+        self.applydir_ = None
+        self.debugstr_ = ''
 
-    def _get_info(self,modelfnm):
-        info = dgbmlio.getInfo( modelfnm, quick=True )
-        if self.fakeapply_:
-            info[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
+    def _get_info(self, modelfnm):
+        info = dgbmlio.getInfo( modelfnm, True )
+        self.img2img_ = dgbhdf5.isImg2Img(info)
+        self.is1dmodel_ = dgbhdf5.is1DModel( info )
+        self.is2dmodel_ = dgbhdf5.is2DModel( info )
+        self.is3dmodel_ = dgbhdf5.is3DModel( info )
+        inpshape = info[dgbkeys.inpshapedictstr]
+        if not self.datais2d_ and self.is2dmodel_:
+          self.isflat_inlinemodel_ = inpshape[0] == 1 and inpshape[1] > 1
+          self.isflat_xlinemodel_ = inpshape[0] > 1 and inpshape[1] == 1
+          if self.isflat_inlinemodel_:
+            self.applydir_ = dgbkeys.inlinestr
+          elif self.isflat_xlinemodel_:
+            self.applydir_ = dgbkeys.crosslinestr
+
         return info
     
+    def setParameters(self, pars):
+        if 'fake_apply' in pars and pars['fake_apply']:
+            self.fakeapply_ = pars['fake_apply']
+            self.info_[dgbkeys.plfdictstr] = dgbkeys.numpyvalstr
+
+        if 'data_is2d' in pars:
+            self.datais2d_ = pars['data_is2d']
+
+        if self.fakeapply_:
+            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
+        else:
+            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, pars )
+
+        if dgbhdf5.applyGlobalStd( self.info_ ):
+          self.scaler_ = self.getScaler( pars )
+
+        if self.info_[dgbkeys.plfdictstr] == dgbkeys.kerasplfnm:
+            from dgbpy import dgbkeras
+            if dgbkeys.prefercpustr in pars:
+                dgbkeras.set_compute_device( pars[dgbkeys.prefercpustr] )
+            if dgbkeras.defbatchstr in pars:
+                self.batchsize_ = pars[dgbkeras.defbatchstr]
+        elif self.info_[dgbkeys.plfdictstr] == dgbkeys.torchplfnm:
+            from dgbpy import dgbtorch
+            if dgbkeys.prefercpustr in pars:
+                dgbtorch.set_compute_device( pars[dgbkeys.prefercpustr] )
+            if dgbtorch.defbatchstr in pars:
+                self.batchsize_ = pars[dgbtorch.defbatchstr]
+
+        if not self.datais2d_ and self.is2dmodel_:
+            if self.isflat_inlinemodel_:
+              self.applydir_ = dgbkeys.inlinestr
+            elif self.isflat_xlinemodel_:
+              self.applydir_ = dgbkeys.crosslinestr
+
+            if 'apply_dir' in pars:
+              dir = pars['apply_dir']
+              if dir==dgbkeys.inlinestr or dir==dgbkeys.crosslinestr or dir==dgbkeys.averagestr or \
+                 dir==dgbkeys.minstr or dir==dgbkeys.maxstr:
+                   self.applydir_ = dir
+
+        if self.fakeapply_:
+            return
+
+        modelfnm = self.info_[dgbkeys.filedictstr]
+        (self.model_,self.info_) = dgbmlio.getModel( modelfnm, fortrain=False )
+        if 'infer_size' in pars:
+          self.info_[dgbkeys.inpshapedictstr] = pars['infer_size']
+          if self.img2img_:
+            self.info_[dgbkeys.outshapedictstr] = pars['infer_size']
+
+        self._set_transpose()
+
     def _get_swapaxes_dim(self, arr):
         ndim = len(arr.shape)
         if ndim == 5:
@@ -64,29 +135,6 @@ class ModelApplier:
             self.needtranspose_ = False
             self.needztranspose_ = False
     
-    def setOutputs(self, outputs):
-        if self.fakeapply_:
-            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_ )
-        else:
-            self.applyinfo_ = dgbmlio.getApplyInfo( self.info_, outputs )
-
-        if dgbhdf5.applyGlobalStd( self.info_ ):
-          self.scaler_ = self.getScaler( outputs )
-
-        if self.info_[dgbkeys.plfdictstr] == dgbkeys.kerasplfnm:
-            if dgbkeys.prefercpustr in outputs:
-                dgbkeras.set_compute_device( outputs[dgbkeys.prefercpustr] )
-            if dgbkeras.defbatchstr in outputs:
-                self.batchsize_ = outputs[dgbkeras.defbatchstr]
-        elif self.info_[dgbkeys.plfdictstr] == dgbkeys.torchplfnm:
-            if dgbkeys.prefercpustr in outputs:
-                dgbtorch.set_compute_device( outputs[dgbkeys.prefercpustr] )
-        if self.fakeapply_:
-            return None
-        modelfnm = self.info_[dgbkeys.filedictstr]
-        (self.model_,self.info_) = dgbmlio.getModel( modelfnm, fortrain=False )
-        self._set_transpose()
-
     def _usePar(self, pars):
         self.pars_ = pars
 
@@ -107,6 +155,7 @@ class ModelApplier:
             scaleratios.append( scl['scaleratio'] )
 
         if len(means) > 0:
+            from dgbpy import dgbscikit
             self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
         inputs = self.info_[dgbkeys.inputdictstr]
         if dgbhdf5.isLogInput( self.info_ ):
@@ -143,25 +192,34 @@ class ModelApplier:
                     means.append( inpscale.mean_[i] )
                     stddevs.append( inpscale.scale_[i] )
                   if len(means) > 0:
+                    from dgbpy import dgbscikit
                     self.scaler_ = dgbscikit.getNewScaler( means, stddevs )
 
         return self.scaler_
 
-    def preprocess(self,samples):
+    def preprocess(self, samples, swapaxes):
+        if swapaxes:
+            samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
+
         if dgbhdf5.applyLocalStd( self.info_ ):
+            from dgbpy import dgbscikit
             self.scaler_ = dgbscikit.getScaler( samples, True )
         elif dgbhdf5.applyNormalization( self.info_ ):
+            from dgbpy import dgbscikit
             self.scaler_ = dgbscikit.getNewMinMaxScaler( samples )
         elif dgbhdf5.applyMinMaxScaling( self.info_ ):
+            from dgbpy import dgbscikit
             self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, maxout=255 )
         elif dgbhdf5.applyRangeScaling( self.info_ ):
+            from dgbpy import dgbscikit
             self.scaler_ = dgbscikit.getNewRangeScaler( samples )
         elif dgbhdf5.applyGlobalStd( self.info_ ):
             if self.scaler_ == None:
-                self.debugmsg_ = 'Missing scaler for global standardization' 
+                self.debug_msg( 'Missing scaler for global standardization' )
                 raise TypeError
 
         if self.scaler_ != None:
+            from dgbpy import dgbscikit
             samples = dgbscikit.scale( samples, self.scaler_ )
 
         if self.needtranspose_:
@@ -170,19 +228,20 @@ class ModelApplier:
             samples = np.transpose( samples, axes=(0,1,4,2,3) )
         return samples
 
-    def postprocess(self,samples):
+    def postprocess(self, samples, swapaxes):
         if self.needtranspose_:
             samples = np.transpose( samples, axes=(0,1,4,3,2) )
         elif self.needztranspose_:
             samples = np.transpose( samples, axes=(0,1,3,4,2) )
 
-        if self.is2dinp_ and len(samples.shape)==5:
+        if self.datais2d_ and len(samples.shape)==5:
             samples = samples[:,:,samples.shape[2]//2,:,:]
-        elif self.swapaxes_:
+        elif swapaxes:
             samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
 
         if dgbhdf5.unscaleOutput( self.info_ ):
             if self.scaler_:
+                from dgbpy import dgbscikit
                 samples = dgbscikit.unscale( samples, self.scaler_ )
 
         return samples
@@ -203,65 +262,69 @@ class ModelApplier:
 
         return outdata
 
-    def doWork(self,inp):
-        nrattribs = inp.shape[0]
+    def doWork(self, inp):
+        nrattribs = dgbhdf5.getNrAttribs(self.info_)
         inpshape = self.info_[dgbkeys.inpshapedictstr]
         nrzin = inp.shape[-1]
         vertical =  isinstance(inpshape,int)
-        self.isflat_inlinemodel_ = False
-        self.isflat_xlinemodel_ = False
-        self.is2dinp_ = False
-        self.is3dmodel_ = False
-        self.swapaxes_ = False
+        swapaxes = False
         if vertical:
             nrzoutsamps = nrzin-inpshape+1
+            nrpts = nrzoutsamps
         else:
-            self.is2dinp_ = len(inp.shape) == 3
-            self.is3dmodel_ = len(inpshape) == 3
-            self.isflat_inlinemodel_ = self.is3dmodel_ and inpshape[0] == 1 and inpshape[1] > 1
-            self.isflat_xlinemodel_ = self.is3dmodel_ and inpshape[0] > 1 and inpshape[1] == 1
-            self.swapaxes_ = ((self.isflat_inlinemodel_ and self.applydir_ == dgbkeys.crosslinestr) or \
-                              (self.isflat_xlinemodel_ and self.applydir_ == dgbkeys.inlinestr)) and not self.is2dinp_
+            swapaxes = ((self.isflat_inlinemodel_ and self.applydir_ == dgbkeys.crosslinestr) or \
+                        (self.isflat_xlinemodel_ and self.applydir_ == dgbkeys.inlinestr)) and not self.datais2d_
             if self.isflat_xlinemodel_:
                 inpshape = (inpshape[1], inpshape[0], inpshape[2])
                 self.info_[dgbkeys.inpshapedictstr] = inpshape
+            if self.img2img_:
+              if self.datais2d_:
+                nrpts = inp.shape[0] if len(inp.shape) == 4 else 1
+              else:
+                nrpts = inp.shape[0] if len(inp.shape) == 5 else 1
+            else:
+              nrzoutsamps = nrzin - inpshape[2] +1
+              nrpts = nrzoutsamps
 
-            nrzoutsamps = nrzin - inpshape[2] +1
-        samples_shape = dgbhdf5.get_np_shape( inpshape, nrattribs=nrattribs,
-                                              nrpts=nrzoutsamps )
+        samples_shape = dgbhdf5.get_np_shape( inpshape, nrpts=nrpts,
+                                              nrattribs=nrattribs )
         nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
-        allsamples = list()
-        if nrz == 1:
-            inp = np.transpose( inp )
-            allsamples.append( np.resize( np.array(inp), samples_shape ) )
+        if self.img2img_:
+          if not self.datais2d_ and (self.isflat_inlinemodel_ or self.isflat_xlinemodel_):
+            if nrpts == 1:
+              samples = np.reshape( inp, (nrpts,*inp.shape) ).copy()
+            else:
+              samples = np.reshape( inp, inp.shape ).copy()
+          else:
+            samples = np.reshape( inp, samples_shape ).copy()
         else:
-            loc_samples = np.empty( samples_shape, dtype=inp.dtype )
-            if (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and not self.is2dinp_:
-                loc_samples = np.empty((1,)+inp.shape, dtype=inp.dtype)
+          allsamples = list()
+          if nrz == 1:
+              inp = np.transpose( inp )
+              allsamples.append( np.resize( np.array(inp), samples_shape ) )
+          else:
+              loc_samples = np.empty( samples_shape, dtype=inp.dtype )
+              if vertical:
+                  for zidz in range(nrzoutsamps):
+                      loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
+                  allsamples.append( loc_samples )
+              elif self.datais2d_:
+                  for ich in range(inp.shape[0]):
+                      for zidz in range(nrzoutsamps):
+                          loc_samples[zidz] = inp[ich,:,zidz:zidz+nrz]
+                  allsamples.append( loc_samples )
+              else:
+                  for zidz in range(nrzoutsamps):
+                      loc_samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
+                  allsamples.append( loc_samples )
 
-            if vertical:
-                for zidz in range(nrzoutsamps):
-                    loc_samples[zidz,:,0,0,:] = inp[:,zidz:zidz+nrz]
-                allsamples.append( loc_samples )
-            elif self.is2dinp_:
-                for ich in range(inp.shape[0]):
-                    for zidz in range(nrzoutsamps):
-                        loc_samples[zidz] = inp[ich,:,zidz:zidz+nrz]
-                allsamples.append( loc_samples )
-            else :
-                for zidz in range(nrzoutsamps):
-                    loc_samples[zidz] = inp[:,:,:,zidz:zidz+nrz]
-                allsamples.append( loc_samples )
+          samples = np.concatenate(allsamples)
 
-        samples = np.concatenate(allsamples)
-        if self.swapaxes_:
-            samples = samples.swapaxes(*self._get_swapaxes_dim(samples))
-
-        samples = self.preprocess( samples )
+        samples = self.preprocess( samples, swapaxes )
 
         ret = {}
-        if self.info_[dgbkeys.learntypedictstr] == dgbkeys.seisimgtoimgtypestr and not self.is2dinp_ and \
+        if self.img2img_ and not self.datais2d_ and \
             (self.isflat_inlinemodel_ or self.isflat_xlinemodel_) and \
             self.applydir_ in [dgbkeys.averagestr, dgbkeys.minstr, dgbkeys.maxstr]:
             ret[dgbkeys.preddictstr] = self.flatModelApply(inp, samples, samples_shape)
@@ -281,7 +344,7 @@ class ModelApplier:
                                       batchsize=self.batchsize_ )
 
         if dgbkeys.preddictstr in ret:
-            ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr] )
+            ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr], swapaxes )
     
         res = list()
         outkeys = list()
@@ -311,28 +374,29 @@ class ModelApplier:
           ret += ' '+str(g)
         if h != None:
           ret += ' '+str(h)
-        if len(self.debugstr) > 0:
-          self.debugstr += '\n'
-        self.debugstr += ret
-        return self.debugstr
+        if len(self.debugstr_) > 0:
+          self.debugstr_ += '\n'
+        self.debugstr_ += ret
+        return self.debugstr_
 
 
 class Message:
     def __init__(self, selector, sock, addr, applier):
-        self.selector = selector
-        self.sock = sock
-        self.addr = addr
+        self._selector = selector
+        self._sock = sock
+        self._addr = addr
         self._recv_buffer = b""
         self._send_buffer = b""
         self._payload_len = None
         self._reqid = None
         self._subid = None
         self._jsonheader_len = None
-        self.jsonheader = None
-        self.request = None
-        self.response_created = False
-        self.applier = applier
-        self.lastmessage = False
+        self._jsonheader = None
+        self._request = None
+        self._response_created = False
+        self._applier = applier
+        self._serverexception = None
+        self._killreq = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -344,34 +408,32 @@ class Message:
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
             raise ValueError(f"Invalid events mask mode {repr(mode)}.")
-        self.selector.modify(self.sock, events, data=self)
+        self._selector.modify(self._sock, events, data=self)
 
     def _read(self):
         try:
-            # Should be ready to read
-            data = self.sock.recv(16777216)
+            data = self._sock.recv(16777216)
         except BlockingIOError:
-            # Resource temporarily unavailable (errno EWOULDBLOCK)
-            pass
-        else:
-            if data:
-                self._recv_buffer += data
-            else:
-                raise RuntimeError("Peer closed.")
+            return True # Resource temporarily unavailable (errno EWOULDBLOCK)
+
+        if not data:
+            self.close()
+            return False
+
+        self._recv_buffer += data
+        return True
 
     def _write(self):
         if self._send_buffer:
             try:
-                # Should be ready to write
-                sent = self.sock.send(self._send_buffer)
+                sent = self._sock.send(self._send_buffer)
             except BlockingIOError:
-                # Resource temporarily unavailable (errno EWOULDBLOCK)
-                pass
-            else:
-                self._send_buffer = self._send_buffer[sent:]
-                # Close when the buffer is drained. The response has been sent.
-                if sent and not self._send_buffer:
-                    self.close()
+                return # Resource temporarily unavailable (errno EWOULDBLOCK)
+
+            self._send_buffer = self._send_buffer[sent:]
+            # Close when the buffer is drained. The response has been sent.
+            if sent and not self._send_buffer:
+                self.close()
 
     def _json_encode(self, obj, encoding):
         json_hdr = json.dumps(obj, ensure_ascii=False).encode(encoding)
@@ -424,23 +486,25 @@ class Message:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         stackstr = ''.join(tb.extract_tb(exc_tb,limit=10).format())
-        return f'{msg}:\n{repr(exc)} on line {str(exc_tb.tb_lineno)} of script {fname}\n{stackstr}\n\n{self.applier.debugstr}'
+        return f'{msg}:\n{repr(exc)} on line {str(exc_tb.tb_lineno)} of script {fname}\n{stackstr}\n\n{self._applier.debugstr_}'
 
     def _create_response_json_content(self):
-        action = self.request.get('action')
+        action = self._request.get('action')
         content = { 'result': None }
         if action == 'status':
             content['result'] = 'Server online'
             content['pid'] = psutil.Process().pid
         elif action == 'kill':
             content['result'] = 'Kill request received'
-            self.lastmessage = True
-        elif action == 'outputs':
+            self._killreq = True
+        elif action == 'parameters':
             try:
-              self.applier.setOutputs( self.request.get('value') )
-              content['result'] = 'Output names received'
+              self._applier.setParameters( self._request.get('value') )
             except Exception as e:
-              content = {"result": self._make_exception_report('Start error exception', e)}
+              self._serverexception = self._make_exception_report('Start error exception', e)
+              content['result'] = self._serverexception
+            else:
+              content['result'] = 'Apply parameters received'
         else:
             content['result'] = f'Error: invalid action "{action}".'
         content_encoding = 'utf-8'
@@ -453,17 +517,17 @@ class Message:
         return response
 
     def _create_response_array_content(self):
-        action = self.request.get('action')
+        action = self._request.get('action')
         try:
             res = list()
             if action == 'apply':
-                for arr in self.request.get('data'):
-                    res = self.applier.doWork(arr)
+                for arr in self._request.get('data'):
+                    res = self._applier.doWork(arr)
             else:
                 content = {"result": f'Error: invalid action "{action}".'}
         except Exception as e:
             content = {'result': self._make_exception_report('Apply error exception', e)}
-            self.applier.debugstr = ''
+            self._applier.debugstr_ = ''
             content_encoding = 'utf-8'
             response = {
                 'content_bytes': self._json_encode(content, content_encoding),
@@ -491,7 +555,7 @@ class Message:
     def _create_response_binary_content(self):
         response = {
             "content_bytes": b"First 10 bytes of request: "
-            + self.request[:10],
+            + self._request[:10],
             "content_type": "binary/custom-server-binary-type",
             "content_encoding": "binary",
             'arrsize': None,
@@ -499,12 +563,12 @@ class Message:
         return response
 
     def _add_debug_str( self, response ):
-        if self.applier == None:
+        if self._applier is None:
             return (self,response)
-        debugstr = self.applier.debugstr
-        if len(debugstr) > 0:
-            response.update( {'debug-message': debugstr} )
-            self.applier.debugstr = ''
+        debugstr_ = self._applier.debugstr_
+        if len(debugstr_) > 0:
+            response.update( {'debug-message': debugstr_} )
+            self._applier.debugstr_ = ''
         return (self,response)
 
     def process_events(self, mask):
@@ -514,45 +578,41 @@ class Message:
             self.write()
 
     def read(self):
-        self._read()
+        if not self._read():
+            return
 
         if self._payload_len is None:
             self.process_odheader()
 
         if self._payload_len is not None:
-            if self.jsonheader is None:
+            if self._jsonheader is None:
                 self.process_jsonheader()
 
-        if self.jsonheader:
-            if self.request is None:
+        if self._jsonheader:
+            if self._request is None:
                 self.process_request()
 
     def write(self):
-        if self.request:
-            if not self.response_created:
+        if self._request is not None:
+            if not self._response_created:
                 self.create_response()
 
         self._write()
 
     def close(self):
         try:
-            self.selector.unregister(self.sock)
-        except Exception as e:
-            print(
-                f"error: selector.unregister() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self._selector.unregister(self._sock)
+        except Exception:
+            pass
 
         try:
-            self.sock.close()
-        except OSError as e:
-            print(
-                f"error: socket.close() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self._sock.close()
+        except Exception:
+            pass
+
         finally:
             # Delete reference to socket object for garbage collection
-            self.sock = None
+            self._sock = None
 
     def process_odheader(self):
         hdrlen = 10
@@ -564,7 +624,7 @@ class Message:
 
     def process_jsonheader(self):
         if len(self._recv_buffer) >= 4:
-            (self._jsonheader_len,self.jsonheader,self._recv_buffer) = \
+            (self._jsonheader_len,self._jsonheader,self._recv_buffer) = \
                 self._json_decode(
                     self._recv_buffer, "utf-8"
             )
@@ -574,41 +634,41 @@ class Message:
                 "content-type",
                 "content-encoding",
             ):
-                if reqhdr not in self.jsonheader:
+                if reqhdr not in self._jsonheader:
                     raise ValueError(f'Missing required header "{reqhdr}".')
 
     def process_request(self):
-        content_len = self.jsonheader["content-length"]
+        content_len = self._jsonheader["content-length"]
         if not len(self._recv_buffer) >= content_len:
             return
         data = self._recv_buffer[:content_len]
         self._recv_buffer = self._recv_buffer[content_len:]
-        if self.jsonheader["content-type"] == "text/json":
-            encoding = self.jsonheader["content-encoding"]
-            (jsonsz,self.request,self._recv_buffer) = \
+        if self._jsonheader["content-type"] == "text/json":
+            encoding = self._jsonheader["content-encoding"]
+            (jsonsz,self._request,self._recv_buffer) = \
                                  self._json_decode(data, encoding)
-        elif self.jsonheader["content-type"] == 'binary/array':
-            shapes = self.jsonheader['array-shape']
-            dtypes = self.jsonheader['content-encoding']
-            self.request = self._array_decode(data,shapes,dtypes)
+        elif self._jsonheader["content-type"] == 'binary/array':
+            shapes = self._jsonheader['array-shape']
+            dtypes = self._jsonheader['content-encoding']
+            self._request = self._array_decode(data,shapes,dtypes)
         else:
             # Binary or unknown content-type
-            self.request = data
+            self._request = data
             print(
-                f'received {self.jsonheader["content-type"]} request from',
-                self.addr,
+                f'received {self._jsonheader["content-type"]} request from',
+                self._addr,
             )
         # Set selector to listen for write events, we're done reading.
-        self._set_selector_events_mask("w")
+        self._set_selector_events_mask('w')
 
     def create_response(self):
-        if self.jsonheader["content-type"] == 'text/json':
+        if self._jsonheader["content-type"] == 'text/json':
             response = self._create_response_json_content()
-        elif self.jsonheader["content-type"] == 'binary/array':
+        elif self._jsonheader["content-type"] == 'binary/array':
             (self,response) = self._create_response_array_content()
         else:
             # Binary or unknown content-type
             response = self._create_response_binary_content()
         message = self._create_message(**response)
-        self.response_created = True
+        self._response_created = True
         self._send_buffer += message

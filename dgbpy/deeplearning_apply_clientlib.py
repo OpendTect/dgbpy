@@ -19,19 +19,23 @@ from odpy.common import *
 
 class Message:
     def __init__(self, selector, sock, addr, request):
-        self.selector = selector
-        self.sock = sock
-        self.addr = addr
+        self._selector = selector
+        self._sock = sock
+        self._addr = addr
         self._recv_buffer = b""
         self._send_buffer = b""
         self._payload_len = None
         self._reqid = None
         self._subid = None
         self._jsonheader_len = None
-        self.jsonheader = None
-        self.response = None
-        self.request = request
+        self._jsonheader = None
+        self._response = None
+        self._request = request
         self._request_queued = False
+        self._serverpid = -1
+        self._serverexception = None
+        self._parshandled = False
+        self._killreqhandled = False
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -43,26 +47,25 @@ class Message:
             events = selectors.EVENT_READ | selectors.EVENT_WRITE
         else:
             raise ValueError(f"Invalid events mask mode {repr(mode)}.")
-        self.selector.modify(self.sock, events, data=self)
+        self._selector.modify(self._sock, events, data=self)
 
     def _read(self):
         try:
-            # Should be ready to read
-            data = self.sock.recv(16777216)
+            data = self._sock.recv(16777216)
         except BlockingIOError:
-            # Resource temporarily unavailable (errno EWOULDBLOCK)
-            pass
-        else:
-            if data:
-                self._recv_buffer += data
-            else:
-                raise RuntimeError("Peer closed.")
+            return True # Resource temporarily unavailable (errno EWOULDBLOCK)
+
+        if not data:
+            self.close()
+            return False
+
+        self._recv_buffer += data
+        return True
 
     def _write(self):
         if self._send_buffer:
             try:
-                # Should be ready to write
-                sent = self.sock.send(self._send_buffer)
+                sent = self._sock.send(self._send_buffer)
             except BlockingIOError:
                 # Resource temporarily unavailable (errno EWOULDBLOCK)
                 pass
@@ -123,17 +126,25 @@ class Message:
         return message
 
     def _process_response_json_content(self):
-        content = self.response
+        content = self._response
         result = content.get('result')
+        if result == 'Server online':
+            self._serverpid = content.get('pid')
+        elif result.startswith('Start error exception'):
+            self._serverexception = result
+        elif result.startswith('Apply error exception'):
+            self._serverexception = result
+        elif result == 'Apply parameters received':
+            self._parshandled = True
+        elif result == 'Kill request received':
+            self._killreqhandled = True
 
     def _process_response_array_content(self):
-        content = self.response
+        content = self._response
         result = content.get('result')
-#        for arr in content['data']:
-#          log_msg( arr.shape, arr.dtype.name )
 
     def _process_response_binary_content(self):
-        content = self.response
+        content = self._response
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ:
@@ -142,17 +153,18 @@ class Message:
             self.write()
 
     def read(self):
-        self._read()
+        if not self._read():
+            return
 
         if self._jsonheader_len is None:
             self.process_protoheader()
 
         if self._jsonheader_len is not None:
-            if self.jsonheader is None:
+            if self._jsonheader is None:
                 self.process_jsonheader()
 
-        if self.jsonheader:
-            if self.response is None:
+        if self._jsonheader:
+            if self._response is None:
                 self.process_response()
 
     def write(self):
@@ -164,32 +176,27 @@ class Message:
         if self._request_queued:
             if not self._send_buffer:
                 # Set selector to listen for read events, we're done writing.
-                self._set_selector_events_mask("r")
+                self._set_selector_events_mask('r')
 
     def close(self):
         try:
-            self.selector.unregister(self.sock)
-        except Exception as e:
-            log_msg(
-                f"error: selector.unregister() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self._selector.unregister(self._sock)
+        except Exception:
+            pass
 
         try:
-            self.sock.close()
-        except OSError as e:
-            log_msg(
-                f"error: socket.close() exception for",
-                f"{self.addr}: {repr(e)}",
-            )
+            self._sock.close()
+        except Exception:
+            pass
+
         finally:
             # Delete reference to socket object for garbage collection
-            self.sock = None
+            self._sock = None
 
     def queue_request(self):
-        content = self.request['content']
-        content_type = self.request['type']
-        content_encoding = self.request['encoding']
+        content = self._request['content']
+        content_type = self._request['type']
+        content_encoding = self._request['encoding']
         if content_type == 'text/json':
             req = {
                 'content_bytes': self._json_encode(content, content_encoding),
@@ -228,7 +235,7 @@ class Message:
     def process_jsonheader(self):
         hdrlen = self._jsonheader_len
         if len(self._recv_buffer) >= hdrlen:
-            (self.jsonheader,self._recv_buffer) = self._json_decode(
+            (self._jsonheader,self._recv_buffer) = self._json_decode(
                 self._recv_buffer, "utf-8"
             )
             for reqhdr in (
@@ -237,30 +244,30 @@ class Message:
                 "content-type",
                 "content-encoding",
             ):
-                if reqhdr not in self.jsonheader:
+                if reqhdr not in self._jsonheader:
                     raise ValueError(f'Missing required header "{reqhdr}".')
 
     def process_response(self):
-        content_len = self.jsonheader["content-length"]
+        content_len = self._jsonheader["content-length"]
         if not len(self._recv_buffer) >= content_len:
             return
         data = self._recv_buffer[:content_len]
         self._recv_buffer = self._recv_buffer[content_len:]
-        if self.jsonheader["content-type"] == "text/json":
-            encoding = self.jsonheader["content-encoding"]
-            (self.response,self._recv_buffer) = self._json_decode(data, encoding)
+        if self._jsonheader["content-type"] == "text/json":
+            encoding = self._jsonheader["content-encoding"]
+            (self._response,self._recv_buffer) = self._json_decode(data, encoding)
             self._process_response_json_content()
-        elif self.jsonheader["content-type"] == 'binary/array':
-            shapes = self.jsonheader['array-shape']
-            dtypes = self.jsonheader['content-encoding']
-            self.response = self._array_decode(data,shapes,dtypes)
+        elif self._jsonheader["content-type"] == 'binary/array':
+            shapes = self._jsonheader['array-shape']
+            dtypes = self._jsonheader['content-encoding']
+            self._response = self._array_decode(data,shapes,dtypes)
             self._process_response_array_content()
         else:
             # Binary or unknown content-type
-            self.response = data
+            self._response = data
             log_msg(
-                f'received {self.jsonheader["content-type"]} response from',
-                self.addr,
+                f'received {self._jsonheader["content-type"]} response from',
+                self._addr,
             )
             self._process_response_binary_content()
         # Close when response has been processed

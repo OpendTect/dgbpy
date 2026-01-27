@@ -109,7 +109,7 @@ def getTrainingConfig( h5file ):
     config = h5file.attrs[trainconfigdictstr]
     if len(config) > 1:
       return json.loads(config)
-  return {}
+  return None
 
 def isRegression( info ):
   return not isClassification( info )
@@ -247,6 +247,35 @@ def doOutputScaling( info ):
 def isModel( info ):
   return plfdictstr in info
 
+def is1DModel( info ):
+  if not inpshapedictstr in info:
+    return False
+
+  shape = info[inpshapedictstr]
+  nrdims = 1 if isinstance(shape,int) else len(shape)
+  return nrdims <= 1 or \
+         (nrdims == 2 and (shape[0] <= 1 or shape[1] <= 1)) or \
+         (nrdims == 3 and shape[0] <= 1 and shape[1] <= 1) or \
+         (nrdims == 3 and shape[0] <= 1 and shape[2] <= 1) or \
+         (nrdims == 3 and shape[1] <= 1 and shape[2] <= 1)
+
+def is2DModel( info ):
+  if not inpshapedictstr in info:
+    return False
+
+  shape = info[inpshapedictstr]
+  nrdims = 1 if isinstance(shape,int) else len(shape)
+  return nrdims == 2 or \
+         (nrdims == 3 and (shape[0] == 1 or shape[1] == 1 or shape[2] == 1))
+
+def is3DModel( info ):
+  if not inpshapedictstr in info:
+    return False
+
+  shape = info[inpshapedictstr]
+  nrdims = 1 if isinstance(shape,int) else len(shape)
+  return nrdims == 3 and shape[0] > 1 and shape[1] > 1 and shape[2] > 1
+
 def isMultiLabelRegression( info ):
   if not isRegression( info ) or isImg2Img( info ):
     return False
@@ -365,7 +394,7 @@ def getCubeLets_img2img_multitarget( infos, collection, groupnm ):
   outshape = infos[outshapedictstr]
   examples = infos[exampledictstr]
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
-  outdtype = np.float32
+  outdtype = np.single
   group = h5file[groupnm]
   targetnm = '`'.join([colnm for colnm in collection])
   if (not targetnm in group) or (not xdatadictstr in group[targetnm]) or (not ydatadictstr in group[targetnm]):
@@ -383,10 +412,10 @@ def getCubeLets_img2img_multitarget( infos, collection, groupnm ):
   inputs = None
   outputs = None
   if len(x_data) == nrpts and len(y_data) == nrpts:
-    inputs = np.resize( x_data, inparrshape ).astype( np.float32 )
+    inputs = np.resize( x_data, inparrshape ).astype( np.single )
     outputs = np.resize( y_data, outarrshape ).astype( outdtype )
   else:
-    inputs = np.empty( inparrshape, np.float32 )
+    inputs = np.empty( inparrshape, np.single )
     outputs = np.empty( outarrshape, outdtype )
     for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
       dset = x_data[dsetnm]
@@ -418,7 +447,7 @@ def getCubeLets( infos, collection, groupnm ):
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   if img2img:
     outnrattribs = 1
-  outdtype = np.float32
+  outdtype = np.single
   if isclass:
     outdtype = getOutdType(np.array(infos[classesdictstr]), hasUnlabeled( infos ))
   group = h5file[groupnm]
@@ -454,13 +483,13 @@ def getCubeLets( infos, collection, groupnm ):
     if img2img:
       outarrshape = get_np_shape(outshape,nrpts,outnrattribs)
     if len(x_data) == nrpts and len(y_data) == nrpts:
-      cubelets = np.resize( x_data, inparrshape ).astype( np.float32 )
+      cubelets = np.resize( x_data, inparrshape ).astype( np.single )
       if img2img:
         output = np.resize( y_data, outarrshape ).astype( outdtype )
       else:
         output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
     else:
-      cubelets = np.empty( inparrshape, np.float32 )
+      cubelets = np.empty( inparrshape, np.single )
       if img2img:
         output = np.empty( outarrshape, outdtype )
       else:
@@ -759,7 +788,8 @@ def getInfo( filenm, quick ):
     if hasunlabels:
       retinfo.update({withunlabeleddictstr: True})
   trainingconfig = getTrainingConfig( h5file )
-  retinfo.update({trainconfigdictstr: trainingconfig})
+  if trainingconfig is not None:
+    retinfo.update({trainconfigdictstr: trainingconfig})
   h5file.close()
 
   if isLogOutput(learntype):
@@ -839,13 +869,13 @@ def getTotalSize( info ):
       nrpts += len(grp[collnm][xdatadictstr])
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
-  x_size = np.prod( examplesshape, dtype=np.int64 ) * arroneitemsize( np.float32 )
+  x_size = np.prod( examplesshape, dtype=np.int64 ) * arroneitemsize( np.single )
   if info[classdictstr]:
     nroutvals = getNrClasses( info )
   else:
     nroutvals = getNrOutputs( info )
   outshape = get_np_shape( outshape, nrpts, nroutvals )
-  y_size = np.prod( outshape, dtype=np.int64 ) * arroneitemsize( np.float32 )
+  y_size = np.prod( outshape, dtype=np.int64 ) * arroneitemsize( np.single )
   return x_size + y_size
 
 modeloutstr = 'Model.Output.'
