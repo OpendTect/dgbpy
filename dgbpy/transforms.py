@@ -281,6 +281,22 @@ class RangeScaler(ScaleTransform, BaseTransform):
 
 
 all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr, dgbkeys.rangestdtypestr)
+all_scalers_opts = (
+  dgbkeys.globalstdtypestr,
+  dgbkeys.localstdtypestr,
+  'Local Normalization (0-1)',
+  'Local MinMax (0-255)',
+  'Range Standardization (-1,+1)'
+)
+
+def get_scaler_ui_option(scaler):
+  if not scaler:
+    return all_scalers.index(dgbkeys.globalstdtypestr)
+  for scal in all_scalers:
+    if scal in scaler:
+      return all_scalers.index(scal)
+  raise AttributeError
+  return None
 
 scale_transforms = {
     dgbkeys.localstdtypestr: StandardScaler,

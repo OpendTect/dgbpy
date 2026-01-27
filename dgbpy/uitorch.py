@@ -1,3 +1,11 @@
+#__________________________________________________________________________
+#
+# (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
+# Author:        A. Huck
+# Date:          Apr 2019
+#
+# _________________________________________________________________________
+
 from functools import partial
 
 import numpy as np
@@ -6,11 +14,10 @@ from enum import Enum
 from dgbpy.bokehcore import *
 
 from odpy.common import log_msg
-from dgbpy.transforms import hasOpenCV
 import dgbpy.keystr as dgbkeys
-from dgbpy import uibokeh
 from dgbpy.dgbtorch import *
-from dgbpy.transforms import all_scalers
+from dgbpy.transforms import all_scalers, all_scalers_opts, get_scaler_ui_option
+from dgbpy import uibokeh
 
 info = None
 
@@ -49,9 +56,8 @@ def getUiModelTypes( learntype, classification, ndim ):
 
   return dgbkeys.getNames( ret )
 
-
 def getUiPars(uipars=None):
-  dict = torch_dict
+  plfdict = torch_dict
   learntype = info[dgbkeys.learntypedictstr]
   inpshape = info[dgbkeys.inpshapedictstr]
   if isinstance(inpshape, int):
@@ -61,18 +67,18 @@ def getUiPars(uipars=None):
   modeltypes = getUiModelTypes( learntype, info[dgbkeys.classdictstr], ndim )
 
   if len(modeltypes)==0:
-      divfld = Div(text="""No PyTorch models found for this workflow.""")
-      parsgrp = column(divfld)
-      return {'grp': parsgrp,
-              'uiobjects':{
-                'divfld': divfld
-              }
+    divfld = Div(text="""No PyTorch models found for this workflow.""")
+    parsgrp = column(divfld)
+    return {'grp': parsgrp,
+            'uiobjects':{
+              'divfld': divfld
             }
+           }
 
-  defbatchsz = torch_dict['batch']
   defmodel = modeltypes[0]
+  defbatchsz = plfdict['batch']
   estimatedsz = info[dgbkeys.estimatedsizedictstr]
-  userandomseed = torch_dict[dgbkeys.userandomseeddictstr]
+  userandomseed = plfdict[dgbkeys.userandomseeddictstr]
   isCrossVal = dgbhdf5.isCrossValidation(info)
   if isCrossVal:
     validsld = Slider(start=1,end=dgbhdf5.getNrGroupInputs(info),step=1,value=1,
@@ -87,17 +93,17 @@ def getUiPars(uipars=None):
     uiobjs = {
       'modeltypfld': Select(title='Type', options=modeltypes, width=300, margin=uibokeh.widget_margin),
       'validsld': validsld,
-      'validinp': TextInput(value=str(torch_dict['split']), title='', width=60),
+      'validinp': TextInput(value=str(plfdict['split']), title='', width=60),
       'foldfld' : Slider(start=1,end=5,title='Number of fold(s)',visible=isCrossVal, margin=uibokeh.widget_margin),
       'batchfld': Select(title='Batch Size', options=cudacores, width=300, margin=uibokeh.widget_margin),
       'epochsld': Slider(start=1, end=1000, title='Epochs', width=220),
-      'epochinp': TextInput(value=str(torch_dict['epochs']), title='', width=60),
+      'epochinp': TextInput(value=str(plfdict['epochs']), title='', width=60),
       'patiencesld': Slider(start=1, end=100, title='Early Stopping', width=220),
-      'patienceinp': TextInput(value=str(torch_dict['patience']), title='', width=60),
+      'patienceinp': TextInput(value=str(plfdict['patience']), title='', width=60),
       'lrsld': Slider(start=-10,end=-1,step=1, title='Initial Learning Rate (1e)', width=220),
-      'lrinp': TextInput(value=str(np.log10(dict['learnrate'])), title='', width=60),
+      'lrinp': TextInput(value=str(np.log10(plfdict['learnrate'])), title='', width=60),
       'edsld': Slider(start=1,end=100, title='Epoch drop (%)', step=0.1, width=220),
-      'edinp': TextInput(value=str(torch_dict['epochdrop']), title='', width=60),
+      'edinp': TextInput(value=str(plfdict['epochdrop']), title='', width=60),
       'sizefld': Div( text='Size: Unknown' , margin=uibokeh.widget_margin),
       'userandomseedfld': TextInput( title='Random seed', value=str(userandomseed), margin=uibokeh.widget_margin ),
       'dodecimatefld': CheckboxGroup( labels=['Decimate input'] , margin=uibokeh.widget_margin),
@@ -150,21 +156,21 @@ def getUiPars(uipars=None):
 
   uiobjs['modeltypfld'].value = defmodel
   uiobjs['batchfld'].value = str(defbatchsz)
-  uiobjs['epochsld'].value = dict['epochs']
+  uiobjs['epochsld'].value = plfdict['epochs']
   uiobjs['epochinp'].value = str(uiobjs['epochsld'].value)
-  uiobjs['lrsld'].value = np.log10(dict['learnrate'])
+  uiobjs['lrsld'].value = np.log10(plfdict['learnrate'])
   uiobjs['lrinp'].value = str(uiobjs['lrsld'].value)
-  uiobjs['patiencesld'].value = dict['patience']
+  uiobjs['patiencesld'].value = plfdict['patience']
   uiobjs['patienceinp'].value = str(uiobjs['epochsld'].value)
-  uiobjs['edsld'].value = 100*dict['epochdrop']/uiobjs['epochsld'].value
+  uiobjs['edsld'].value = 100*plfdict['epochdrop']/uiobjs['epochsld'].value
   uiobjs['edinp'].value = str(uiobjs['edsld'].value)
   if estimatedsz:
     uiobjs['sizefld'].text = getSizeStr(estimatedsz)
-  uiobjs['foldfld'].value = dict['nbfold']
+  uiobjs['foldfld'].value = plfdict['nbfold']
   uiobjs['dodecimatefld'].active = []
-  uiobjs['chunkfld'].value = dict['nbchunk']
+  uiobjs['chunkfld'].value = plfdict['nbchunk']
   uiobjs['rundevicefld'].active = [0]
-  decimateCB( uiobjs['chunkfld'],uiobjs['sizefld'], None,None,uiobjs['dodecimatefld'].active )
+  decimateCB( uiobjs['chunkfld'],uiobjs['sizefld'], None, None, uiobjs['dodecimatefld'].active )
   return uipars
 
 def setup_scaler_ui(info):
@@ -173,16 +179,11 @@ def setup_scaler_ui(info):
     return True, scaler
   return False, scaler
 
-def get_scaler_ui_option(scaler):
-  scalers = [dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr]
-  if not scaler:
-    return scalers.index(dgbkeys.globalstdtypestr)
-  return scalers.index(scaler)
-
-def createAdvanedUiLeftPane():
+def createAdvancedUiLeftPane():
   disable_scaling, scaler = setup_scaler_ui(info)
   uiobjs = {
-    'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), margin=(5, 5, 0, 5)),
+    'tofp16fld': CheckboxGroup(labels=['Use Mixed Precision'], visible=can_use_gpu(), \
+                                disabled= not is_mixed_precision_compatible(), margin=(5, 5, 0, 5)),
     'tensorboardheadfld': Div(text="""<strong>Tensorboard Options</strong>""", height = 10),
     'tensorboardfld': CheckboxGroup(labels=['Enable Tensorboard'], visible=True, margin=(5, 5, 0, 5)),
     'cleartensorboardfld': CheckboxGroup(labels=['Clear Tensorboard log files'], visible=True, margin=(5, 5, 0, 5))
@@ -205,13 +206,13 @@ def createAdvanedUiLeftPane():
     aug_labels = uibokeh.set_augment_mthds(info)
     transformUi = {
       'scalingheadfld' :Div(text="""<strong>Data Scaling</strong>""", height = 10),
-      'scalingfld': RadioGroup(labels=[dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr],
-                            active=get_scaler_ui_option(scaler), margin = [5, 5, 5, 25], disabled=disable_scaling),
+      'scalingfld': RadioGroup(labels=list(all_scalers_opts), active=get_scaler_ui_option(scaler),
+                               margin = [5, 5, 5, 25], disabled=disable_scaling),
       'augmentheadfld': Div(text="""<strong>Data Augmentation</strong>""", height = 10),
       'augmentfld': CheckboxGroup(labels=aug_labels, visible=True, margin=(5, 5, 5, 25)),
     }
     uiobjs = {**transformUi, **uiobjs}
-  
+
   parsgrp = column(
     *[uiobjs[key] for key in uiobjs if key not in ['tofp16fld', 'tensorboardheadfld', 'tensorboardfld', 'tensorboardrow', 'cleartensorboardfld']],
     uiobjs['tofp16fld'],
@@ -225,7 +226,7 @@ def createAdvanedUiLeftPane():
 def getSaveTypes( exclude=['pickle'] ):
   return [ _type.name for _type in SaveType if _type.value not in exclude]
 
-def createAdvanedUiRightPane():
+def createAdvancedUiRightPane():
   uiobjs = {
     'savetypehead': Div(text="""<strong>Save Format</strong>""", height = 10),
     'savetypefld': RadioGroup(labels=getSaveTypes(), active=0, margin = [5, 5, 5, 25]),
@@ -234,22 +235,22 @@ def createAdvanedUiRightPane():
   return parsgrp, uiobjs
 
 def getAdvancedUiPars(uipars=None):
-  dict = torch_dict
+  plfdict = torch_dict
   uiobjs={}
   if not uipars:
-    parsgrp, uiobjs = createAdvanedUiLeftPane()
-    parsgrp2, uiobjs2 = createAdvanedUiRightPane()
+    parsgrp, uiobjs = createAdvancedUiLeftPane()
+    parsgrp2, uiobjs2 = createAdvancedUiRightPane()
     parsgrp = row(parsgrp, parsgrp2)
     uiobjs = {**uiobjs, **uiobjs2}
-    uipars = {'grp':parsgrp, 'uiobjects':uiobjs}
+    uipars = {'grp': parsgrp, 'uiobjects': uiobjs}
   else:
     uiobjs = uipars['uiobjects']
 
-  uiobjs['tofp16fld'].active = [] if not dict['tofp16'] else [0]
-  uiobjs['tensorboardfld'].active = [] if not dict['withtensorboard'] else [0]
+  uiobjs['tofp16fld'].active = [] if not plfdict['tofp16'] else [0]
+  uiobjs['tensorboardfld'].active = [] if not plfdict['withtensorboard'] else [0]
   uiobjs['cleartensorboardfld'].active = []
   uiobjs['savetypefld'].active = list(SaveType).index( SaveType(defsavetype) )
-  return uipars  
+  return uipars
 
 def enableAugmentationCB(args, widget=None):
   widget.disabled =  uibokeh.integerListContains([widget.disabled], 0)
@@ -271,7 +272,7 @@ def getUiScaler(advtorchgrp):
   return all_scalers[selectedOption]
 
 def getUiParams( torchpars, advtorchpars ):
-  torchgrp = torchpars['uiobjects']     
+  torchgrp = torchpars['uiobjects']
   advtorchgrp = advtorchpars['uiobjects']
   nrepochs = torchgrp['epochsld'].value
   epochdroprate = torchgrp['edsld'].value / 100
@@ -289,30 +290,30 @@ def getUiParams( torchpars, advtorchpars ):
   try:
     seed = int(torchgrp['userandomseedfld'].value)
   except:
-    seed = 42
+    seed = torch_dict[dgbkeys.userandomseeddictstr]
   scale = getUiScaler(advtorchgrp)
   transform = getUiTransforms(advtorchgrp)
   withtensorboard = True if len(advtorchgrp['tensorboardfld'].active)!=0 else False
-  tofp16 = True if len(advtorchgrp['tofp16fld'].active)!=0 else False
-  return getParams( dodec=isSelected(torchgrp['dodecimatefld']), \
-                             nbchunk = torchgrp['chunkfld'].value, \
-                             epochs=torchgrp['epochsld'].value, \
-                             batch=int(torchgrp['batchfld'].value), \
-                             learnrate= 10**torchgrp['lrsld'].value, \
-                             nntype=torchgrp['modeltypfld'].value, \
-                             patience=patience, \
-                             epochdrop=epochdrop, \
-                             validation_split = validation_split, \
-                             nbfold= nbfold, \
-                             prefercpu = runoncpu,
-                             scale = scale,
-                             savetype = savetype,
+  tofp16 = bool(advtorchgrp['tofp16fld'].active) and not advtorchgrp['tofp16fld'].disabled
+  return getParams( dodec=isSelected(torchgrp['dodecimatefld']),
+                             nbchunk=torchgrp['chunkfld'].value,
+                             epochs=torchgrp['epochsld'].value,
+                             batch=int(torchgrp['batchfld'].value),
+                             patience=patience,
+                             learnrate= 10 ** torchgrp['lrsld'].value,
+                             epochdrop=epochdrop,
+                             validation_split = validation_split,
+                             savetype=savetype,
+                             nbfold=nbfold,
+                             nntype=torchgrp['modeltypfld'].value,
+                             prefercpu=runoncpu,
+                             scale=scale,
                              transform=transform,
-                             withtensorboard = withtensorboard,
-                             tblogdir = None,
-                             tofp16 = tofp16,
+                             withtensorboard=withtensorboard,
+                             tblogdir=None,
+                             tofp16=tofp16,
                              userandomseed=seed,
-                             stopaftercurrentepoch = False )
+                             stopaftercurrentepoch = False)
 
 def isSelected( fldwidget, index=0 ):
   return uibokeh.integerListContains( fldwidget.active, index )
