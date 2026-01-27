@@ -90,7 +90,7 @@ keras_dict = {
   'withtensorboard': withtensorboard,
   'tblogdir': None,
   'tofp16': False,
-  'userandomseed': 42,
+  dgbkeys.userandomseeddictstr: 42,
   'stopaftercurrentepoch': False,
   'summary': None
 }
@@ -145,7 +145,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
                nntype=keras_dict['type'],prefercpu=keras_dict['prefercpu'],transform=keras_dict['transform'],
                validation_split=keras_dict['split'], nbfold=keras_dict['nbfold'], savetype = keras_dict['savetype'],
                scale = keras_dict['scale'],withtensorboard=keras_dict['withtensorboard'], tblogdir=keras_dict['tblogdir'],
-               tofp16=keras_dict['tofp16'], userandomseed=keras_dict['userandomseed'], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'],
+               tofp16=keras_dict['tofp16'], userandomseed=keras_dict[dgbkeys.userandomseeddictstr], stopaftercurrentepoch=keras_dict['stopaftercurrentepoch'],
                summary=keras_dict['summary']):
   ret = {
     dgbkeys.decimkeystr: dodec,
@@ -164,7 +164,7 @@ def getParams( dodec=keras_dict[dgbkeys.decimkeystr], nbchunk=keras_dict['nbchun
     'withtensorboard': withtensorboard,
     'tblogdir': tblogdir,
     'tofp16': tofp16,
-    'userandomseed':userandomseed,
+    dgbkeys.userandomseeddictstr: userandomseed,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'summary': summary
   }
@@ -263,7 +263,7 @@ def getModelsByInfo( infos ):
 
 def getDefaultModel(setup,type=keras_dict['type'],
                      learnrate=keras_dict['learnrate'],
-                     seed=keras_dict['userandomseed'],
+                     seed=keras_dict[dgbkeys.userandomseeddictstr],
                      data_format='channels_first'):
   setSeed(seed)
   isclassification = setup[dgbhdf5.classdictstr]
@@ -512,7 +512,7 @@ def init_callbacks(monitor,params,logdir,silent,custom_config, cbfn=None):
     callbacks = [cb]+callbacks
   return callbacks
 
-def setSeed(seed=keras_dict['userandomseed']):
+def setSeed(seed=keras_dict[dgbkeys.userandomseeddictstr]):
   import tensorflow as tf
   os.environ['PYTHONHASHSEED'] = str(seed)
   random.seed(seed) 
@@ -668,7 +668,7 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   try:
     ret = load_model( modelfnm, compile=fortrain, custom_objects=dgb_defs )
     if pars is not None:
-      setSeed(pars['userandomseed'])
+      setSeed(pars[dgbkeys.userandomseeddictstr])
     if fortrain and not infos == None:
         iscompiled = True
         try:

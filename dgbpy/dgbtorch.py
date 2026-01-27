@@ -117,7 +117,7 @@ torch_dict = {
     'withtensorboard': withtensorboard,
     'tblogdir': None,
     'tofp16': False,
-    'userandomseed': 42,
+    dgbkeys.userandomseeddictstr: 42,
     'stopaftercurrentepoch': False,
     'tmpsavedict': tmp_save_dict,
     'summary': None
@@ -166,6 +166,9 @@ def set_compute_device(prefercpu):
     prefercpu = not can_use_gpu()
   device = torch.device(get_device_type(prefercpu))
 
+def is_mixed_precision_compatible():
+  return True
+
 def get_torch_infos():
   global torch_infos
   if torch_infos:
@@ -198,7 +201,7 @@ def getParams(
     tblogdir=torch_dict['tblogdir'],
     savetype = defsavetype,
     tofp16=torch_dict['tofp16'],
-    userandomseed=torch_dict['userandomseed'],
+    userandomseed=torch_dict[dgbkeys.userandomseeddictstr],
     stopaftercurrentepoch=torch_dict['stopaftercurrentepoch'],
     tmpsavedict=torch_dict['tmpsavedict'],
     summary=torch_dict['summary']):
@@ -220,7 +223,7 @@ def getParams(
     'withtensorboard': withtensorboard,
     'tblogdir': tblogdir,
     'tofp16': tofp16,
-    'userandomseed': userandomseed,
+    dgbkeys.userandomseeddictstr: 42,
     'stopaftercurrentepoch': stopaftercurrentepoch,
     'tmpsavedict':tmpsavedict,
     'summary': summary,
@@ -232,7 +235,7 @@ def getParams(
     ret['nbchunk'] = 1
   return ret
 
-def getDefaultModel(setup,type=torch_dict['type'], seed=torch_dict['userandomseed']):
+def getDefaultModel(setup,type=torch_dict['type'], seed=torch_dict[dgbkeys.userandomseeddictstr]):
   setSeed(seed)
   isclassification = setup[dgbhdf5.classdictstr]
   inp_shape = setup[dgbkeys.inpshapedictstr]
@@ -329,11 +332,11 @@ def load( modelfnm, infos = False ):
   try:
     h5file = odhdf5.openFile( modelfnm, 'r' )
     modelname = odhdf5.getText( h5file, 'type' )
-    seed = torch_dict['userandomseed']
+    seed = torch_dict[dgbkeys.userandomseeddictstr]
     trainingconfig = dgbhdf5.getTrainingConfig( h5file )
     if trainingconfig is not None:
-      if 'userandomseed' in trainingconfig:
-        seed = trainingconfig['userandomseed']
+      if dgbkeys.userandomseeddictstr in trainingconfig:
+        seed = trainingconfig[dgbkeys.userandomseeddictstr]
 
     modelgrp = h5file['model']
     savetypestr = odhdf5.getText( modelgrp, 'type' )
@@ -497,7 +500,7 @@ def setSeed(seed):
 
 def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=False, tempnm=None, outfnm=None):
     from dgbpy.torch_classes import Trainer, AdaptiveLR
-    setSeed(params['userandomseed'])
+    setSeed(params[dgbkeys.userandomseeddictstr])
     trainloader, testloader = DataGenerator(imgdp,batchsize=params['batch'],scaler=params['scale'],transform=params['transform'])
     info = imgdp[dgbkeys.infodictstr]
     criterion = get_criterion(info, params)
@@ -534,7 +537,7 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
         imgdp=imgdp,
         silent = silent,
         tofp16=params['tofp16'],
-        seed=params['userandomseed'],
+        seed=params[dgbkeys.userandomseeddictstr],
         stopaftercurrentepoch =  params['stopaftercurrentepoch'],
         tmpsavedict = tmp_save_dict
     )

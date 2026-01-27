@@ -83,7 +83,7 @@ bokeh serve --show /opt/OpendTect/6.6.0/bin/python/dgbpy/bokeh_apps/trainui --ar
 '{"Examples File": "/mnt/Data/seismic/ODData/F3_Demo_2020/NLAs/test_img2imgreg_data.h5",
 "Output Model File": "/mnt/Data/seismic/ODData/F3_Demo_2020/NLAs/test_img2imgreg_model2.h5",
 "Training Type": "New", "ProcLog File": "/mnt/Data/seismic/ODData/F3_Demo_2020/Proc/test_img2imgreg_model2_log.txt",
-"ComArgs": {"dtectdata": "/mnt/Data/seismic/ODData"}}'
+"ComArgs": {"dtectdata": "/mnt/Data/seismic/ODData", "logdir": "/mnt/Data/seismic/ODData/MachineLearning"}}'
 ````
 where the location of the trainui folder and the details within the parameter string
 will depend on your installation and workflow.
