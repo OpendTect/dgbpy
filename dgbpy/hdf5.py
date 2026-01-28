@@ -451,7 +451,7 @@ def getCubeLets( infos, collection, groupnm ):
   if img2img and nroutputs>1:
     return getCubeLets_img2img_multitarget( infos, collection, groupnm )
 
-  isclass = isClassfication( infos )
+  isclass = isClassification( infos )
   iscluster = isSegmentation( infos )
   inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
