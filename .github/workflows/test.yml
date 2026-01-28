@@ -28,10 +28,10 @@ jobs:
       run: |
         pip install flake8 pytest
         python -m pip install .
-        python -m pip install onnxruntime
-        python -m pip install onnx
-        python -m pip install onnx2torch
-        python -m pip install opencv-python    
+        python -m pip install onnxruntime==1.14
+        python -m pip install onnx==1.13
+        python -m pip install onnx2torch==1.5
+        python -m pip install opencv-python  
     - name: Get test examplefiles
       run: |
         cd tests
