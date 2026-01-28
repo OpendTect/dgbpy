@@ -461,7 +461,13 @@ def save( model, outfnm, infos, params=torch_dict ):
     retmodel, dummies = get_model_architecture(model, model.__class__.__name__, infos)
     input_name = ['input']
     dynamic_axes = {'input': {0: 'batch_size'}}
-    torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes)
+    usedynamo = False
+    try:
+      import onnxscript
+      usedynamo = True
+    except Exception:
+      pass
+    torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes, dynamo=usedynamo)
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.TorchScript:
     joutfnm = os.path.splitext( outfnm )[0] + '.pth'
