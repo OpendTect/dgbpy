@@ -206,13 +206,24 @@ class ModelApplier:
             self.scaler_ = dgbscikit.getScaler( samples, True )
         elif dgbhdf5.applyNormalization( self.info_ ):
             from dgbpy import dgbscikit
-            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples )
+            minout = 0
+            maxout = 1
+            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, minout=minout, maxout=maxout )
         elif dgbhdf5.applyMinMaxScaling( self.info_ ):
             from dgbpy import dgbscikit
-            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, maxout=255 )
+            minout = 0
+            maxout = 255
+            if dgbkeys.scalingvalrg in self.info_:
+              scalingvalrg = self.info_[dgbkeys.scalingvalrg]
+              minout = scalingvalrg[0]
+              maxout = scalingvalrg[1]
+            self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, minout=minout, maxout=maxout )
         elif dgbhdf5.applyRangeScaling( self.info_ ):
             from dgbpy import dgbscikit
-            self.scaler_ = dgbscikit.getNewRangeScaler( samples )
+            scaleclip = 4
+            if dgbkeys.inpscaleclipstr in self.info_:
+              scaleclip = self.info_[dgbkeys.inpscaleclipstr]
+            self.scaler_ = dgbscikit.getNewRangeScaler( samples, std=scaleclip )
         elif dgbhdf5.applyGlobalStd( self.info_ ):
             if self.scaler_ == None:
                 self.debug_msg( 'Missing scaler for global standardization' )

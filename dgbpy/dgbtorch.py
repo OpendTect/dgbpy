@@ -237,7 +237,7 @@ def getParams(
 
 def getDefaultModel(setup,type=torch_dict['type'], seed=torch_dict[dgbkeys.userandomseeddictstr]):
   setSeed(seed)
-  isclassification = setup[dgbhdf5.classdictstr]
+  isclassification = dgbhdf5.isClassification( setup )
   inp_shape = setup[dgbkeys.inpshapedictstr]
   attribs = dgbhdf5.getNrAttribs(setup)
   model_shape = get_model_shape(inp_shape, attribs, True)
@@ -270,7 +270,7 @@ def getModelsByInfo( infos ):
     else:
         ndim = len(shape) - shape.count(1)
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
-                                   infos[dgbhdf5.classdictstr], 
+                                   dgbhdf5.isClassification( infos ),
                                    ndim )                             
     if len(modelstypes) < 1:
         return None
@@ -398,7 +398,7 @@ def get_model_architecture(model, model_classname, infos):
   infos(dict) : The info dictionary.
   """
   attribs = dgbhdf5.getNrAttribs(infos)
-  isclassification = infos[dgbhdf5.classdictstr]
+  isclassification = dgbhdf5.isClassification( infos )
   model_shape = get_model_shape(infos[dgbkeys.inpshapedictstr], attribs, True)
   dims = getModelDims(model_shape, True)
   if isclassification:

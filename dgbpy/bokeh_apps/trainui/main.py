@@ -95,24 +95,42 @@ def training_app(doc):
           trainingpars['Training Type'] = dgbmlapply.TrainType.New
           trainingpars['Input Model File'] = None
           if trainingpars['Examples File']:
-            info = dgbmlio.getInfo( trainingpars['Examples File'], quick=True )
-            set_info()
-            doc.add_next_tick_callback(partial(updateUI))
+            info = dgbmlio.getInfo( trainingpars['Examples File'], True )
+
+          info['disable_scaling'] = False
+          set_info()
+          doc.add_next_tick_callback(partial(updateUI))
         elif val == dgbmlapply.TrainType.Resume.name:
           trainingpars['Training Type'] = dgbmlapply.TrainType.Resume
+          if 'Input Model File' in trainingpars and \
+             not trainingpars['Input Model File'] is None and \
+             os.path.isfile(trainingpars['Input Model File']):
+            model_info = dgbmlio.getInfo( val, True )
+            info[dgbkeys.inpscalingdictstr] = dgbhdf5.getScalerStr( model_info )
+          info['disable_scaling'] = True
+          set_info()
+          doc.add_next_tick_callback(partial(updateUI))
         elif val == dgbmlapply.TrainType.Transfer.name:
           trainingpars['Training Type'] = dgbmlapply.TrainType.Transfer
+          if 'Input Model File' in trainingpars and \
+             not trainingpars['Input Model File'] is None and \
+             os.path.isfile(trainingpars['Input Model File']):
+            model_info = dgbmlio.getInfo( val, True )
+            info[dgbkeys.inpscalingdictstr] = dgbhdf5.getScalerStr( model_info )
+          info['disable_scaling'] = True
+          set_info()
+          doc.add_next_tick_callback(partial(updateUI))
       elif key=='Input Model File':
         odcommon.log_msg(f'Change pretrained input model to "{val}".')
         if os.path.isfile(val):
           trainingpars['Input Model File'] = val
-          model_info = dgbmlio.getInfo( val, quick=True )
-          info['disable_scaling'] = True # Disable scaling for pretrained models
-          info[dgbkeys.inpscalingdictstr] = model_info[dgbkeys.inpscalingdictstr]
-          set_info()
-          doc.add_next_tick_callback(partial(updateUI))
+          model_info = dgbmlio.getInfo( val, True )
+          info[dgbkeys.inpscalingdictstr] = dgbhdf5.getScalerStr( model_info )
         else:
           trainingpars['Input Model File'] = None
+        info['disable_scaling'] = True # Disable scaling selection for pretrained models
+        set_info()
+        doc.add_next_tick_callback(partial(updateUI))
       elif key=='ProcLog File':
         odcommon.log_msg(f'Change log file name to "{val}".')
         trainingpars['Proc Log File'] = val
@@ -125,7 +143,7 @@ def training_app(doc):
         if trainingpars['Examples File'] != val:
           trainingpars['Examples File'] = val
           if get_default_platform() != uinoplfm().getPlatformNm(True)[0]:
-            info = dgbmlio.getInfo( trainingpars['Examples File'], quick=True )
+            info = dgbmlio.getInfo( trainingpars['Examples File'], True )
           set_info()
           doc.add_next_tick_callback(partial(updateUI))
       elif key=='ComArgs':

@@ -81,7 +81,7 @@ class TrainingSequence(Sequence):
       else:
         self._exfilenm = exfilenm
       self._nrclasses = 0
-      if self._infos[dgbkeys.classdictstr]:
+      if dgbhdf5.isClassification( self._infos ):
         self._nrclasses = dgbhdf5.getNrClasses( self._infos )
         if dgbhdf5.isImg2Img(self._infos) and self._nrclasses <= 2:
           self._nrclasses = 0

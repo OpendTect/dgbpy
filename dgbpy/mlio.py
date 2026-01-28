@@ -296,7 +296,7 @@ def getTrainingDataByInfo( info, dsetsel=None ):
   if dgbkeys.yvaliddictstr in examples:
     y_examples.append( examples[dgbkeys.yvaliddictstr] )
   ret.update({ dgbkeys.infodictstr: getClasses(info,y_examples) })
-  if dgbkeys.classdictstr in info and info[dgbkeys.classdictstr]:
+  if dgbhdf5.isClassification( info ):
     if dgbkeys.ytraindictstr in examples:
       normalize_class_vector( examples[dgbkeys.ytraindictstr], \
                               info[dgbkeys.classesdictstr] )
@@ -306,7 +306,7 @@ def getTrainingDataByInfo( info, dsetsel=None ):
   return ret
 
 def getClasses( info, y_vectors ):
-  if not info[dgbkeys.classdictstr] or dgbkeys.classesdictstr in info:
+  if not dgbhdf5.isClassification( info ):
     return info
   import numpy as np
   classes = []
@@ -439,7 +439,7 @@ def getApplyInfo( infos, outsubsel=None ):
     * dict: apply information
   """
 
-  isclassification = infos[dgbkeys.classdictstr]
+  isclassification = dgbhdf5.isClassification( infos )
   firstoutnm = dgbhdf5.getMainOutputs(infos)[0]
   if isclassification:
     names = firstoutnm
@@ -471,9 +471,11 @@ def getApplyInfo( infos, outsubsel=None ):
     (withprobs,classnms) = dgbhdf5.getClassIndices( infos, names )
   else:
     withprobs = []
-  ret = {
-    dgbkeys.classdictstr: isclassification,
-  }
+
+  ret = {}
+  if isclassification:
+    ret[dgbkeys.classdictstr] = isclassification
+
   withconfidence = isclassification and dgbkeys.confvalstr in names
 
   if withpred:

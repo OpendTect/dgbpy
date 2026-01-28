@@ -255,18 +255,18 @@ def getModelsByInfo( infos ):
     else:
         ndim = len(shape)-shape.count(1)
     modelstypes = getModelsByType( infos[dgbkeys.learntypedictstr],
-                                   infos[dgbhdf5.classdictstr],
+                                   dgbhdf5.isClassification( infos ),
                                    ndim )
     if len(modelstypes) < 1:
         return None
     return modelstypes[0]
 
-def getDefaultModel(setup,type=keras_dict['type'],
+def getDefaultModel( setup, type=keras_dict['type'],
                      learnrate=keras_dict['learnrate'],
                      seed=keras_dict[dgbkeys.userandomseeddictstr],
                      data_format='channels_first'):
   setSeed(seed)
-  isclassification = setup[dgbhdf5.classdictstr]
+  isclassification = dgbhdf5.isClassification( setup )
   if isclassification:
     nroutputs = len(setup[dgbkeys.classesdictstr])
   else:
@@ -529,7 +529,7 @@ def train(model,training,params=keras_dict,trainfile=None,silent=False,cbfn=None
   setSeed(params[dgbkeys.userandomseeddictstr])
 
   infos = training[dgbkeys.infodictstr]
-  classification = infos[dgbkeys.classdictstr]
+  classification = dgbhdf5.isClassification( infos )
   cbfn = dgbkeys.listify(cbfn)
   if classification:
     monitor = 'accuracy'
