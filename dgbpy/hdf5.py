@@ -105,8 +105,8 @@ def get_np_shape( shape, nrpts=None, nrattribs=None ):
   return ret
 
 def getTrainingConfig( h5file ):
-  if trainconfigdictstr in h5file.attrs:
-    config = h5file.attrs[trainconfigdictstr]
+  if odhdf5.hasAttr( h5file, trainconfigdictstr ):
+    config = odhdf5.getText( h5file, trainconfigdictstr )
     if len(config) > 1:
       return json.loads(config)
   return None

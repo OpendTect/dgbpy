@@ -673,7 +673,7 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
         iscompiled = True
         try:
           h5file = odhdf5.openFile( modelfnm, 'r' )
-          iscompiled = odhdf5.hasAttr( h5file, trainconfigdictstr )
+          iscompiled = odhdf5.hasAttr( h5file, dgbkeys.trainconfigdictstr )
         finally:
           h5file.close()
         if not iscompiled:
