@@ -23,15 +23,24 @@ jobs:
     - name: Install odpy
       run: |
         python -m pip install --upgrade pip
+        python -m pip install numpy==1.23
+        python -m pip install h5py==3.8.0
+        python -m pip install numba==0.56
         python -m pip install git+https://github.com/OpendTect/odpy.git
     - name: Install  dgbpy
       run: |
         pip install flake8 pytest
-        python -m pip install .
-        python -m pip install onnxruntime==1.14
+        python -m pip install bokeh==3.1.0
+        python -m pip install joblib==1.2.0
+        python -m pip install scikit-learn==1.2.2
+        python -m pip install pytorch==2.0
+        python -m pip install tensorflow==2.11
         python -m pip install onnx==1.13
+        python -m pip install onnxruntime-gpu==1.14
         python -m pip install onnx2torch==1.5
-        python -m pip install opencv-python  
+        python -m pip install opencv-python==4.7
+        python -m pip install xgboost==1.7
+        python -m pip install .
     - name: Get test examplefiles
       run: |
         cd tests
