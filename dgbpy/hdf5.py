@@ -112,16 +112,16 @@ def getTrainingConfig( h5file ):
   return None
 
 def isRegression( info ):
-  return not isClassification( info )
+  return not isClassification( info ) and not isSegmentation( info )
 
 def isClassification( info ):
   if isinstance(info, dict):
-    return info[classdictstr]
+    return False if not classdictstr in info else info[classdictstr]
   return info == classdatavalstr
 
 def isSegmentation( info ):
   if isinstance(info,dict):
-    return info[segmentdictstr]
+    return False if not segmentdictstr in info else info[segmentdictstr]
   return info == segmenttypestr
 
 def isSeisClass( info ):
@@ -196,14 +196,25 @@ def applyRangeScaling( info ):
     return info[inpscalingdictstr] == rangestdtypestr
   return info == rangestdtypestr
 
+def applyNoScaling( info ):
+  return not applyGlobalStd( info ) and \
+         not applyLocalStd( info ) and \
+         not applyNormalization( info ) and \
+         not applyMinMaxScaling( info ) and \
+         not applyRangeScaling( info )
+
 def applyArrTranspose( info ):
-  if isinstance(info,dict) and arrayorderdictstr in info:
-    return info[arrayorderdictstr] == reversestr
+  if isinstance(info,dict):
+    if arrayorderdictstr in info:
+      return info[arrayorderdictstr] == reversestr
+    return False
   return info == reversestr
 
 def applyArrZTranspose( info ):
-  if isinstance(info,dict) and arrayorderdictstr in info:
-    return info[arrayorderdictstr] == reversezstr
+  if isinstance(info,dict):
+    if arrayorderdictstr in info:
+      return info[arrayorderdictstr] == reversezstr
+    return False
   return info == reversezstr
 
 def isZipModelFile( filenm ):
@@ -218,6 +229,8 @@ class Scaler(Enum):
   StandardScaler = localstdtypestr
   Normalization = normalizetypestr
   MinMaxScaler = minmaxtypestr
+  RangeScaler = rangestdtypestr
+  NoScaler = nonetypestr
 
 def isDefaultScaler(scaler, info, uselearntype=True):
   _isLogOutput = isLogOutput(info) and uselearntype
@@ -226,7 +239,7 @@ def isDefaultScaler(scaler, info, uselearntype=True):
   return scaler, False
 
 def updateScaleInfo( scaler, info ):
-  if not scaler:
+  if applyNoScaling( info ):
     return info
   info[inpscalingdictstr] = scaler
   info[outputunscaledictstr] = doOutputScaling(info)
@@ -236,7 +249,7 @@ def getScalerStr( info ):
   if isinstance(info,dict):
     if inpscalingdictstr in info:
       return info[inpscalingdictstr]
-    return globalstdtypestr
+    return nonetypestr
   return info == inpscalingdictstr 
 
 def doOutputScaling( info ):
@@ -438,11 +451,11 @@ def getCubeLets( infos, collection, groupnm ):
   if img2img and nroutputs>1:
     return getCubeLets_img2img_multitarget( infos, collection, groupnm )
 
+  isclass = isClassfication( infos )
+  iscluster = isSegmentation( infos )
   inpnrattribs = getNrAttribs( infos )
   inpshape = infos[inpshapedictstr]
   outshape = infos[outshapedictstr]
-  isclass = infos[classdictstr]
-  iscluster = isSegmentation( infos )
   examples = infos[exampledictstr]
   h5file = odhdf5.openFile( infos[filedictstr], 'r' )
   if img2img:
@@ -591,6 +604,9 @@ def getInfo( filenm, quick ):
   if 'model' in h5file:
     modelgrp = h5file['model']
     savetype = odhdf5.getText(modelgrp, 'type')
+  elif 'model_weights' in h5file and odhdf5.hasAttr( h5file, 'backend' ) and \
+       odhdf5.getText( h5file, 'backend' ) == 'tensorflow':
+    savetype = 'HDF5'
 
   learntype = odhdf5.getText(info,typestr)
   isclassification = isSeisClass( learntype )
@@ -601,33 +617,31 @@ def getInfo( filenm, quick ):
   img2img = isImg2Img(learntype)
   logoutp = isLogOutput(learntype)
 
-  arrayorder = carrorderstr
+  arrayorder = None
   arrorderstr = 'Examples.ArrayOrder'
   if odhdf5.hasAttr(info,arrorderstr):
     arrayorder = odhdf5.getText(info,arrorderstr)
 
-  scalingtype = globalstdtypestr
-  scalingtypestr='Input.Scaling.Type'
+  scalingtype = globalstdtypestr #Legacy default
+  scalingtypestr = 'Input.Scaling.Type'
   if odhdf5.hasAttr(info,scalingtypestr):
     scalingtype = odhdf5.getText(info,scalingtypestr)
     if scalingtype == 'None':
       scalingtype = None
 
-  if scalingtype is None or scalingtype == globalstdtypestr:
-    scalingvalrg = None
-    scaleclip = None
-  else:
-    scalingvalrg = [0,255]
+  scalingvalrg = None
+  if scalingtype == minmaxtypestr:
     scalingvalstr = 'Input.Scaling.Value Range'
     if odhdf5.hasAttr(info,scalingvalstr):
       scalingvalrg = odhdf5.getDInterval(info,scalingvalstr)
 
-    scaleclip = 4.0
+  scaleclip = None
+  if scalingtype == rangestdtypestr:
     scaleclipvalstr = 'Input.Scaling.Scale'
     if odhdf5.hasAttr(info,scaleclipvalstr):
       scaleclip = odhdf5.getDValue(info,scaleclipvalstr)
 
-  unscaleoutput = False
+  unscaleoutput = None
   outunscalestr = 'Output.Unscale'
   if odhdf5.hasAttr(info,outunscalestr):
     unscaleoutput = odhdf5.getBoolValue(info,outunscalestr)
@@ -734,27 +748,41 @@ def getInfo( filenm, quick ):
 
   retinfo = {
     namedictstr: modname,
-    learntypedictstr: learntype,
-    segmentdictstr: issegmentation,
-    inpshapedictstr: inpshape,
-    outshapedictstr: outshape,
-    classdictstr: isclassification,
-    interpoldictstr: odhdf5.getBoolValue(info,"Edge extrapolation"),
-    arrayorderdictstr: arrayorder,
-    inpscalingdictstr: scalingtype,
-    inpscalingvalsdictstr: scalingvalrg,
-    inpscaleclipstr: scaleclip,
-    outputunscaledictstr: unscaleoutput,
-    exampledictstr: examples,
-    inputdictstr: inputs,
-    filedictstr: filenm,
-    savetypedictstr: savetype,
+    learntypedictstr: learntype
   }
+
+  if isclassification:
+    retinfo[classdictstr] = isclassification
+  elif issegmentation:
+    retinfo[segmentdictstr] = issegmentation
+
+  retinfo[inpshapedictstr] = inpshape
+  retinfo[outshapedictstr] = outshape
+  retinfo[interpoldictstr] = odhdf5.getBoolValue(info,"Edge extrapolation")
+  retinfo[exampledictstr] = examples
+  retinfo[inputdictstr] = inputs
+  retinfo[filedictstr] = filenm
+
+  if scalingtype is not None:
+    retinfo[inpscalingdictstr] = scalingtype
+    if applyMinMaxScaling( scalingtype ) and scalingvalrg is not None:
+      retinfo[inpscalingvalsdictstr] = scalingvalrg
+    elif applyRangeScaling( scalingtype ) and scaleclip is not None:
+      retinfo[inpscaleclipstr] = scaleclip
+
+  if unscaleoutput is not None:
+    retinfo[outputunscaledictstr] = unscaleoutput
+
+  if arrayorder is not None:
+    retinfo[arrayorderdictstr] = arrayorder
 
   if odhdf5.hasAttr(info, flexshpstr):
     retinfo.update({
       flexshpdictstr: odhdf5.getIArray(info, flexshpstr)
     })
+
+  if savetype is not None:
+    retinfo[savetypedictstr] = savetype
 
   if not quick:
     retinfo.update({
@@ -769,24 +797,8 @@ def getInfo( filenm, quick ):
     hasunlabels = False
     if odhdf5.hasAttr(info, withunlabeleddictstr):
       hasunlabels = odhdf5.getBoolValue( info, withunlabeleddictstr )
-    else:
-      groups = retinfo[exampledictstr].keys()
-      ret = list()
-      for groupnm in groups:
-        try:
-            grp = h5file[groupnm]
-            for inpnm in grp:
-              if ydatadictstr not in grp[inpnm]:
-                continue
-              if np.any(np.array(grp[inpnm][ydatadictstr])==-1):
-                hasunlabels = True
-                break
-            if hasunlabels:
-              break
-        except:
-          pass
     if hasunlabels:
-      retinfo.update({withunlabeleddictstr: True})
+      retinfo[withunlabeleddictstr] = True
   trainingconfig = getTrainingConfig( h5file )
   if trainingconfig is not None:
     retinfo.update({trainconfigdictstr: trainingconfig})
@@ -802,7 +814,7 @@ def getInfo( filenm, quick ):
   raise KeyError
 
 def getAttribInfo( info, filenm ):
-  if info[classdictstr]:
+  if isClassification( info ):
     if isSeisClass(info):
       (classidxs,classnms) = getClassIndices(info)
       classidxs = np.array(classidxs)+1
@@ -818,7 +830,7 @@ def getAttribInfo( info, filenm ):
   return info
 
 def getWellInfo( info, filenm ):
-  if info[classdictstr]:
+  if isClassification( info ):
     info.update( {
       classesdictstr: getClassIndicesFromData(info),
       classnmdictstr: getMainOutputs(info)[0]
@@ -870,10 +882,11 @@ def getTotalSize( info ):
   h5file.close()
   examplesshape = get_np_shape( inpshape, nrpts, inpnrattribs )
   x_size = np.prod( examplesshape, dtype=np.int64 ) * arroneitemsize( np.single )
-  if info[classdictstr]:
+  if isClassification( info ):
     nroutvals = getNrClasses( info )
   else:
     nroutvals = getNrOutputs( info )
+
   outshape = get_np_shape( outshape, nrpts, nroutvals )
   y_size = np.prod( outshape, dtype=np.int64 ) * arroneitemsize( np.single )
   return x_size + y_size
@@ -925,7 +938,7 @@ def addInfo( inpfile, plfnm, filenm, infos, clssnm ):
     for i in range(len(scale.scale_)):
       keyvali = keyval+str(i)+'.Stats'
       odhdf5.setArray( dsinfoout, keyvali, [scale.mean_[i], scale.scale_[i]] )
-  odhdf5.setAttr(dsinfoout, 'Input.Scaling.Type', infos[inpscalingdictstr])
+  odhdf5.setAttr(dsinfoout, 'Input.Scaling.Type', getScalerStr(infos))
   odhdf5.setAttr(dsinfoout, 'Output.Unscale', odsetBoolValue(infos[outputunscaledictstr]))
   h5fileout.close()
 

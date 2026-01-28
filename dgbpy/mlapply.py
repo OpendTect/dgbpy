@@ -541,7 +541,7 @@ def doApply( model, info, samples, scaler=None, applyinfo=None, batchsize=None )
   if applyinfo == None:
     applyinfo = dgbmlio.getApplyInfo( info )
 
-  isclassification = info[dgbkeys.classdictstr]
+  isclassification = dgbhdf5.isClassification( info )
   withpred = dgbkeys.dtypepred in applyinfo
   withprobs = False
   doprobabilities = False

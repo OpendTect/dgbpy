@@ -692,7 +692,7 @@ class RangedScaler(BaseEstimator, TransformerMixin):
 
 def getDefaultModel( setup, params=scikit_dict ):
   modelname = params['modelname']
-  isclassification = setup[dgbhdf5.classdictstr]
+  isclassification = dgbhdf5.isClassification( setup )
   ismultilabelregression = dgbhdf5.isMultiLabelRegression(setup)
   if ismultilabelregression and modelname != 'Random Forests' and modelname != 'Clustering':
     log_msg('Multilabel prediction is only supported for Random Forest in Scikit')   
@@ -834,7 +834,7 @@ def assessQuality( model, trainingdp ):
       else:
         y_validate = trainingdp[dgbkeys.yvaliddictstr].ravel()
       y_predicted = model.predict(x_validate)
-      if trainingdp[dgbkeys.infodictstr][dgbkeys.classdictstr]:
+      if dgbhdf5.isClassification( trainingdp[dgbkeys.infodictstr] ):
         cc = np.sum( y_predicted==y_validate) / len(y_predicted)
       else:
         cc = np.corrcoef( y_predicted, y_validate )[0,1]

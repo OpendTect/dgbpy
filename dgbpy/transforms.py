@@ -229,16 +229,6 @@ class ScaleTransform(BaseTransform):
     def transform_label(self, info):
         return dgbhdf5.doOutputScaling(info)   
         
-class Normalization(ScaleTransform, BaseTransform):
-    def __init__(self, **kwargs):
-        super().__init__()
-        from dgbpy.dgbscikit import getNewMinMaxScaler
-        self.getNewMinMaxScaler = getNewMinMaxScaler
-
-    def transform(self, arr):
-        self.scaler = self.getNewMinMaxScaler(arr)
-        return self.scale(arr, self.scaler)
-
 class StandardScaler(ScaleTransform, BaseTransform):
     def __init__(self, **kwargs):
         super().__init__()
@@ -247,6 +237,16 @@ class StandardScaler(ScaleTransform, BaseTransform):
 
     def transform(self, arr):
         self.scaler = self.getScaler(arr, False)
+        return self.scale(arr, self.scaler)
+
+class Normalization(ScaleTransform, BaseTransform):
+    def __init__(self, **kwargs):
+        super().__init__()
+        from dgbpy.dgbscikit import getNewMinMaxScaler
+        self.getNewMinMaxScaler = getNewMinMaxScaler
+
+    def transform(self, arr):
+        self.scaler = self.getNewMinMaxScaler(arr)
         return self.scale(arr, self.scaler)
 
 class MinMaxScaler(ScaleTransform, BaseTransform):
@@ -280,13 +280,14 @@ class RangeScaler(ScaleTransform, BaseTransform):
         return self.scale(arr, self.scaler)
 
 
-all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr, dgbkeys.rangestdtypestr)
+all_scalers = (dgbkeys.globalstdtypestr, dgbkeys.localstdtypestr, dgbkeys.normalizetypestr, dgbkeys.minmaxtypestr, dgbkeys.rangestdtypestr, dgbkeys.nonetypestr )
 all_scalers_opts = (
   dgbkeys.globalstdtypestr,
   dgbkeys.localstdtypestr,
   'Local Normalization (0-1)',
   'Local MinMax (0-255)',
-  'Range Standardization (-1,+1)'
+  'Range Standardization (-1,+1)',
+  dgbkeys.nonetypestr
 )
 
 def get_scaler_ui_option(scaler):

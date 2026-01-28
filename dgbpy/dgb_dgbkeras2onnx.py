@@ -70,7 +70,7 @@ try:
     meta.value = datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     meta = onnx_model.metadata_props.add()
     meta.key = "scaling_type"
-    meta.value = info[dgbkeys.inpscalingdictstr]
+    meta.value = dgbhdf5.getScalerStr( info )
     meta = onnx_model.metadata_props.add()
     meta.key = "data_format"
     meta.value = data_format

@@ -1481,7 +1481,7 @@ class TrainDatasetClass(Dataset):
         """
             Adapt the shape of the data to the expected shape of the network
         """
-        classification = self.info[dgbkeys.classdictstr]
+        classification = dgbhdf5.isClassification( self.info )
         if self.ndims == 3:
             if len(X.shape)==len(Y.shape) and len(X.shape)==4 and classification:     #segmentation
                 data = X[:, :, :, :]
@@ -1489,7 +1489,7 @@ class TrainDatasetClass(Dataset):
             elif len(X.shape)>len(Y.shape) and classification:     #supervised
                 data = X[:, :, :]
                 label = Y[:]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(X.shape)==len(Y.shape):
                     data = X[:, :, :, :]
                     label = Y[:, :, :, :]
@@ -1503,7 +1503,7 @@ class TrainDatasetClass(Dataset):
             elif len(X.shape)>len(Y.shape) and classification:     #supervised
                 data = X[:, 0, :, :]
                 label = Y[:]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(X.shape)==len(Y.shape):
                     data = X[:, 0, :, :]
                     label = Y[:, 0, :, :]
@@ -1517,7 +1517,7 @@ class TrainDatasetClass(Dataset):
             elif len(X.shape)>len(Y.shape) and classification:     #supervised classification
                 data = X[:, 0, 0, :]
                 label = Y[:]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(X.shape)==len(Y.shape):
                     data = X[:, 0, 0, :]
                     label = Y[:, 0, 0, :]
@@ -1572,7 +1572,7 @@ class TestDatasetClass(Dataset):
         return True
 
     def __getitem__(self,index):
-        classification = self.info[dgbkeys.classdictstr]
+        classification = dgbhdf5.isClassification( self.info )
         if self.ndims == 3:
             if len(self.X.shape)==len(self.y.shape) and len(self.X.shape)==5 and classification:   #segmentation
                 data = self.X[index, :, :, :, :]
@@ -1580,7 +1580,7 @@ class TestDatasetClass(Dataset):
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
                 data = self.X[index, :, :, :, :]
                 label = self.y[index, :]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(self.X.shape)==len(self.y.shape):
                     data = self.X[index, :, :, :, :]
                     label = self.y[index, :, :, :, :]
@@ -1594,7 +1594,7 @@ class TestDatasetClass(Dataset):
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised
                 data = self.X[index, :, 0, :, :]
                 label = self.y[index, :]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(self.X.shape)==len(self.y.shape):
                     data = self.X[index, :, 0, :, :]
                     label = self.y[index, :, 0, :, :]
@@ -1608,7 +1608,7 @@ class TestDatasetClass(Dataset):
             elif len(self.X.shape)>len(self.y.shape) and classification:    #supervised classification
                 data = self.X[index, :, 0, 0, :]
                 label = self.y[index, :]
-            elif not self.info[dgbkeys.classdictstr]:
+            elif not classification:
                 if len(self.X.shape)==len(self.y.shape):
                     data = self.X[index, :, 0, 0, :]
                     label = self.y[index, :, 0, 0, :]

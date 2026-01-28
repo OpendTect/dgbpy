@@ -64,7 +64,7 @@ def getUiPars(uipars=None):
     ndim = 1
   else:
     ndim = len(inpshape) - inpshape.count(1)
-  modeltypes = getUiModelTypes( learntype, info[dgbkeys.classdictstr], ndim )
+  modeltypes = getUiModelTypes( learntype, dgbhdf5.isClassification( info ), ndim )
 
   if len(modeltypes)==0:
     divfld = Div(text="""No Keras models found for this workflow.""")
