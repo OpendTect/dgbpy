@@ -105,7 +105,7 @@ def training_app(doc):
           if 'Input Model File' in trainingpars and \
              not trainingpars['Input Model File'] is None and \
              os.path.isfile(trainingpars['Input Model File']):
-            model_info = dgbmlio.getInfo( val, True )
+            model_info = dgbmlio.getInfo( trainingpars['Input Model File'], True )
             info[dgbkeys.inpscalingdictstr] = dgbhdf5.getScalerStr( model_info )
           info['disable_scaling'] = True
           set_info()
@@ -115,7 +115,7 @@ def training_app(doc):
           if 'Input Model File' in trainingpars and \
              not trainingpars['Input Model File'] is None and \
              os.path.isfile(trainingpars['Input Model File']):
-            model_info = dgbmlio.getInfo( val, True )
+            model_info = dgbmlio.getInfo( trainingpars['Input Model File'], True )
             info[dgbkeys.inpscalingdictstr] = dgbhdf5.getScalerStr( model_info )
           info['disable_scaling'] = True
           set_info()
