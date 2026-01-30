@@ -10,6 +10,8 @@
 
 import os
 import numpy as np
+import re
+import sys
 
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -586,3 +588,38 @@ def announceTrainingSuccess():
   restore_stdout()
   print('--Training Successful--', flush=True)
   restore_stdout()  
+
+def load_libstdcpp( odpid ):
+  maps_path = '/proc/'+str(odpid)+'/maps'
+  if not os.path.exists(maps_path):
+    return
+
+  odlibstdcpppath = None
+  with open(maps_path) as f:
+    for line in f:
+      if "libstdc++" in line:
+        m = re.search(r"/.*libstdc\+\+.*", line)
+        if m:
+          odlibstdcpppath = m.group(0)
+          break
+
+  if odlibstdcpppath is None:
+    return
+
+  odlibstdcppver = int(odlibstdcpppath.rsplit('.', 1)[-1])
+
+  python_path = sys.executable
+  pythonbin_dir = os.path.dirname(python_path)
+  pythonroot_dir = os.path.dirname(pythonbin_dir)
+  pythonlib_dir = os.path.join(pythonroot_dir, "lib")
+  if not os.path.exists(pythonlib_dir):
+    return
+
+  candidate = os.path.join(pythonlib_dir, 'libstdc++.so')
+  if not os.path.exists(candidate):
+    return
+
+  pythonlibstdcpppath = os.path.realpath(candidate)
+  pythonlibstdcppver = int(pythonlibstdcpppath.rsplit('.', 1)[-1])
+  if odlibstdcppver > pythonlibstdcppver:
+    import odbind # force early load of dependent libraries

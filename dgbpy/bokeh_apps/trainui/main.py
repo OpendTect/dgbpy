@@ -58,6 +58,7 @@ def training_app(doc):
       'storage_msg':None
       }
 
+  ppid = None
   info = get_default_info()
   progress = None
 
@@ -428,6 +429,7 @@ def training_app(doc):
     return True
 
   def doTrain( trainedfnm ):
+    nonlocal ppid
     nonlocal stoptraining
     if len(trainedfnm) < 1:
       return False
@@ -443,6 +445,9 @@ def training_app(doc):
                                 modelnm )
     cmdtorun = getPythonCommand( trainscriptfp, scriptargs['posargs'], \
                             scriptargs['dict'], scriptargs['odargs'] )
+    if ppid is not None:
+      cmdtorun.append( '--odpid' )
+      cmdtorun.append( str(ppid) )
 
     if (platformfld.value == uikeras.getPlatformNm() or platformfld.value == uitorch.getPlatformNm())  and this_service:
       this_service.sendObject('bokeh_app_msg', {'start tensorboard': ''})
@@ -631,9 +636,11 @@ def training_app(doc):
   buttonsgrp = uibokeh.getRunButtonsBar(progressgrp, doRun, doAbort, doPause, doResume, progressMonitorCB, trainMonitorCB, stopTrainingCB )
   trainpanel.child = column( platformfld, buttonsgrp, progressfld)
 
-  def initWin():
+  def initWin(ppid_in):
+    nonlocal ppid
     nonlocal info
     nonlocal platformfld
+    ppid = ppid_in
     platformfld.value = get_default_platform(info[dgbkeys.learntypedictstr])
     mlchgCB( 'value', 0, platformfld.value )
     doc.title = 'Machine Learning'
@@ -643,10 +650,12 @@ def training_app(doc):
   service_callbacks = { '--Chunk_Number ': setChunkProgress, '--Iter ': setIterProgress,
                         '--Epoch ': setEpochProgress, '--Training Ended--': setProgressComplete, '--S3--': setS3StorageProgress,
                         '--Fold_bkh ': setFold, '--Training Success':setTrainSuccess, '--Training Fail':setTrainFailure}
+  ppid = None
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
     this_service.addAction('GetInfos', getPlatformInfo) #TODO move to bokehserver itself, does not belong to this app
+    ppid = args['ppid']
     mh = MsgHandler()
     mh.add_servmgr(this_service)
     mh.add('--Training Started--', 'bokeh_app_msg', {'training_started': ''})
@@ -660,7 +669,7 @@ def training_app(doc):
       trainingParChgCB(data)
     mh = MsgHandler()
     mh.add_callback(service_callbacks)
-  initWin()
+  initWin(ppid)
 
 training_app(curdoc())
 
