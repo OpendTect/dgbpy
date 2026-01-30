@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #__________________________________________________________________________
 #
 # (C) dGB Beheer B.V.; (LICENSE) http://opendtect.org/OpendTect_license.txt
@@ -15,52 +16,70 @@ import argparse
 import json
 import traceback as tb
 
-from odpy import common as odcommon
+from odpy.common import initLogging, isLux, log_msg
 from odpy.oscommand import getPythonExecNm, printProcessTime
 import dgbpy.keystr as dgbkeys
+from dgbpy.mlio import load_libstdcpp
 import dgbpy.mlapply as dgbmlapply
-import odbind # force early load of dependent libraries
 
-parser = argparse.ArgumentParser(
-            description='Run machine learning model training')
-parser.add_argument( '-v', '--version',
-            action='version', version='%(prog)s 1.0' )
-parser.add_argument( 'h5file',
-            type=argparse.FileType('r'),
-            help='HDF5 file containing the training data' )
-parser.add_argument( '--dict',
-            dest='dict', metavar='JSON_DICT', nargs=1,
-            help='Dictionary: {"platform": "keras", "output": "<new model>", "parameters": {trainpars}}' )
-datagrp = parser.add_argument_group( 'Data' )
-datagrp.add_argument( '--dataroot',
-            dest='dtectdata', metavar='DIR', nargs=1,
-            help='Survey Data Root' )
-datagrp.add_argument( '--survey',
-            dest='survey', nargs=1,
-            help='Survey name' )
-odappl = parser.add_argument_group( 'OpendTect application' )
-odappl.add_argument( '--dtectexec',
-            metavar='DIR', nargs=1,
-            help='Path to OpendTect executables' )
-loggrp = parser.add_argument_group( 'Logging' )
-loggrp.add_argument( '--proclog',
-            dest='logfile', metavar='file', nargs='?',
-            type=argparse.FileType('w'), default=sys.stdout,
-            help='Progress report output' )
-loggrp.add_argument( '--syslog',
-            dest='sysout', metavar='stdout', nargs='?',
-            type=argparse.FileType('a'), default=sys.stdout,
-            help='Standard output' )
-args = vars(parser.parse_args())
-odcommon.initLogging( args )
+from odpy import common as odcommon
 odcommon.proclog_logger.setLevel( 'DEBUG' )
 
-if __name__ == '__main__':
-  odcommon.log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
-  odcommon.log_msg( 'Processing on:', platform.node() )
-  odcommon.log_msg( 'Process ID:', os.getpid(), '\n' )
-  printProcessTime( 'Machine Learning Training', True, print_fn=odcommon.log_msg )
-  odcommon.log_msg( '\n' )
+def parse_args() -> argparse.Namespace:
+  parser = argparse.ArgumentParser(
+              description='Run machine learning model training')
+  parser.add_argument( '-v', '--version',
+              action='version', version='%(prog)s 1.1' )
+  parser.add_argument( 'h5file',
+              type=argparse.FileType('r'),
+              help='HDF5 file containing the training data' )
+  parser.add_argument( '--dict',
+              dest='dict', metavar='JSON_DICT', nargs=1,
+              help='Dictionary: {"platform": "keras", "output": "<new model>", "parameters": {trainpars}}' )
+  datagrp = parser.add_argument_group( 'Data' )
+  datagrp.add_argument( '--dataroot',
+              dest='dtectdata', metavar='DIR', nargs=1,
+              help='Survey Data Root' )
+  datagrp.add_argument( '--survey',
+              dest='survey', nargs=1,
+              help='Survey name' )
+  odappl = parser.add_argument_group( 'OpendTect application' )
+  odappl.add_argument( '--dtectexec',
+              metavar='DIR', nargs=1,
+              help='Path to OpendTect executables' )
+  odappl.add_argument( '--odpid',
+              dest='odpid', action='store',
+              type=int, default=-1,
+              help='Process ID of the OpendTect client application' )
+  loggrp = parser.add_argument_group( 'Logging' )
+  loggrp.add_argument( '--proclog',
+              dest='logfile', metavar='file', nargs='?',
+              type=argparse.FileType('w'), default=sys.stdout,
+              help='Progress report output' )
+  loggrp.add_argument( '--syslog',
+              dest='sysout', metavar='stdout', nargs='?',
+              type=argparse.FileType('a'), default=sys.stdout,
+              help='Standard output' )
+  return parser.parse_args()
+
+def main() -> int:
+  args = vars(parse_args())
+
+  initLogging( args )
+
+  log_msg( 'Starting program:', getPythonExecNm(), " ".join(sys.argv) )
+  log_msg( 'Processing on:', platform.node() )
+  log_msg( 'Process ID:', os.getpid(), '\n' )
+  printProcessTime( 'Machine Learning Training', True, print_fn=log_msg )
+  log_msg( '\n' )
+
+  if isLux() and 'odpid' in args:
+    try:
+      load_libstdcpp( args['odpid'] )
+    except Exception as e:
+      log_msg( repr(e) )
+      pass
+
   dict = json.loads( args['dict'][0] )
   traintype = None
   if dgbkeys.learntypedictstr in dict:
@@ -83,14 +102,17 @@ if __name__ == '__main__':
     exc_type, exc_obj, exc_tb = sys.exc_info()
     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
     stackstr = ''.join(tb.extract_tb(exc_tb,limit=20).format())
-    odcommon.log_msg( 'Training error exception:' )
-    odcommon.log_msg( repr(e), 'on line', exc_tb.tb_lineno, 'of script', fname )
-    odcommon.log_msg( stackstr )
-    sys.exit(1)
+    log_msg( 'Training error exception:' )
+    log_msg( repr(e), 'on line', exc_tb.tb_lineno, 'of script', fname )
+    log_msg( stackstr )
+    return 1
   if not success:
-    sys.exit(1)
+    return 1
 
-  odcommon.log_msg( '\n' )
-  printProcessTime( 'Machine Learning Training', False, print_fn=odcommon.log_msg )
-  odcommon.log_msg( "Finished batch processing.\n" )
-  sys.exit(0)
+  log_msg( '\n' )
+  printProcessTime( 'Machine Learning Training', False, print_fn=log_msg )
+  log_msg( "Finished batch processing.\n" )
+  return 0
+
+if __name__ == '__main__':
+  sys.exit(main())
