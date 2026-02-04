@@ -8,16 +8,20 @@
 #
 import argparse
 import os
-import psutil
 import sys
-from bokeh.util.logconfig import basicConfig
+
+import dgbpy.keystr as dbk
+import dgbpy.servicemgr as dgbservmgr
+import odpy.common as odcommon
+import psutil
+import tornado.ioloop
 from bokeh.application import Application
 from bokeh.application.handlers import DirectoryHandler, ScriptHandler
 from bokeh.io import curdoc
 from bokeh.server.server import Server
-import tornado.ioloop
-import odpy.common as odcommon
-import dgbpy.servicemgr as dgbservmgr
+from bokeh.util.logconfig import basicConfig
+from dgbpy.platforms import getPlatformInfo
+
 
 def get_request_id():
   reqargs = curdoc().session_context.request.arguments
@@ -105,7 +109,6 @@ def StartBokehServer(applications, args, attempts=20):
   basicConfig(filename=bokehlog)
   address = args['address']
   port = args['port']
-  application = list(applications.keys())[0]
   while attempts:
     attempts -= 1
     try:
@@ -114,31 +117,35 @@ def StartBokehServer(applications, args, attempts=20):
                       port=port,
                       allow_websocket_origin=[authstr,authstr.lower()])
       server.start()
-
-      msg = dgbservmgr.Message()
-      for app in list(applications.keys()):
-        msg.sendObjectToAddress(args['bsmserver'], 'bokeh_started',
-                                        { 'bokehapp': app,
-                                          'bokehurl': _getDocUrl(server),
-                                          'bokehpid': os.getpid()
-                                        }
-                                )
-        if args['show']:
-          server.show( app )
-
-      try:
-          parent_proc_checker.start( server, bokehlog )
-          server.io_loop.start()
-      except RuntimeError:
-          pass
-      return
+      break
     except OSError as ex:
       if "Address already in use" in str(ex):
         port += 1
       else:
         raise ex
+  else:
+    raise Exception("Failed to find available port")
 
-  raise Exception("Failed to find available port")
+  msg = dgbservmgr.Message()
+  for app in list(applications.keys()):
+    msg.sendObjectToAddress(args['bsmserver'], 'bokeh_started',
+                                        { 'bokehapp': app,
+                                          'bokehurl': _getDocUrl(server),
+                                          'bokehpid': os.getpid()
+                                        }
+    )
+    if args['show']:
+      server.show( app )
+
+  infos = getPlatformInfo({dbk.kerasplfnm: ''})
+  msg.sendObjectToAddress(args['bsmserver'], 'bokeh_app_msg', {'GetInfos': infos })
+  infos = getPlatformInfo({dbk.torchplfnm: ''})
+  msg.sendObjectToAddress(args['bsmserver'], 'bokeh_app_msg',{'GetInfos': infos})
+  try:
+    parent_proc_checker.start( server, bokehlog )
+    server.io_loop.start()
+  except RuntimeError:
+    pass
 
 def main():
   parser = argparse.ArgumentParser()

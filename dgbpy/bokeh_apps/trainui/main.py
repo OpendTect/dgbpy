@@ -6,28 +6,34 @@
 #
 # _________________________________________________________________________
 
+import json
+import logging
 import os
 import sys
-import psutil
-import json
 from functools import partial
-import logging
-from dgbpy.bokehcore import *
 
-from odpy.oscommand import (getPythonCommand, execCommand, kill,
-                            isRunning, pauseProcess, resumeProcess)
-import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
-from dgbpy import mlapply as dgbmlapply
-from dgbpy import uibokeh, uisklearn, uitorch, uikeras
-from dgbpy.uibokeh import ProgState, TrainStatus
-from dgbpy import mlio as dgbmlio
-from dgbpy.servicemgr import ServiceMgr
-from dgbpy.bokehserver import get_request_id
-
+import dgbpy.keystr as dgbkeys
 import odpy.common as odcommon
+import psutil
+from dgbpy import mlapply as dgbmlapply
+from dgbpy import mlio as dgbmlio
+from dgbpy import uibokeh, uikeras, uisklearn, uitorch
+from dgbpy.bokehcore import *
+from dgbpy.bokehserver import get_request_id
+from dgbpy.platforms import get_default_platform, get_platforms, uinoplfm
+from dgbpy.servicemgr import ServiceMgr
+from dgbpy.uibokeh import ProgState, TrainStatus
+from odpy.oscommand import (
+  execCommand,
+  getPythonCommand,
+  isRunning,
+  kill,
+  pauseProcess,
+  resumeProcess,
+)
+from trainui import MsgHandler, get_default_info
 
-from trainui import get_default_info, MsgHandler, get_platforms, get_default_platform, uinoplfm
 logging.getLogger('bokeh.bokeh_machine_learning.main').setLevel(logging.DEBUG)
 odcommon.proclog_logger = logging.getLogger('bokeh.bokeh_machine_learning.main')
 odcommon.proclog_logger.setLevel( 'DEBUG' )
@@ -46,7 +52,7 @@ def training_app(doc):
     'Proc Log File': None,
     'ComArgs': None
   }
-  
+
   def initProgressDict():
     return {
       'ichunk': 0, 'n_chunks': 0, '_chunkTemp': 0,
@@ -66,24 +72,6 @@ def training_app(doc):
     uikeras.info = info
     uitorch.info = info
     uisklearn.info = info
-
-  def getPlatformInfo( platform ):
-      infos = {}
-      allplatforms = [pltfrm[0] for pltfrm in get_platforms()]
-      if (platform==dgbkeys.kerasplfnm or dgbkeys.kerasplfnm in platform) and list(platform.keys())[0] in allplatforms:
-        # Should not fail if keras/tensorflow is not present
-        from dgbpy.dgbkeras import get_keras_infos
-        infos = get_keras_infos()
-      elif (platform==dgbkeys.torchplfnm or dgbkeys.torchplfnm in platform) and list(platform.keys())[0] in allplatforms:
-        # Should not fail if torch is not present
-        from dgbpy.dgbtorch import get_torch_infos
-        infos = get_torch_infos()
-
-      if this_service and bool(infos):
-        this_service.sendObject('bokeh_app_msg', {'GetInfos': json.loads(infos)})
-
-      return infos
-
 
   def trainingParChgCB( paramobj ):
     nonlocal trainingpars
@@ -154,7 +142,7 @@ def training_app(doc):
           trainingpars['ComArgs'].update({key: item.split(',')})
       elif key=='Default':
         odcommon.log_msg(f'Change learntype to "{val}".')
-        if val in [dgbkeys.loglogtypestr, dgbkeys.logclustertypestr, dgbkeys.seisproptypestr, 
+        if val in [dgbkeys.loglogtypestr, dgbkeys.logclustertypestr, dgbkeys.seisproptypestr,
                     dgbkeys.seisclasstypestr, dgbkeys.seisimgtoimgtypestr, dgbkeys.segmenttypestr]:
           info[dgbkeys.learntypedictstr] = val
           set_info()
@@ -250,7 +238,7 @@ def training_app(doc):
       _keraspars = uikeras.getUiPars()
       _kerasadvpars = uikeras.getAdvancedUiPars()
     return _keraspars, _kerasadvpars
-  
+
   def getTorchUiPars():
     _torchpars, _torchadvpars=None,None
     if uitorch.hasTorch():
@@ -290,7 +278,7 @@ def training_app(doc):
         from dgbpy.dgbtorch import torch_dict
         torch_dict['tblogdir'] = tblogdir
         getTorchUiPars()
-        
+
   def mlchgCB( attrnm, old, new):
     nonlocal info
     nonlocal keraspars
@@ -371,7 +359,7 @@ def training_app(doc):
     return {}
 
   stoptraining = False
-  
+
   def stopTrainingCB( stoptrainingcheckbox ):
     nonlocal platformfld
     nonlocal stoptraining
@@ -587,7 +575,7 @@ def training_app(doc):
       progress['after_iter'] = False
       return
 
-    # initialise starting values  
+    # initialise starting values
     if progress['state']==ProgState.Started:
       parent.first_init(uibokeh.setProgValue(type=uibokeh.parent_bar, total=progress['n_epochs']))
       child.first_init(uibokeh.setProgValue(type=uibokeh.child_bar, total=progress['n_iters']))
@@ -654,7 +642,6 @@ def training_app(doc):
   if args:
     this_service = ServiceMgr(args['bsmserver'],args['port'],get_request_id())
     this_service.addAction('BokehParChg', trainingParChgCB )
-    this_service.addAction('GetInfos', getPlatformInfo) #TODO move to bokehserver itself, does not belong to this app
     ppid = args['ppid']
     mh = MsgHandler()
     mh.add_servmgr(this_service)
@@ -672,4 +659,3 @@ def training_app(doc):
   initWin(ppid)
 
 training_app(curdoc())
-
