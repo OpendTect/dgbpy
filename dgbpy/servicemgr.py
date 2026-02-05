@@ -152,7 +152,6 @@ class Message:
     packet.setIsNewRequest()
     obj = dict()
     obj[objkey] = jsonobj
-    odcommon.log_msg('Sending: ',obj, ' to ', host, port)
     packet.setTextPayload(obj)
     if self.ioloop:
       self.ioloop.add_callback(self._send, host, port, packet)
