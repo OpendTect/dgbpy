@@ -213,8 +213,8 @@ class ModelApplier:
             from dgbpy import dgbscikit
             minout = 0
             maxout = 255
-            if dgbkeys.scalingvalrg in self.info_:
-              scalingvalrg = self.info_[dgbkeys.scalingvalrg]
+            if dgbkeys.inpscalingvalsdictstr in self.info_:
+              scalingvalrg = self.info_[dgbkeys.inpscalingvalsdictstr]
               minout = scalingvalrg[0]
               maxout = scalingvalrg[1]
             self.scaler_ = dgbscikit.getNewMinMaxScaler( samples, minout=minout, maxout=maxout )
