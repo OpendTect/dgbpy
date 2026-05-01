@@ -34,6 +34,7 @@ setup(
     extras_require={
         'keras': ['keras>=2.3.1,<2.15.0'],
         'onnxmltools': ['onnxmltools>=1.9.0'],
+        'onnxscript': ['onnxscript>=0.5.0'],
         'pydot': ['pydot>=1.4.1'],
         'scikit-learn-intelex': ['scikit-learn-intelex>=1.0.0'],
         'skl2onnx': ['skl2onnx>=1.0.0'],
@@ -50,11 +51,12 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Topic :: Scientific/Engineering',
     ],
 )
