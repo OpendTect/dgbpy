@@ -791,6 +791,8 @@ def getInfo( filenm, quick ):
 
   if odhdf5.hasAttr(info,'Model.Type' ):
     retinfo.update({plfdictstr: odhdf5.getText(info,'Model.Type')})
+  if savetype is not None and str(savetype).strip("[]'\" ").lower() == 'onnx':
+    retinfo[plfdictstr] = onnxplfnm
   if  odhdf5.hasAttr(info,versionstr):
     retinfo.update({versiondictstr: odhdf5.getText(info,versionstr)})
   if img2img and isclassification:
