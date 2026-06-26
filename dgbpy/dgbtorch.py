@@ -9,6 +9,7 @@
 #
 import os, json, random
 import warnings
+import inspect
 import numpy as np
 from enum import Enum
 import dgbpy.keystr as dgbkeys
@@ -461,13 +462,14 @@ def save( model, outfnm, infos, params=torch_dict ):
     retmodel, dummies = get_model_architecture(model, model.__class__.__name__, infos)
     input_name = ['input']
     dynamic_axes = {'input': {0: 'batch_size'}}
-    usedynamo = False
-    try:
-      import onnxscript
-      usedynamo = True
-    except Exception:
-      pass
-    torch.onnx.export(retmodel, dummies, joutfnm, input_names=input_name, dynamic_axes=dynamic_axes, dynamo=usedynamo)
+    export_kwargs = {'input_names': input_name, 'dynamic_axes': dynamic_axes}
+    if 'dynamo' in inspect.signature(torch.onnx.export).parameters:
+      try:
+        import onnxscript
+        export_kwargs['dynamo'] = True
+      except Exception:
+        export_kwargs['dynamo'] = False
+    torch.onnx.export(retmodel, dummies, joutfnm, **export_kwargs)
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.TorchScript:
     joutfnm = os.path.splitext( outfnm )[0] + '.pth'
