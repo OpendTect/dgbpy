@@ -703,6 +703,28 @@ def load( modelfnm, fortrain, infos=None, pars=keras_dict ):
   restore_stdout()
   return ret
 
+def getNativeModel( model ):
+  """Return the underlying trainable keras model.
+
+  Handles a plain keras model and a ZipModel prediction wrapper (which loads the
+  native keras model as one of its attributes). This lets transfer/continue
+  training operate on the actual trainable model rather than a prediction-only
+  wrapper.
+  """
+  from tensorflow.keras.models import Model
+  if isinstance(model, Model):
+    return model
+  import dgbpy.zipmodelbase as dgbzipmodel
+  if isinstance(model, dgbzipmodel.ZipPredictModel):
+    inner = getattr(model, 'model', None)
+    if isinstance(inner, Model):
+      return inner
+    for val in vars(model).values():
+      if isinstance(val, Model):
+        return val
+    raise TypeError('Could not find a trainable keras model inside the ZipModel')
+  return model
+
 def transfer( model ):
   """
     Transfer learning utility function for fine-tuning a Keras model.
@@ -736,6 +758,7 @@ def transfer( model ):
         return check_sequential(sublayers)
     return False    
 
+  model = getNativeModel( model )
   layers = model.layers
   for layer in layers:
     layer.trainable = False
