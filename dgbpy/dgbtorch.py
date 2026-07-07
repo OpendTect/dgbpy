@@ -552,6 +552,30 @@ def train(model, imgdp, params, cbfn=None, logdir=None, silent=False, metrics=Fa
     model = trainer.fit(cbs = cbfn)
     return model
 
+def getNativeModel( model ):
+  """Return the underlying trainable torch model.
+
+  Handles a plain torch ``nn.Module``, the ``OnnxTorchModel`` wrapper, and a
+  ZipModel prediction wrapper (which loads the native torch model as one of its
+  attributes). This lets transfer/continue training operate on the actual
+  trainable module rather than a prediction-only wrapper.
+  """
+  from dgbpy.torch_classes import OnnxTorchModel
+  if isinstance(model, OnnxTorchModel):
+    return model.convert_to_torch()
+  if isinstance(model, nn.Module):
+    return model
+  import dgbpy.zipmodelbase as dgbzipmodel
+  if isinstance(model, dgbzipmodel.ZipPredictModel):
+    inner = getattr(model, 'model', None)
+    if isinstance(inner, nn.Module):
+      return inner
+    for val in vars(model).values():
+      if isinstance(val, nn.Module):
+        return val
+    raise TypeError('Could not find a trainable torch model inside the ZipModel')
+  return model
+
 def transfer(model, info=None ):
   """
     Transfer learning utility function for fine-tuning a Torch model.
@@ -564,22 +588,28 @@ def transfer(model, info=None ):
     3. All layers between the first and last Conv1D, Conv2D, Conv3D, or Dense layer (or a Sequential
         containing such layers) are set to non-trainable.
   """
+  def isConv(layer):
+    return isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)) or \
+           getattr(layer, 'original_name', None) in ('Conv1d', 'Conv2d', 'Conv3d')
+
+  def isLinear(layer):
+    return isinstance(layer, nn.Linear) or \
+           getattr(layer, 'original_name', None) == 'Linear'
+
   def getTrainableLayers(model):
     first_lyr = None
     last_lyr = None
     for name, layer in model.named_modules():
-        if isinstance(layer, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        if isConv(layer):
             if first_lyr is None:
                 first_lyr = name
             last_lyr = name
-        elif isinstance(layer, nn.Linear) and first_lyr:
+        elif isLinear(layer) and first_lyr:
           last_lyr = name
     return first_lyr, last_lyr
-  
-  from dgbpy.torch_classes import OnnxTorchModel
-  if isinstance(model, OnnxTorchModel):
-    model = model.convert_to_torch()
-  
+
+  model = getNativeModel( model )
+
   if isinstance(info, dict) and info.get(dgbkeys.namedictstr) == 'Fault-Net':
     return finetune_faultnet(model)  
 
@@ -606,10 +636,7 @@ def finetune_faultnet( model ):
   return model
 
 def resume( model, infos):
-  from dgbpy.torch_classes import OnnxTorchModel
-  if isinstance(model, OnnxTorchModel):
-    model = model.convert_to_torch()
-  return model
+  return getNativeModel( model )
 
 def apply( model, info, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, batch_size = torch_dict['batch'] ):
   attribs = dgbhdf5.getNrAttribs(info)
