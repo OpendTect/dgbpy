@@ -6,19 +6,29 @@
 #________________________________________________________________________
 #
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+import inspect
 import json
+import os
 import numpy as np
 import numpy.typing as npt
-from dataclasses import dataclass, field
 import sys
+import zipfile
+from pathlib import Path
+
 if sys.version_info >= (3, 11):
     from enum import StrEnum
 else:
     from backports.strenum import StrEnum
 import dgbpy.keystr as dgbkeys
-import dgbpy.hdf5 as dgbhdf5
-import odpy.hdf5 as odhdf5
 
+def _check_not_in_zip(module_file):
+    path = Path(module_file).resolve()
+    for part in path.parts:
+        if part.endswith('.zip'):
+            raise RuntimeError(
+                f"Cannot export model from within a ZIP archive: {module_file}"
+            )
 
 class PlatformType(StrEnum):
     Keras =     dgbkeys.kerasplfnm
@@ -54,16 +64,16 @@ class ZipModelInfo():
     learn_type: LearnType   = LearnType.SeisImg2Img
     scale_type: ScalingType = ScalingType.GlobalStd
     scale_output: bool      = False
-    input_names: [str]      = field(default_factory=list)
-    output_names: [str]     = field(default_factory=list)
-    input_shape: [int]      = field(default_factory=list) # use 0 to indicate dynamic axis size
-    output_shape: [int]     = field(default_factory=list) # use 0 to indicate dynamic axis size
+    input_names: list[str]      = field(default_factory=list)
+    output_names: list[str]     = field(default_factory=list)
+    input_shape: list[int]      = field(default_factory=list) # use 0 to indicate dynamic axis size
+    output_shape: list[int]     = field(default_factory=list) # use 0 to indicate dynamic axis size
     data_format: str        = field(default='channels_first')
     model_version: str      = field(default='unknown')
     model_name: str         = field(default='unknown')
     platform_version: str   = field(default='unknown')
 
-    def info(self) -> dict:
+    def info(self) -> str:
         return json.dumps({
                     'platform': self.platform.__str__(),
                     'pred_type': self.pred_type.__str__(),
@@ -80,7 +90,7 @@ class ZipModelInfo():
                     'model_version': self.model_version,
                     'model_name': self.model_name,
                     'platform_version': self.platform_version
-        })
+        }, indent=2)
 
 class ZipPredictModel(ABC):
     """Abstract base class for ZipModel format machine learning models for prediction only
@@ -92,7 +102,7 @@ class ZipPredictModel(ABC):
     modelinfo = None
 
     @abstractmethod
-    def __init__(self, params: dict = {}) -> None:
+    def __init__(self, params: dict|None=None) -> None:
         """Create a ZipModel instance by adding any deserialization and initialization code for the model."""
         raise NotImplementedError()  # pragma: no cover
 
@@ -101,7 +111,7 @@ class ZipPredictModel(ABC):
         return self.__class__.__name__
 
     @abstractmethod
-    def predict(self, model_input: npt.ArrayLike, params: dict = {}) -> np.ndarray:
+    def predict(self, model_input: npt.ArrayLike, params: dict|None=None) -> np.ndarray:
         """Prediction method
 
         Parameters
@@ -117,7 +127,7 @@ class ZipPredictModel(ABC):
         raise NotImplementedError()  # pragma: no cover
 
     @classmethod
-    def info(clss) -> str:
+    def info(cls) -> str:
         """Get information about the ZipModel
 
         Returns
@@ -125,7 +135,62 @@ class ZipPredictModel(ABC):
         JSON formatted str
 
         """
-        return clss.modelinfo.info() if clss.modelinfo else {}
+        return cls.modelinfo.info() if cls.modelinfo else ''
+
+    @classmethod
+    def export(cls, zipname: str='') -> str:
+        """Export the model as a ZIP file.
+
+        Exports the modelinfo dataclass as modelinfo.json and packages the entire
+        folder containing the subclass module, including saved models and other local
+        assets, into a single ZIP file. The ZIP file is written to the parent
+        directory of the module folder.
+
+        Parameters
+        ----------
+        zipname The basename for the output ZipModel file, ie it will be 'zipname.zip'. If not given the
+                basename will be derived from the module folder name after stripping the '_src' suffix, if present.
+
+        Returns
+        -------
+        str     The full path to the created ZipModel file.
+
+        Raises
+        ------
+        RuntimeError
+            If the code is already running from within a ZIP archive.
+        ValueError
+            If modelinfo is not set for the subclass.
+
+        """
+        module_file = inspect.getfile(cls)
+        module_dir = Path(module_file).parent
+
+        _check_not_in_zip(module_file)
+
+        if cls.modelinfo is None:
+            raise ValueError(f"modelinfo is not set for {cls.__name__}")
+
+        modelinfo_path = module_dir / 'modelinfo.json'
+        with open(modelinfo_path, 'w', encoding="utf-8") as f:
+            f.write(cls.info())
+
+        if not zipname:
+            zipname = module_dir.name.removesuffix('_src')
+        zip_path = module_dir.parent / f"{zipname}.zip"
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(module_dir):
+                dirs[:] = [d for d in dirs if d != '__pycache__']
+                for file in files:
+                    if file.endswith('.pyc') or file.endswith('.zip'):
+                        continue
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(module_dir)
+                    zf.write(file_path, arcname)
+
+        return str(zip_path)
+
 
 class ZipTrainableModel(ZipPredictModel):
     """Abstract base class for ZipModel format machine learning models that can be used for prediction and training
@@ -135,7 +200,7 @@ class ZipTrainableModel(ZipPredictModel):
 
     """
     @abstractmethod
-    def __init__(self, params: dict = {}) -> None:
+    def __init__(self, params: dict|None=None) -> None:
         """Create a ZipModel instance by adding any deserialization and initialization code for the model."""
         raise NotImplementedError()  # pragma: no cover
 
@@ -149,7 +214,7 @@ class ZipTrainableModel(ZipPredictModel):
         pass
 
     @abstractmethod
-    def train_one_epoch(self, ):
+    def train_one_epoch(self):
         """Abstract method defining what the model does during a single training step
 
         Parameters
@@ -169,6 +234,9 @@ class ZipTrainableModel(ZipPredictModel):
         raise NotImplementedError()  # pragma: no cover
 
 def load(modelfnm: str):
+    import dgbpy.hdf5 as dgbhdf5
+    import odpy.hdf5 as odhdf5
+
     model = None
     if dgbhdf5.isZipModelFile(modelfnm):
         model = load_modelimpl(modelfnm)
@@ -197,6 +265,9 @@ def load_modelimpl (modelfnm: str):
     return model
 
 def apply( model, infos, samples, scaler, isclassification, withpred, withprobs, withconfidence, doprobabilities, dictinpshape, dictoutshape, nroutputs ):
+    import dgbpy.hdf5 as dgbhdf5
+    import odpy.hdf5 as odhdf5
+
     ret = {}
     res = None
     img2img = dgbhdf5.isImg2Img(infos)
@@ -246,4 +317,3 @@ def apply( model, infos, samples, scaler, isclassification, withpred, withprobs,
             ret.update({dgbkeys.confdictstr: res})
 
     return ret
-
