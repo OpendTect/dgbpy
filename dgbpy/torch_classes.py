@@ -55,6 +55,7 @@ class OnnxTorchModel(OnnxModel):
         import onnx
         from onnx2torch import convert
         onnx_model = onnx.load(self.name)
+        onnx_model = onnx.shape_inference.infer_shapes(onnx_model, data_prop=True)
         return convert(onnx_model)
 
     def eval(self):
