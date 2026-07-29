@@ -2,9 +2,9 @@ name: dgbpy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "od8.0" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "od8.0" ]
 
 permissions:
   contents: read
@@ -27,8 +27,6 @@ jobs:
     - name: Install  dgbpy
       run: |
         pip install flake8 pytest
-<<<<<<< HEAD
-=======
         python -m pip install bokeh==3.1.0
         python -m pip install joblib==1.2.0
         python -m pip install scikit-learn==1.2.2
@@ -40,7 +38,6 @@ jobs:
         python -m pip install backports.strenum==1.2.8
         python -m pip install opencv-python-headless==4.7.0.72
         python -m pip install xgboost==1.7.4
->>>>>>> ad24905 (Fixed CI torch install by using CPU wheel instead of +cu113 build)
         python -m pip install .
         python -m pip install onnxruntime
         python -m pip install onnx
