@@ -23,6 +23,9 @@ jobs:
     - name: Install odpy
       run: |
         python -m pip install --upgrade pip
+        python -m pip install numpy==1.23.5
+        python -m pip install h5py==3.8.0
+        python -m pip install numba==0.56.4
         python -m pip install git+https://github.com/OpendTect/odpy.git
     - name: Install  dgbpy
       run: |
@@ -39,10 +42,6 @@ jobs:
         python -m pip install opencv-python-headless==4.7.0.72
         python -m pip install xgboost==1.7.4
         python -m pip install .
-        python -m pip install onnxruntime
-        python -m pip install onnx
-        python -m pip install onnx2torch
-        python -m pip install opencv-python    
     - name: Get test examplefiles
       run: |
         cd tests
