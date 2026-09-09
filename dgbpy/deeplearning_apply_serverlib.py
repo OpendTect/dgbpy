@@ -66,7 +66,7 @@ class ModelApplier:
             self.applydir_ = dgbkeys.crosslinestr
 
         return info
-    
+
     def setParameters(self, pars):
         if 'fake_apply' in pars and pars['fake_apply']:
             self.fakeapply_ = pars['fake_apply']
@@ -134,7 +134,7 @@ class ModelApplier:
         else:
             self.needtranspose_ = False
             self.needztranspose_ = False
-    
+
     def _usePar(self, pars):
         self.pars_ = pars
 
@@ -279,6 +279,9 @@ class ModelApplier:
         nrzin = inp.shape[-1]
         vertical =  isinstance(inpshape,int)
         swapaxes = False
+        broadcast2dinto3d = self.img2img_ and self.datais2d_ and \
+			    self.is3dmodel_ and \
+			    not (self.isflat_inlinemodel_ or self.isflat_xlinemodel_)
         if vertical:
             nrzoutsamps = nrzin-inpshape+1
             nrpts = nrzoutsamps
@@ -289,20 +292,24 @@ class ModelApplier:
                 inpshape = (inpshape[1], inpshape[0], inpshape[2])
                 self.info_[dgbkeys.inpshapedictstr] = inpshape
             if self.img2img_:
-              if self.datais2d_:
-                nrpts = inp.shape[0] if len(inp.shape) == 4 else 1
-              else:
-                nrpts = inp.shape[0] if len(inp.shape) == 5 else 1
+              batchndim = 4 if self.datais2d_ else 5
+              nrpts = inp.shape[0] if len(inp.shape) == batchndim else 1
             else:
               nrzoutsamps = nrzin - inpshape[2] +1
               nrpts = nrzoutsamps
 
         samples_shape = dgbhdf5.get_np_shape( inpshape, nrpts=nrpts,
                                               nrattribs=nrattribs )
-        nrtrcs = samples_shape[-2]
         nrz = samples_shape[-1]
         if self.img2img_:
-          if not self.datais2d_ and (self.isflat_inlinemodel_ or self.isflat_xlinemodel_):
+          if broadcast2dinto3d:
+            # Broadcast each 2D data (traces, z) to create an inl dimension
+            # Chunk shape becomes (nrpts, nrattribs, inl, crl, z)
+            planes = np.reshape( inp, (nrpts, nrattribs, samples_shape[-2],
+                                       samples_shape[-1]) )
+            planes = planes[:, :, np.newaxis, :, :]
+            samples = np.broadcast_to( planes, samples_shape ).copy()
+          elif not self.datais2d_ and (self.isflat_inlinemodel_ or self.isflat_xlinemodel_):
             if nrpts == 1:
               samples = np.reshape( inp, (nrpts,*inp.shape) ).copy()
             else:
@@ -356,7 +363,7 @@ class ModelApplier:
 
         if dgbkeys.preddictstr in ret:
             ret[dgbkeys.preddictstr] = self.postprocess( ret[dgbkeys.preddictstr], swapaxes )
-    
+
         res = list()
         outkeys = list()
         outkeys.append( dgbkeys.preddictstr )

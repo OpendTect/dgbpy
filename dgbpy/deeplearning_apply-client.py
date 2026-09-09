@@ -148,7 +148,13 @@ def get_client_apply_pars( args ):
       ret['apply_dir'] = dir
       ret[dgbkeys.inpshapedictstr] = shape
 
-    inpdatashp = batchsize * nrimages, nrattribs, *shape
+    if data_is2d and dgbhdf5.is3DModel( info ):
+      # For 2D data the server expects a shape of (nrattribs, traces, z) per image
+      datashape = [shape[1], shape[2]]
+      ret[dgbkeys.inpshapedictstr] = datashape
+      inpdatashp = batchsize * nrimages, nrattribs, *datashape
+    else:
+      inpdatashp = batchsize * nrimages, nrattribs, *shape
   else:
     nrlines_out = 21
     nrtrcs_out = 1001
