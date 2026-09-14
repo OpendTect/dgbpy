@@ -25,11 +25,12 @@ try:
   from sklearn.multioutput import MultiOutputRegressor
   from sklearn.cluster import KMeans, MeanShift, SpectralClustering
   from sklearn.metrics import silhouette_score
-except ModuleNotFoundError:
+except ImportError:
   pass
 from scipy.spatial import distance
 from odpy.common import log_msg, redirect_stdout, restore_stdout, get_settings_filename
 from odpy.oscommand import printProcessTime
+from odpy.compat import version_at_least
 import odpy.hdf5 as odhdf5
 import dgbpy.keystr as dgbkeys
 import dgbpy.hdf5 as dgbhdf5
@@ -42,25 +43,44 @@ n_cpu = tot_cpu
 def hasScikit():
   try:
     import sklearn
-  except ModuleNotFoundError:
+  except ImportError:
     return False 
   return True
 
 def isVersionAtLeast(version):
   try:
     import sklearn
-  except ModuleNotFoundError:
+  except ImportError:
     return False
-  return sklearn.__version__ >= version
+  return version_at_least( sklearn.__version__, version )
 
 def isClustering(model):
   if isinstance(model, SpectralClustering) or isinstance(model, MeanShift) or isinstance(model, KMeans):
     return True
 
+def ensureXGBEstimatorType( model ):
+  """ Sets the _estimator_type attribute xgboost's save_model/load_model read
+
+  scikit-learn 1.9 removed it from its mixins; without it xgboost raises
+  TypeError: `_estimator_type` undefined. No-op on older scikit-learn.
+  """
+
+  if hasattr( model, '_estimator_type' ):
+    return
+  try:
+    from sklearn.base import is_classifier, is_regressor
+    if is_classifier( model ):
+      model._estimator_type = 'classifier'
+    elif is_regressor( model ):
+      model._estimator_type = 'regressor'
+  except Exception:
+    pass
+
+
 def hasXGBoost():
   try:
     import xgboost
-  except ModuleNotFoundError:
+  except ImportError:
     return False
   return True
 
@@ -712,7 +732,8 @@ def getDefaultModel( setup, params=scikit_dict ):
       model = LinearRegression(n_jobs=-1)
     elif modelname == 'Logistic Regression Classifier':
       solvernm = dgbkeys.getNameFromUiName( solvertypes, params['solver'] )
-      model = LogisticRegression(solver=solvernm,n_jobs=-1)
+      # n_jobs is a no-op since scikit-learn 1.8 and removed in 1.10
+      model = LogisticRegression(solver=solvernm)
     elif modelname == 'XGBoost: (Decision Tree)':
       from xgboost import XGBClassifier, XGBRegressor
       learning_rate = params['lr']
@@ -877,7 +898,7 @@ def save( model, outfnm, save_type=defsavetype ):
     if isinstance( model, XGBClassifier ) or isinstance( model, XGBRegressor ) or \
        isinstance( model, XGBRFClassifier ) or isinstance( model, XGBRFRegressor ):
       import xgboost
-      if float(xgboost.__version__[:3]) < 1.0 :
+      if not version_at_least( xgboost.__version__, '1.0' ):
         raise Exception("Xgboost requires a version > 1.0 to save model")
       odhdf5.setAttr( h5file, 'xgboost_version', xgboost.__version__ )
       save_type = xgboostjson
@@ -900,6 +921,7 @@ def save( model, outfnm, save_type=defsavetype ):
     modelgrp.create_dataset('object',data=exported_model)
   elif save_type == xgboostjson:
     joutfnm = os.path.splitext( outfnm )[0] + '.json'
+    ensureXGBEstimatorType( model )
     model.save_model( joutfnm )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   h5file.close()
@@ -922,7 +944,7 @@ def load( modelfnm ):
   elif savetype == savetypes[2]:
     import pickle
     modeldata = modelgrp['object']
-    model = pickle.loads( modeldata[:].tostring() )
+    model = pickle.loads( modeldata[:].tobytes() )
   elif savetype == xgboostjson and hasXGBoost():
     from xgboost import XGBClassifier, XGBRegressor, \
                         XGBRFClassifier, XGBRFRegressor
@@ -944,6 +966,7 @@ def load( modelfnm ):
     if model != None:
       modfnm = odhdf5.getText( modelgrp, 'path' )
       modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
+      ensureXGBEstimatorType( model )
       model.load_model( modfnm )
   h5file.close()
   return model

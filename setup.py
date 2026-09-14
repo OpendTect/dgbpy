@@ -18,6 +18,7 @@ setup(
     long_description='',
     zip_safe=False,
     platforms='any',
+    python_requires='>=3.9',
     install_requires=[
         'bokeh>=2.1.1',
         'h5py>=2.10.0',

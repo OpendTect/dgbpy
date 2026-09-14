@@ -297,20 +297,36 @@ def getTrainingDataByInfo( info, dsetsel=None ):
     y_examples.append( examples[dgbkeys.ytraindictstr] )
   if dgbkeys.yvaliddictstr in examples:
     y_examples.append( examples[dgbkeys.yvaliddictstr] )
+  checksets = [ dgbkeys.xtraindictstr, dgbkeys.xvaliddictstr ]
+  # Clustering data has no target to validate
+  if not dgbhdf5.isSegmentation( info ):
+    checksets += [ dgbkeys.ytraindictstr, dgbkeys.yvaliddictstr ]
+  for setnm in checksets:
+    if setnm in examples:
+      checkFiniteData( examples[setnm], setnm )
   ret.update({ dgbkeys.infodictstr: getClasses(info,y_examples) })
   if dgbhdf5.isClassification( info ):
     if dgbkeys.ytraindictstr in examples:
       normalize_class_vector( examples[dgbkeys.ytraindictstr], \
                               info[dgbkeys.classesdictstr] )
+      checkClassVector( examples[dgbkeys.ytraindictstr],
+                        info[dgbkeys.classesdictstr], dgbkeys.ytraindictstr )
     if dgbkeys.yvaliddictstr in examples:
       normalize_class_vector( examples[dgbkeys.yvaliddictstr], \
                               info[dgbkeys.classesdictstr] )
+      checkClassVector( examples[dgbkeys.yvaliddictstr],
+                        info[dgbkeys.classesdictstr], dgbkeys.yvaliddictstr )
   return ret
 
 def getClasses( info, y_vectors ):
   if not dgbhdf5.isClassification( info ):
     return info
   import numpy as np
+  # The class list covers every group of the example file; callers pass one
+  # group at a time, so re-deriving it here narrowed the list and left targets
+  # out of range for CrossEntropyLoss. Derive only when none is given.
+  if dgbkeys.classesdictstr in info and len(info[dgbkeys.classesdictstr]) > 0:
+    return info
   classes = []
   for y_vec in y_vectors:
     (minval,maxval) = ( np.min(y_vec), np.max(y_vec) )
@@ -326,6 +342,50 @@ def normalize_class_vector( arr, classes ):
   classes = np.sort( classes )
   for i in range( len(classes) ):
     arr[arr == classes[i]] = i
+
+# OpendTect's undefined float. Undefined or non-finite training data gives a
+# NaN loss and a model of NaN weights, so reject it up front with a clear message.
+odundefval = 1e30
+
+def checkFiniteData( arr, setnm ):
+  """Rejects NaN, inf and OpendTect undefined values before they reach a loss."""
+  import numpy as np
+  if arr is None or not isinstance( arr, np.ndarray ) or arr.size < 1:
+    return
+  if not np.issubdtype( arr.dtype, np.floating ):
+    return
+  nonfinite = ~np.isfinite( arr )
+  nrnonfinite = int( np.count_nonzero( nonfinite ) )
+  nrundef = int( np.count_nonzero( np.abs(arr[~nonfinite]) >= odundefval/10 ) )
+  if nrnonfinite < 1 and nrundef < 1:
+    return
+  what = []
+  if nrundef > 0:
+    what.append( '%d OpendTect undefined (1e30)' % nrundef )
+  if nrnonfinite > 0:
+    what.append( '%d NaN or infinite' % nrnonfinite )
+  raise ValueError(
+    '%s holds %s of %d values (%.2f%%). Training on these produces a NaN loss '
+    'and a model of NaN weights. Remove the undefined samples from the '
+    'training set, or restrict the training area to where every input and '
+    'target is defined.'
+    % (setnm, ' and '.join(what), arr.size,
+       100.0*(nrnonfinite+nrundef)/arr.size) )
+
+def checkClassVector( arr, classes, setnm ):
+  """Rejects class values outside range(len(classes)) before CrossEntropyLoss
+  trips an opaque device-side assert on them."""
+  import numpy as np
+  nrclasses = len( classes )
+  if nrclasses < 1 or arr.size < 1:
+    return
+  bad = np.unique( arr[(arr < 0) | (arr >= nrclasses)] )
+  if len(bad) < 1:
+    return
+  raise ValueError(
+    'Class values %s in %s fall outside the %d classes of the example file '
+    '(%s): the training data holds values the example file does not declare '
+    'as classes.' % (list(bad), setnm, nrclasses, list(classes)) )
 
 def unnormalize_class_vector( arr, classes ):
   import numpy as np
@@ -518,12 +578,106 @@ def modelNameExists( modnm, type, args, reload=True ):
       sametrl = modinfo['TranslatorGroup'] == mltrlgrp
   return (exists,sametrl,sameformat,sametyp)
 
-def dbInfoForModel( modnm, args, reload=True ):
+# ---------------------------------------------------------------------------
+# OpendTect database access, out of process
+#
+# Importing odpy.dbman loads odbind and with it ODHDF5, which binds to the
+# hdf5.dll h5py already loaded. When the two HDF5 versions differ this corrupts
+# the shared HDF5 state and the model save fails afterwards, typically with
+#   KeyError("Property object doesn't exist")  or  ValueError("Not a datatype")
+# The database calls only need the .omf metadata, so run them in a child
+# process. Set DGBPY_DB_INPROCESS=1 for the old in-process behaviour.
+# Remove once ODHDF5 is linked statically against HDF5.
+# ---------------------------------------------------------------------------
+
+_dbjsonmark = '__ODDBJSON__'
+
+# The request goes over stdin: sys.path can exceed the Windows command line limit.
+_dbbootstrap = (
+  'import sys, json;'
+  'req = json.loads(sys.stdin.read());'
+  'sys.path[:0] = req["path"];'
+  'import dgbpy.mlio as _m;'
+  'sys.stdout.write("' + _dbjsonmark + '" + json.dumps('
+  '_m.dbCallDirect(req["op"], req["payload"])))'
+)
+
+
+def dbSafeArgs( args ):
+  """ Keeps only the JSON-serialisable survey-location entries of args """
+
+  import json
+  ret = {}
+  if not args:
+    return ret
+  for ky in ('dtectdata','survey','dtectexec'):
+    if ky not in args:
+      continue
+    try:
+      json.dumps( args[ky] )
+      ret[ky] = args[ky]
+    except Exception:
+      pass
+  return ret
+
+
+def dbCallDirect( op, payload ):
+  """ Performs an OpendTect database call in this process """
+
   import odpy.dbman as oddbman
+  args = payload.get( 'args', {} ) or {}
+  if op == 'getSaveLoc':
+    dblist = oddbman.getDBList( mltrlgrp, alltrlsgrps=False, args=args )
+    dbkey = None
+    try:
+      dbkey = oddbman.getDBKeyForName( dblist, payload['outnm'] )
+    except ValueError:
+      dbkey = None
+    if not dbkey:
+      # getDBKeyForName returns None for an unknown name
+      return oddbman.getNewEntryFileName( payload['outnm'], mltrlgrp, dgbtrl,
+                                          args=args )
+    return oddbman.getFileLocation( dbkey, args )
+  if op == 'dbInfoForModel':
+    dblistall_ = oddbman.getDBList( mltrlgrp, alltrlsgrps=True, args=args )
+    return oddbman.getInfoFromDBListByNameOrKey( payload['modnm'], dblistall_ )
+  raise ValueError( 'Unknown database operation: ' + str(op) )
+
+
+def dbCall( op, payload ):
+  """ Runs an OpendTect database call, in a child process where possible """
+
+  if os.environ.get( 'DGBPY_DB_INPROCESS' ) == '1':
+    return dbCallDirect( op, payload )
+  import json, subprocess
+  try:
+    # args can hold open file objects (argparse.FileType): send only the
+    # survey-location keys
+    payload = dict( payload )
+    payload['args'] = dbSafeArgs( payload.get('args') )
+    req = json.dumps( {'path': list(sys.path), 'op': op, 'payload': payload} )
+    proc = subprocess.run(
+             [sys.executable, '-c', _dbbootstrap],
+             input=req.encode('utf-8'),
+             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300 )
+    out = proc.stdout.decode( 'utf-8', 'replace' )
+    idx = out.rfind( _dbjsonmark )
+    if idx >= 0:
+      return json.loads( out[idx+len(_dbjsonmark):] )
+    log_msg( '[Warning] Out-of-process database call for', op,
+             'returned no result (exit code', str(proc.returncode) + ').',
+             'Falling back in-process, which loads ODHDF5 and will very likely',
+             'break the save. Child stderr follows:' )
+    log_msg( proc.stderr.decode('utf-8','replace')[-1500:] )
+  except Exception as e:
+    log_msg( '[Warning] Out-of-process database call failed:', repr(e),
+             '- falling back in-process.' )
+  return dbCallDirect( op, payload )
+
+
+def dbInfoForModel( modnm, args, reload=True ):
   global dblistall
-  if dblistall == None or reload:
-    dblistall = oddbman.getDBList(mltrlgrp, alltrlsgrps=True, args=args)
-  return oddbman.getInfoFromDBListByNameOrKey( modnm, dblistall )
+  return dbCall( 'dbInfoForModel', {'modnm': modnm, 'args': args} )
 
 def getModelType( infos ):
   """ Gets model type
@@ -539,14 +693,8 @@ def getModelType( infos ):
 
 def getSaveLoc( outnm, ftype, args ):
   try:
-    import odpy.dbman as oddbman
-    dblist = oddbman.getDBList(mltrlgrp,alltrlsgrps=False, args=args)
-    try:
-      dbkey = oddbman.getDBKeyForName( dblist, outnm )
-    except ValueError:
-      return oddbman.getNewEntryFileName(outnm,mltrlgrp,dgbtrl,\
-                                        dgbhdf5.hdf5ext,ftype=ftype,args=args)
-    return oddbman.getFileLocation( dbkey, args )
+    return dbCall( 'getSaveLoc',
+                   {'outnm': outnm, 'ftype': ftype, 'args': args} )
   except Exception:
     return os.path.join( os.getcwd(), outnm )
   

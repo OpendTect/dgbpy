@@ -13,6 +13,7 @@ import json
 import warnings
 from typing import Iterable
 import numpy as np
+
 import tensorflow as tf
 from tensorflow.keras.utils import Sequence, to_categorical
 
@@ -207,7 +208,6 @@ import os,re
 import odpy.common as odcommon
 
 from abc import ABC, abstractmethod
-from keras import backend
 from pathlib import Path
 from enum import Enum
 

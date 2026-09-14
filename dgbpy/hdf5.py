@@ -18,6 +18,7 @@ from odpy.common import log_msg,  redirect_stdout, restore_stdout, isWin
 
 import odpy.hdf5 as odhdf5
 from odpy.common import std_msg
+from odpy.compat import char_startswith
 
 from dgbpy.keystr import *
 
@@ -57,7 +58,7 @@ def getCubeLetNamesByGroupByItem( info, groupnm, collnm, idx ):
     ret = np.arange(len(group[dsetnms[0]][xdatadictstr]))
   else:
     dsetnms = list(map(str, dsetnms))
-    dsetwithinp = np.chararray.startswith( dsetnms, str(idx)+':' )
+    dsetwithinp = char_startswith( dsetnms, str(idx)+':' )
     ret = np.extract( dsetwithinp, dsetnms )
   h5file.close()
   return np.ndarray.tolist(ret)
@@ -503,10 +504,12 @@ def getCubeLets( infos, collection, groupnm ):
         output = np.resize( y_data, (nrpts,nroutputs) ).astype( outdtype )
     else:
       cubelets = np.empty( inparrshape, np.single )
+      # Without target data (clustering) output is never filled: keep it zeroed
+      mkoutput = np.empty if hasydata else np.zeros
       if img2img:
-        output = np.empty( outarrshape, outdtype )
+        output = mkoutput( outarrshape, outdtype )
       else:
-        output = np.empty( (nrpts,nroutputs), outdtype )
+        output = mkoutput( (nrpts,nroutputs), outdtype )
       for idx,dsetnm in zip(range(len(dsetnms)),dsetnms):
         dset = x_data[dsetnm]
         if hasydata:

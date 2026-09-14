@@ -176,3 +176,93 @@ def cleanup_after_tests(request):
     request.addfinalizer(finalizer)
 
 
+
+
+# getClasses used to re-derive the class list from each group (well) in turn,
+# so the model was built for the last group's classes only.
+import numpy as np
+import dgbpy.mlio as dgbmlio
+
+def _litho_info( classes ):
+    info = get_loglog_info()
+    info[dbk.classdictstr] = True
+    info[dbk.classesdictstr] = list(classes)
+    return info
+
+def test_getClasses_keeps_example_file_classlist():
+    info = _litho_info( [1,2,3,4,5] )
+    wella = np.array( [[1],[2],[3],[4],[5]], dtype=np.single )
+    wellb = np.array( [[1],[2],[1],[2]], dtype=np.single )
+    for welly in (wella, wellb):
+        dgbmlio.getClasses( info, [welly] )
+        dgbmlio.normalize_class_vector( welly, info[dbk.classesdictstr] )
+        assert len(info[dbk.classesdictstr]) == 5, \
+            'a single group must not narrow the example file class list'
+    nroutputs = len( info[dbk.classesdictstr] )
+    assert int(np.concatenate([wella,wellb]).max()) < nroutputs
+    assert np.array_equal( wella.ravel(), [0,1,2,3,4] )
+    assert np.array_equal( wellb.ravel(), [0,1,0,1] )
+
+def test_getClasses_still_derives_when_none_given():
+    info = _litho_info( [] )
+    y = np.array( [[1],[3],[5]], dtype=np.single )
+    dgbmlio.getClasses( info, [y] )
+    assert list(info[dbk.classesdictstr]) == [1,3,5]
+
+def test_checkClassVector_names_the_offending_value():
+    dgbmlio.checkClassVector( np.array([0,1,2]), [1,2,3], 'y_train' )
+    with pytest.raises( ValueError, match='outside the 2 classes' ):
+        dgbmlio.checkClassVector( np.array([0,1,4]), [1,2], 'y_train' )
+
+def test_checkFiniteData_accepts_clean_data():
+    dgbmlio.checkFiniteData( np.array([1.0, -2.5, 0.0], dtype=np.single), 'x_train' )
+    dgbmlio.checkFiniteData( np.array([1, 2, 3], dtype=np.int32), 'y_train' )
+
+def test_checkFiniteData_rejects_opendtect_undef():
+    arr = np.array( [1.0, 2.0, 1e30, 3.0], dtype=np.single )
+    with pytest.raises( ValueError, match='OpendTect undefined' ):
+        dgbmlio.checkFiniteData( arr, 'y_train' )
+
+def test_checkFiniteData_rejects_nan_and_inf():
+    for bad in (np.nan, np.inf, -np.inf):
+        arr = np.array( [1.0, bad, 3.0], dtype=np.single )
+        with pytest.raises( ValueError, match='NaN or infinite' ):
+            dgbmlio.checkFiniteData( arr, 'x_train' )
+
+
+# Clustering data has no target; getCubeLets returned an uninitialised
+# placeholder for it, which checkFiniteData then rejected.
+import h5py
+import dgbpy.hdf5 as dgbhdf5
+
+def _clustering_examplefile( tmp_path, nrpts=50, nrattribs=2, nrsamples=21 ):
+    fnm = str( tmp_path / 'clustering.h5' )
+    with h5py.File( fnm, 'w' ) as h5file:
+        grp = h5file.create_group( 'Survey' ).create_group( 'Well' )
+        grp.create_dataset( dbk.xdatadictstr,
+                            data=np.random.rand(nrpts,nrattribs,nrsamples).astype(np.single) )
+    info = get_default_info( nr_inattr=nrattribs )
+    info[dbk.segmentdictstr] = True
+    info[dbk.inpshapedictstr] = nrsamples
+    info[dbk.filedictstr] = fnm
+    return info, {'Well': list(range(nrpts))}
+
+def test_getCubeLets_clustering_placeholder_target_is_defined(tmp_path):
+    info, collection = _clustering_examplefile( tmp_path )
+    ret = dgbhdf5.getCubeLets( info, collection, 'Survey' )
+    assert ret[dbk.xtraindictstr].shape[0] == 50
+    ytrain = ret[dbk.ytraindictstr]
+    assert ytrain.shape[0] == 50
+    assert np.all( np.isfinite(ytrain) ) and np.all( ytrain == 0 ), \
+        'the unused target placeholder must not be uninitialised memory'
+
+def test_getTrainingDataByInfo_skips_target_checks_for_clustering(tmp_path, monkeypatch):
+    info, collection = _clustering_examplefile( tmp_path )
+    dsets = dgbhdf5.getDatasets( info, {'Survey': collection}, validation=False )
+    dsets[dbk.ytraindictstr][:] = dgbmlio.odundefval
+    monkeypatch.setattr( dgbhdf5, 'getDatasets', lambda *a, **kw: dsets )
+    ret = dgbmlio.getTrainingDataByInfo( info, {'Survey': collection} )
+    assert ret[dbk.xtraindictstr].shape[0] == 50
+    dsets[dbk.xtraindictstr][0] = np.nan
+    with pytest.raises( ValueError, match='x_train' ):
+        dgbmlio.getTrainingDataByInfo( info, {'Survey': collection} )
