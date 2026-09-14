@@ -9,6 +9,8 @@
 import json
 import torch
 
+from odpy.compat import torch_supports_weights_only
+
 def __model_type( torch_model ):
     return 'Torch Model'
 
@@ -46,7 +48,10 @@ def model_info( modelfnm ):
     try:
         model = torch.jit.load( modelfnm )
     except RuntimeError:
-        model = torch.load( modelfnm )
+        kwargs = {}
+        if torch_supports_weights_only( torch ):
+            kwargs['weights_only'] = False
+        model = torch.load( modelfnm, **kwargs )
     mi = model_info_dict( model )
     return json.dumps(mi)
 

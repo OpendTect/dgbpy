@@ -6,20 +6,35 @@ import json
 class OnnxScikitModel:
     def __init__(self, filepath : str):
         self.name = filepath
+        self.session = None
 
-    def _do_predict(self,x_data,outidx):
+    def _get_session(self):
+        """ Builds the inference session once
+
+        Requests CPUExecutionProvider explicitly: with onnxruntime-gpu the
+        default initialises CUDA, which is slow and unused by ai.onnx.ml ops.
+        """
+
+        if self.session is not None:
+            return self.session
         if not os.path.exists(str(self.name)):
             raise FileNotFoundError()
-
         import onnxruntime as rt
+        import dgbpy.keystr as dgbkeys
+        try:
+            self.session = rt.InferenceSession( self.name,
+                                                providers=[dgbkeys.onnxcpustr] )
+        except Exception:
+            self.session = rt.InferenceSession( self.name )
+        return self.session
+
+    def _do_predict(self,x_data,outidx):
         import numpy as np
-        sess = rt.InferenceSession(self.name)
+        sess = self._get_session()
         input_name = sess.get_inputs()[0].name
         label_name = sess.get_outputs()[outidx].name
-        runopts = rt.RunOptions()
         pred_onx = sess.run([label_name],
-                            {input_name: x_data.astype(np.single)},
-                            run_options=runopts)[0]
+                            {input_name: x_data.astype(np.single)})[0]
         return np.squeeze( pred_onx )
 
     def predict(self,x_data):

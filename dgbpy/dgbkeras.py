@@ -29,14 +29,14 @@ try:
   import dgbpy.keras_classes as kc
   from dgbpy.mlmodel_keras_dGB import root_mean_squared_error, cross_entropy_balanced
   from keras.callbacks import Callback
-except ModuleNotFoundError:
+except ImportError:
   pass
 from dgbpy.mlio import announceShowTensorboard, announceTrainingFailure, announceTrainingSuccess, saveModel, getStoredParams
 
 def hasKeras():
   try:
     import tensorflow,keras
-  except ModuleNotFoundError:
+  except ImportError:
     return False
   return True
 
@@ -289,7 +289,7 @@ def getDefaultModel( setup, type=keras_dict['type'],
 def hasFastprogress():
     try:
         import fastprogress
-    except ModuleNotFoundError:
+    except ImportError:
         return False
     return True
 

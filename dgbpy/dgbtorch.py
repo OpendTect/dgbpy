@@ -24,14 +24,14 @@ try:
   from torch.utils.data import DataLoader
   import dgbpy.torch_classes as tc
   device = torch.device('cpu')
-except ModuleNotFoundError:
+except ImportError:
   device = None
   pass
 
 def hasTorch():
   try:
     import torch
-  except ModuleNotFoundError:
+  except ImportError:
     return False
   return True
 
@@ -361,12 +361,12 @@ def load( modelfnm, infos = False ):
     elif savetype == SaveType.Pickle:
       import pickle
       modeldata = modelgrp['object']
-      model_state_dict = pickle.loads( modeldata[:].tostring() )
+      model_state_dict = pickle.loads( modeldata[:].tobytes() )
       model, _ = get_model_architecture( model_state_dict, modelname, infos )
     else:
       modfnm = odhdf5.getText( modelgrp, 'path' )
       modfnm = dgbhdf5.translateFnm( modfnm, modelfnm )
-      model = torch.load( str(modfnm) )
+      model = torch.jit.load( str(modfnm) )
 
   except Exception as e:
     raise e
@@ -386,6 +386,14 @@ def get_dummy_input(infos):
   elif dims == 1 or dims == 0:
     dummy_input = torch.randn(input_size, model_shape[0], model_shape[1])
   return dummy_input
+
+def getModelDevice( model ):
+  """Device the model's parameters live on, or None if it has none."""
+  for param in model.parameters():
+    return param.device
+  for buf in model.buffers():
+    return buf.device
+  return None
 
 def get_model_architecture(model, model_classname, infos):
   # Add documentation
@@ -462,7 +470,11 @@ def save( model, outfnm, infos, params=torch_dict ):
     retmodel, dummies = get_model_architecture(model, model.__class__.__name__, infos)
     input_name = ['input']
     dynamic_axes = {'input': {0: 'batch_size'}}
-    export_kwargs = {'input_names': input_name, 'dynamic_axes': dynamic_axes}
+    # onnx2torch (Resume/Transfer) has no converters for the Resize and
+    # Constant versions above opset 17; torch 2.11 defaults to opset 20.
+    onnxopset = 17
+    export_kwargs = {'input_names': input_name, 'dynamic_axes': dynamic_axes,
+                     'opset_version': onnxopset}
     if 'dynamo' in inspect.signature(torch.onnx.export).parameters:
       try:
         import onnxscript
@@ -473,15 +485,24 @@ def save( model, outfnm, infos, params=torch_dict ):
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.TorchScript:
     joutfnm = os.path.splitext( outfnm )[0] + '.pth'
+    tracedfrom, tracedevice = None, None
     try:
       with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = torch.jit.script(model)
     except Exception:
       dummy_input = get_dummy_input(infos)
-      model = torch.jit.trace(model, dummy_input)
-      model = torch.jit.script(model)
+      # Trace on the CPU: the dummy input is on the CPU, and a CUDA-traced
+      # archive would not load on a machine without a GPU.
+      tracedfrom = model
+      tracedevice = getModelDevice( tracedfrom )
+      model = torch.jit.trace( tracedfrom.cpu(), dummy_input )
+      model = torch.jit.script( model )
     model.save(joutfnm )
+    # The traced module shares its parameters with the caller's model, so
+    # only move it back to its device once the archive is written.
+    if tracedfrom is not None and tracedevice is not None:
+      tracedfrom.to( tracedevice )
     odhdf5.setAttr( modelgrp, 'path', joutfnm )
   elif save_type == SaveType.Joblib:
     import joblib

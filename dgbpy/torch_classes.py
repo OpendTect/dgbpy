@@ -37,7 +37,7 @@ def Numpy2tensor(nparray):
 def hasFastprogress():
     try:
         import fastprogress
-    except ModuleNotFoundError:
+    except ImportError:
         return False
     return True
 
@@ -284,6 +284,9 @@ class TrainEvalCallback(Callback):
         self.run.target  = self.run.target.to(self.run.device)
         
     def begin_epoch(self):
+        # The model can be replaced between chunks and folds (Resume/Transfer),
+        # so re-assert its device; .to() is a no-op when already correct.
+        self.run.model = self.run.model.to(self.run.device)
         self.model.train()
         self.run.in_train=True
 
@@ -441,7 +444,13 @@ class TensorBoardLogCallback(Callback):
     _order = 10
     def begin_batch(self):
         if self.run.tensorboard and self.epoch+1==self.epochs and self.iter==0:
-            self.run.tensorboard.add_graph(self.model, self.input)
+            # add_graph is diagnostics only and fails on onnx2torch GraphModules
+            # (Resume/Transfer): never let it abort the training run.
+            try:
+                self.run.tensorboard.add_graph(self.model, self.input)
+            except Exception as e:
+                odcommon.log_msg('[Warning] Could not add the model graph to '
+                                 'TensorBoard, training continues:', repr(e))
 
     def after_epoch(self):
         if self.run.tensorboard:
@@ -1639,8 +1648,10 @@ class DatasetApply(Dataset):
             return self.X[index, :, :, :, :]
         elif self.ndims == 2:
             return self.X[index, :, 0, :, :]
-        elif self.ndims == 1:
+        elif self.ndims == 1 or self.ndims == 0:
+            # ndims 0 is 1D input with a single-sample window (see dGBLeNet)
             return self.X[index, :, 0, 0, :]
+        raise ValueError( 'Unsupported number of dimensions: %s' % self.ndims )
 
 import importlib
 import pkgutil

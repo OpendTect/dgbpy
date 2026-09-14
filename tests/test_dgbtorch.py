@@ -504,3 +504,30 @@ def test_train_and_apply_multiple_in_and_out_attributes(data):
     assert prediction.shape == yvalid.shape, 'prediction shape should be the same as the target shape'
 
 
+
+
+# dgbtorch.save falls back to torch.jit.trace for models torch.jit.script
+# rejects (dGBUNet); tracing a CUDA model with the CPU dummy input failed.
+requires_cuda = pytest.mark.skipif( not torch.cuda.is_available(),
+                                    reason='needs a CUDA device' )
+
+@requires_cuda
+def test_torchscript_save_of_gpu_model_3d(tmp_path):
+    from init_data import get_3d_seismic_imgtoimg_data
+    info = get_3d_seismic_imgtoimg_data(nrclasses=False, nr_outattr=1)[dbk.infodictstr]
+    arch = dgbtorch.getDefaultModel( info, type='dGB UNet Regression' )
+    with pytest.raises( Exception ):
+        torch.jit.script( arch )        # guards the assumption above
+    arch = arch.cuda()
+
+    pars = default_pars()
+    pars['savetype'] = SaveType.TorchScript.value
+    h5nm = str( tmp_path / 'gpumodel.h5' )
+    dgbtorch.save( arch, h5nm, info, pars )
+
+    assert os.path.exists( os.path.splitext(h5nm)[0] + '.pth' )
+    assert next(arch.parameters()).device.type == 'cuda', \
+        'save must leave the caller its model on the device it came from'
+    loaded = torch.jit.load( os.path.splitext(h5nm)[0] + '.pth' )
+    assert next(loaded.parameters()).device.type == 'cpu', \
+        'the archive must trace on CPU so it loads on a machine without a GPU'

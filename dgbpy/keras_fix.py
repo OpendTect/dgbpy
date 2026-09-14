@@ -10,7 +10,7 @@ def _get_available_gpus():
   import tensorflow as tf
   try:
     import keras.backend.tensorflow_backend as tfback
-  except ModuleNotFoundError:
+  except ImportError:
     return []
 
   if tfback._LOCAL_DEVICES is None:
