@@ -5,6 +5,7 @@
 import json
 import numpy as np
 from os import path
+from time import perf_counter
 
 import torch
 
@@ -22,6 +23,7 @@ class FaultNetTransferTrainer(TrainerBase):
         self.learnrate_ = 1e-3
         self.crop_size_ = 256
         self.batch_size_ = 10
+        self.microbatch_size_ = 1
         self.rng_ = np.random.default_rng()
         self.log_every_n_steps_ = 0
         self.metrics_ = None
@@ -63,6 +65,12 @@ class FaultNetTransferTrainer(TrainerBase):
             if type(batch_size) is not int or batch_size < 1:
                 raise ValueError("Invalid 'batch_size': expected a positive integer.")
             self.batch_size_ = batch_size
+
+        if "microbatch_size" in usepars:
+            microbatch_size = usepars["microbatch_size"]
+            if type(microbatch_size) is not int or microbatch_size < 1:
+                raise ValueError("Invalid 'microbatch_size': expected a positive integer.")
+            self.microbatch_size_ = microbatch_size
 
         if self.crop_size_ < 16 or self.crop_size_ % 16 != 0:
             raise ValueError(
@@ -211,14 +219,15 @@ class FaultNetTransferTrainer(TrainerBase):
             torch.from_numpy(np.ascontiguousarray(labels)).to(self.device_),
         )
 
-    def _prepare_batch(self, step):
-        first = step * self.batch_size_
+    def _prepare_batch(self, first, count):
         seis, labels = self._crop_and_augment(self.samples_[first % len(self.samples_)])
-        inputs = seis.new_empty((self.batch_size_, *seis.shape[1:]))
-        targets = labels.new_empty((self.batch_size_, *labels.shape[1:]))
+        if count == 1:
+            return seis, labels
+        inputs = seis.new_empty((count, *seis.shape[1:]))
+        targets = labels.new_empty((count, *labels.shape[1:]))
         inputs[0] = seis[0]
         targets[0] = labels[0]
-        for idx in range(1, self.batch_size_):
+        for idx in range(1, count):
             seis, labels = self._crop_and_augment(
                 self.samples_[(first + idx) % len(self.samples_)]
             )
@@ -245,18 +254,28 @@ class FaultNetTransferTrainer(TrainerBase):
         y = (lab > 0.0).float()
         mask = (lab >= 0.0).float()
         p = torch.clamp(pred, 0.0, 1.0)
-        numer = torch.sum(p * y * mask)
-        den = self.gamma_ * torch.sum(mask * y) + (1.0 - self.gamma_) * torch.sum(mask * p)
-        return 1.0 - numer / (den + 1e-8)
+        dims = tuple(range(1, p.ndim))
+        numer = torch.sum(p * y * mask, dim=dims)
+        den = (self.gamma_ * torch.sum(mask * y, dim=dims)
+               + (1.0 - self.gamma_) * torch.sum(mask * p, dim=dims))
+        return (1.0 - numer / (den + 1e-8)).mean()
 
-    def _torch_step(self, seis, labels, optimizer):
+    def _torch_step(self, step, optimizer):
         self.model_.train()
         optimizer.zero_grad(set_to_none=True)
-        loss = self._prediction_loss(seis, labels)
-        loss.backward()
+        total_loss = torch.zeros((), dtype=torch.float32, device=self.device_)
+        first = step * self.batch_size_
+        for offset in range(0, self.batch_size_, self.microbatch_size_):
+            count = min(self.microbatch_size_, self.batch_size_ - offset)
+            seis, labels = self._prepare_batch(first + offset, count)
+            loss = self._prediction_loss(seis, labels)
+            weight = count / self.batch_size_
+            (loss * weight).backward()
+            total_loss += loss.detach() * weight
+            del loss, seis, labels
         optimizer.step()
 
-        return loss.detach()
+        return total_loss
 
     def _fixed_eval_sample(self):
         seis, labels, fault_indices = self.samples_[0]
@@ -313,18 +332,19 @@ class FaultNetTransferTrainer(TrainerBase):
         if not trpars:
             raise ValueError("No trainable parameters available in transfer model.")
 
+        started = perf_counter()
         optimizer = torch.optim.Adam(trpars, lr=self.learnrate_)
         loss_sum = torch.zeros((), dtype=torch.float32, device=self.device_)
         eval_sample = self._fixed_eval_sample()
         self.eval_history_ = [self._log_evaluation(0, eval_sample)]
         for istep in range(self.tr_steps_):
-            seis, labels = self._prepare_batch(istep)
-            losst = self._torch_step(seis, labels, optimizer)
+            losst = self._torch_step(istep, optimizer)
             loss_sum = loss_sum + losst
             if self.log_every_n_steps_ > 0 and ((istep + 1) % self.log_every_n_steps_ == 0):
                 print(
                     f"[faultnet_transfer] step={istep + 1}/{self.tr_steps_} "
-                    f"loss={float(losst.cpu().item()):.6f}",
+                    f"loss={float(losst.cpu().item()):.6f} "
+                    f"elapsed={perf_counter() - started:.1f}s",
                     flush=True,
                 )
             if (istep + 1) % 200 == 0 or istep + 1 == self.tr_steps_:
@@ -333,7 +353,16 @@ class FaultNetTransferTrainer(TrainerBase):
         return float((loss_sum / self.tr_steps_).cpu().item())
 
     def finalize(self):
-        avgloss = self._train()
+        self.metrics_ = None
+        try:
+            avgloss = self._train()
+        except torch.cuda.OutOfMemoryError as exc:
+            raise RuntimeError(
+                "CUDA out of memory during Fault-Net training "
+                f"(crop_size={self.crop_size_}, batch_size={self.batch_size_}, "
+                f"microbatch_size={self.microbatch_size_}). "
+                "Reduce microbatch_size or crop_size before restarting training."
+            ) from exc
         self.metrics_ = {
             "trainer_id": "faultnet_transfer",
             "samples": len(self.samples_),
@@ -342,6 +371,7 @@ class FaultNetTransferTrainer(TrainerBase):
             "gamma": self.gamma_,
             "crop_size": self.crop_size_,
             "batch_size": self.batch_size_,
+            "microbatch_size": self.microbatch_size_,
             "platform": dgbkeys.torchplfnm,
             "training_crop_evaluation": self.eval_history_,
         }

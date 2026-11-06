@@ -103,16 +103,16 @@ class ModelTrainer:
         
         return self.trainer_.finalize()
 
-    def save(self, outputname):
+    def save(self, targetdir, outputname):
         if self.trainer_ is None:
             raise ValueError("Training parameters were not initialized.")
         
-        if not self.modelfnm_ or not os.path.isfile(self.modelfnm_):
-            raise ValueError(f"Cannot determine the output location: input model file "
-                             f"'{self.modelfnm_}' does not exist.")
+        if not isinstance(targetdir, str) or not targetdir or not os.path.isdir(targetdir):
+            raise ValueError(f"Output directory '{targetdir}' does not exist or is not a directory.")
+        if not isinstance(outputname, str) or not outputname.strip():
+            raise ValueError("Missing or invalid 'output_model_name': expected a nonempty string.")
 
-        targetdir = os.path.dirname(os.path.abspath(self.modelfnm_))
-        saved_path = self.trainer_.save(targetdir, outputname or 'NewPretrainedTemp')
+        saved_path = self.trainer_.save(os.path.abspath(targetdir), outputname)
         if not saved_path or not os.path.isfile(saved_path):
             raise ValueError(f"Failed to save the model to '{saved_path}'.")
 
@@ -262,8 +262,11 @@ class Message:
         elif action == "save":
             try:
                 val = self._request.get("value") or {}
-                outnm = val.get("output_model_name", "")
-                outfnm = self._trainer.save(outnm)
+                if not isinstance(val, dict):
+                    raise ValueError("Invalid save request: expected a JSON object in 'value'.")
+                outnm = val.get("output_model_name")
+                targetdir = val.get("target_dir")
+                outfnm = self._trainer.save(targetdir, outnm)
                 content["result"] = "Training model saved"
                 content["output_file"] = outfnm
 

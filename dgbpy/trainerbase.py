@@ -36,4 +36,4 @@ class TrainerBase(ABC):
     @abstractmethod
     def save(self, targetdir: str, outputname: str) -> str:
         """Saves the trained model as 'outputname' in 'targetdir'.
-           Returns the full path of the saved model file"""
+           Returns the full path of the saved model .h5 file"""

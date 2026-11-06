@@ -127,7 +127,7 @@ def main() -> int:
     killreq = False
     servererror = None
     parentisdead = False
-    while not killreq and servererror is None and not parentisdead:
+    while not killreq and servererror is None and not parentisdead and ex_code == 0:
       events = sel.select(timeout=300)
       for key, mask in events:
         if key.data is None:
@@ -151,8 +151,11 @@ def main() -> int:
             if timer is not None:
               timer.cancel()
 
-          servererror = message._serverexception
-          if mask & selectors.EVENT_WRITE:
+          if message._serverexception is not None and not message._send_buffer:
+            servererror = message._serverexception
+            log_msg(servererror)
+            ex_code = 1
+          if mask & selectors.EVENT_WRITE and not message._send_buffer:
             killreq = message._killreq
 
           if servererror is not None or killreq or parentisdead or ex_code != 0:
@@ -170,6 +173,10 @@ def main() -> int:
   except trainlib.ParentExitCommand:
     log_msg('Found dead parent, exiting')
     ex_code = 2
+
+  except Exception:
+    log_msg("Train server error:", traceback.format_exc())
+    ex_code = 1
 
   finally:
     if timer is not None:

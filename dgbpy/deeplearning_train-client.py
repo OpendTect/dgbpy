@@ -24,12 +24,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("modelfile", type=argparse.FileType("r"),
                         help="Input pretrained model file")
+    parser.add_argument("--output-dir", dest="output_dir", required=True,
+                        help="Existing directory for the trained model and metrics.")
     parser.add_argument("--address", dest="addr", type=str, default="localhost")
     parser.add_argument("--port", dest="port", type=int, default=None)
     parser.add_argument("--gamma", dest="gamma", type=float, default=0.5)
     parser.add_argument("--tr-steps", dest="tr_steps", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=10,
                         help="Augmented crops per optimizer update (default: 10).")
+    parser.add_argument("--microbatch-size", type=int, default=1,
+                        help="Crops processed together on the device (default: 1).")
     parser.add_argument("--crop-size", type=int, default=256,
                         help="Native-resolution training crop size (default: 256). "
                              "Must be divisible by 16; input dimensions must be at least this size.")
@@ -191,6 +195,7 @@ def main() -> int:
                     "tr_steps": args["tr_steps"],
                     "crop_size": args["crop_size"],
                     "batch_size": args["batch_size"],
+                    "microbatch_size": args["microbatch_size"],
                     "log_every_n_steps": args["log_every_n_steps"],
                 },
                 "output_model_name": args["output_model_name"],
@@ -217,7 +222,10 @@ def main() -> int:
                 if ex_code == 0:
                     ok, savresp = req_connection(
                         serverproc, sel, sockfam, addr,
-                        create_request("save", {"output_model_name": args["output_model_name"]})
+                        create_request("save", {
+                            "output_model_name": args["output_model_name"],
+                            "target_dir": args["output_dir"],
+                        })
                     )
                     if not ok:
                         ex_code = 1
