@@ -33,6 +33,11 @@ class TrainerBase(ABC):
     def finalize(self) -> dict:
         """Runs the training and returns a dict with the training metrics"""
 
+    def infere(self) -> np.ndarray | None:
+        """Returns a nonempty numeric inference array, or None if unsupported.
+           Array axes and inference strategy are defined by the trainer."""
+        return None
+
     @abstractmethod
     def save(self, targetdir: str, outputname: str) -> str:
         """Saves the trained model as 'outputname' in 'targetdir'.

@@ -103,6 +103,39 @@ class ModelTrainer:
         
         return self.trainer_.finalize()
 
+    def infere(self):
+        if self.trainer_ is None:
+            raise ValueError("Training parameters were not initialized.")
+        
+        if self.pending_arrays_:
+            raise ValueError("Cannot infer with an incomplete training sample.")
+
+        output = self.trainer_.infere()
+        if output is None:
+            raise ValueError(f'Trainer "{self.trainerid_}" does not provide inference output.')
+        
+        if not isinstance(output, np.ndarray):
+            raise TypeError("Invalid inference output: expected a NumPy array.")
+        
+        supported_types = (
+            "int8", "uint8", "int16", "uint16", "int32", "uint32",
+            "int64", "float32", "float64",
+        )
+        
+        if output.dtype.name not in supported_types:
+            raise ValueError(f"Unsupported inference array datatype: {output.dtype}.")
+        
+        if not output.dtype.isnative:
+            raise ValueError("Inference array must use native byte order.")
+        
+        if output.ndim == 0 or output.size == 0:
+            raise ValueError("Inference output must be a nonempty array; use [value] for a scalar.")
+        
+        if not np.all(np.isfinite(output)):
+            raise ValueError("Inference output contains nonfinite values.")
+        
+        return np.ascontiguousarray(output)
+
     def save(self, targetdir, outputname):
         if self.trainer_ is None:
             raise ValueError("Training parameters were not initialized.")
@@ -259,6 +292,29 @@ class Message:
                 self._serverexception = self._make_exception_report("Finalize error exception", exc)
                 content["result"] = self._serverexception
 
+        elif action == "infere":
+            try:
+                print(
+                    "[train_server] Running inference for visual QC; "
+                    "this may take some time. Please wait.",
+                    flush=True,
+                )
+                output = self._trainer.infere()
+                print(
+                    "[train_server] Inference completed; preparing the result for transfer.",
+                    flush=True,
+                )
+                return {
+                    "content_bytes": output.tobytes(),
+                    "content_type": "binary/array",
+                    "content_encoding": [output.dtype.name],
+                    "arrsize": [output.shape],
+                }
+
+            except Exception as exc:
+                self._serverexception = self._make_exception_report("Inference error exception", exc)
+                content["result"] = self._serverexception
+
         elif action == "save":
             try:
                 val = self._request.get("value") or {}
@@ -267,6 +323,7 @@ class Message:
                 outnm = val.get("output_model_name")
                 targetdir = val.get("target_dir")
                 outfnm = self._trainer.save(targetdir, outnm)
+                print(f"[train_server] Model saved: {outfnm}", flush=True)
                 content["result"] = "Training model saved"
                 content["output_file"] = outfnm
 

@@ -378,13 +378,67 @@ class FaultNetTransferTrainer(TrainerBase):
 
         return self.metrics_
 
+    def infere(self):
+        """Infer the entire stored volume, without cropping or augmentation."""
+        if self.metrics_ is None:
+            raise ValueError("No trained model available for inference. Call finalize first.")
+        
+        if len(self.samples_) != 1:
+            raise ValueError("Whole-volume inference requires exactly one stored input volume.")
+
+        seis = self.samples_[0][0]
+        modes = [(module, module.training) for module in self.model_.modules()]
+        self.model_.eval()
+        try:
+            with torch.no_grad():
+                inp = torch.from_numpy(np.ascontiguousarray(seis)).to(self.device_)
+                pred = self.model_(inp)
+                if isinstance(pred, (list, tuple)):
+                    pred = pred[0]
+        
+                if not isinstance(pred, torch.Tensor):
+                    raise TypeError("Fault-Net inference must return a tensor.")
+        
+                if tuple(pred.shape) == (1, 1, *seis.shape[2:]):
+                    pred = pred[0, 0]
+        
+                elif tuple(pred.shape) == (1, *seis.shape[2:]):
+                    pred = pred[0]
+        
+                else:
+                    raise ValueError(
+                        f"Unexpected Fault-Net inference shape {tuple(pred.shape)}; "
+                        f"expected (1,1,{','.join(map(str, seis.shape[2:]))})."
+                    )
+        
+                if not torch.isfinite(pred).all().item():
+                    raise ValueError("Fault-Net inference produced nonfinite predictions.")
+        
+                finalinference = torch.clamp(pred, 0.0, 1.0).to( device="cpu", dtype=torch.float32 ).numpy()
+                return np.ascontiguousarray(finalinference)
+        
+        except torch.cuda.OutOfMemoryError as exc:
+            raise RuntimeError(
+                "CUDA out of memory during whole-volume Fault-Net inference "
+                f"for input shape {seis.shape}. No tiling or fallback is enabled.") from exc
+        
+        finally:
+            for module, training in modes:
+                module.training = training
+
     def save(self, targetdir, outputname):
         if self.metrics_ is None:
             raise ValueError("No trained model available to save. Call finalize first.")
 
         outfnm = path.join(targetdir, outputname)
-        dgbmlio.saveModel(self.model_, self.modelfnm_, dgbkeys.torchplfnm,
-                          self.info_, outfnm, self.params_)
+        modes = [(module, module.training) for module in self.model_.modules()]
+        try:
+            dgbmlio.saveModel(self.model_, self.modelfnm_, dgbkeys.torchplfnm,
+                              self.info_, outfnm, self.params_)
+        finally:
+            self.model_.to(self.device_)
+            for module, training in modes:
+                module.training = training
 
         metricsfnm = path.join(targetdir, f"{outputname}_transfertraining_metrics.json")
         with open(metricsfnm, "w", encoding="utf-8") as fobj:
