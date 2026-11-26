@@ -25,6 +25,12 @@ class TrainerBase(ABC):
         """Adds one training sample, made of nrArraysPerSample() arrays
            in the order in which they were sent by the client"""
 
+    def InfereInputData(self, seismicarr: np.ndarray) -> None:
+        """Validate, normalize and store one seismic array for inference without labels."""
+        raise NotImplementedError(
+            f'{type(self).__name__} does not support seismic-only inference input.'
+        )
+
     @abstractmethod
     def hasSamples(self) -> bool:
         """Returns True if at least one (input,label) pair was added"""

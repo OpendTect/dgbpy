@@ -52,6 +52,7 @@ class ModelTrainer:
         self.trainerid_ = None
         self.trainer_ = None
         self.pending_arrays_ = []
+        self.inference_input_pending_ = False
 
     def setParameters(self, pars):
         if not isinstance(pars, dict):
@@ -63,7 +64,30 @@ class ModelTrainer:
 
         self.trainer_ = create_trainer(self.trainerid_, self.modelfnm_)
         self.pending_arrays_ = []
+        self.inference_input_pending_ = False
         self.trainer_.setParameters(pars)
+
+    def prepareInfereInputData(self):
+        """The 'inference_input' action routes the next binary packet to InfereInputData."""
+        if self.trainer_ is None:
+            raise ValueError("Training parameters were not initialized.")
+        if self.pending_arrays_:
+            raise ValueError("Cannot receive inference input with an incomplete training sample.")
+        if self.inference_input_pending_:
+            raise ValueError("Already waiting for an inference input array.")
+
+        self.inference_input_pending_ = True
+
+    def InfereInputData(self, arrays):
+        if self.trainer_ is None:
+            raise ValueError("Training parameters were not initialized.")
+        if self.pending_arrays_:
+            raise ValueError("Cannot receive inference input with an incomplete training sample.")
+        if arrays is None or len(arrays) != 1:
+            raise ValueError("Inference input must contain exactly one seismic array.")
+
+        self.trainer_.InfereInputData(arrays[0])
+        self.inference_input_pending_ = False
 
     def addData(self, arrays):
         if self.trainer_ is None:
@@ -87,6 +111,8 @@ class ModelTrainer:
     def finalize(self):
         if self.trainer_ is None:
             raise ValueError("Training parameters were not initialized.")
+        if self.inference_input_pending_:
+            raise ValueError("Cannot finalize while waiting for an inference input array.")
         
         if self.pending_arrays_:
             raise ValueError(f"Training data is incomplete: received "
@@ -106,6 +132,8 @@ class ModelTrainer:
     def infere(self):
         if self.trainer_ is None:
             raise ValueError("Training parameters were not initialized.")
+        if self.inference_input_pending_:
+            raise ValueError("No inference input array received yet.")
         
         if self.pending_arrays_:
             raise ValueError("Cannot infer with an incomplete training sample.")
@@ -282,6 +310,17 @@ class Message:
             else:
                 content["result"] = "Train parameters received"
 
+        elif action == "inference_input":
+            try:
+                self._trainer.prepareInfereInputData()
+                content["result"] = "Ready for inference input"
+
+            except Exception as exc:
+                self._serverexception = self._make_exception_report(
+                    "Inference input error exception", exc
+                )
+                content["result"] = self._serverexception
+
         elif action == "finalize":
             try:
                 metrics = self._trainer.finalize()
@@ -343,12 +382,18 @@ class Message:
 
     def _create_response_array_content(self):
         content = {"result": None}
+        isinference = self._trainer.inference_input_pending_
         try:
-            self._trainer.addData(self._request.get("data"))
-            content["result"] = "Train data received"
+            if isinference:
+                self._trainer.InfereInputData(self._request.get("data"))
+                content["result"] = "Inference data received"
+            else:
+                self._trainer.addData(self._request.get("data"))
+                content["result"] = "Train data received"
 
         except Exception as exc:
-            self._serverexception = self._make_exception_report("Train data exception", exc)
+            msg = "Inference input error exception" if isinference else "Train data exception"
+            self._serverexception = self._make_exception_report(msg, exc)
             content["result"] = self._serverexception
 
         return {

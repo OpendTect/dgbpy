@@ -34,6 +34,7 @@ class FaultNetTransferTrainer(TrainerBase):
         self.model_ = None
 
         self.samples_ = []
+        self.inference_input_ = None
 
     def setParameters(self, pars):
         if not isinstance(pars, dict):
@@ -82,6 +83,7 @@ class FaultNetTransferTrainer(TrainerBase):
             self.log_every_n_steps_ = max(0, int(usepars["log_every_n_steps"]))
 
         self.samples_ = []
+        self.inference_input_ = None
         self.metrics_ = None
         self._prepare_model()
 
@@ -116,29 +118,49 @@ class FaultNetTransferTrainer(TrainerBase):
         if seis.shape != labels.shape:
             raise ValueError(f"Shape mismatch between seismic {seis.shape} and labels {labels.shape}")
 
-        seis, labels = self._normalize_sample_shape(seis, labels)
-        if seis.ndim != 5 or any(dim < self.crop_size_ for dim in seis.shape[2:]):
-            raise ValueError(
-                f"Fault-Net requires (N,C,inline,crossline,z) data with each spatial "
-                f"dimension >= crop_size ({self.crop_size_}). Got shape {seis.shape}."
-            )
-        
-        if seis.shape[0] != 1:
-            raise ValueError("Each addData call must contain exactly one training volume (N=1).")
-        if seis.shape[1] == 0:
-            raise ValueError("Training data must have a nonempty channel dimension.")
-        
-        if not np.all(np.isfinite(seis)) or not np.all(np.isfinite(labels)):
-            raise ValueError("Seismic and labels must contain only finite values.")
+        seis = self._prepare_seismic(seis, self.crop_size_)
+        labels = np.reshape(labels, seis.shape)
+        if not np.all(np.isfinite(labels)):
+            raise ValueError("Labels must contain only finite values.")
         
         fault_indices = np.flatnonzero(np.any(labels[0] > 0.0, axis=0))
         if fault_indices.size == 0:
             raise ValueError("Each training volume must contain at least one labelled fault.")
 
-        seis = self._normalize_seismic(seis)
         self.samples_.append((seis, labels, fault_indices))
+        self.inference_input_ = None
         
         self.metrics_ = None
+
+    def InfereInputData(self, seismicarr):
+        """Store normalized seismic-only input; spatial sizes must be multiples of 16."""
+        if self.model_ is None:
+            raise ValueError("No model available for inference. Initialize parameters first.")
+
+        seis = self._prepare_seismic(seismicarr, 16)
+        if any(dim % 16 != 0 for dim in seis.shape[2:]):
+            raise ValueError(
+                "Whole-volume Fault-Net inference requires each spatial dimension "
+                f"to be divisible by 16. Got shape {seis.shape}."
+            )
+
+        self.inference_input_ = np.ascontiguousarray(seis)
+
+    def _prepare_seismic(self, seismicarr, minsize):
+        seis = self._normalize_input_shape(np.asarray(seismicarr, dtype=np.float32))
+        if seis.ndim != 5 or any(dim < minsize for dim in seis.shape[2:]):
+            raise ValueError(
+                "Fault-Net requires (N,C,inline,crossline,z) data with each spatial "
+                f"dimension >= {minsize}. Got shape {seis.shape}."
+            )
+        if seis.shape[0] != 1:
+            raise ValueError("Each input must contain exactly one volume (N=1).")
+        if seis.shape[1] == 0:
+            raise ValueError("Seismic data must have a nonempty channel dimension.")
+        if not np.all(np.isfinite(seis)):
+            raise ValueError("Seismic must contain only finite values.")
+
+        return self._normalize_seismic(seis)
 
     def _expected_input_rank(self):
         if not isinstance(self.info_, dict):
@@ -157,9 +179,13 @@ class FaultNetTransferTrainer(TrainerBase):
         return 2 + spatialdims
 
     def _normalize_sample_shape(self, seis, labels):
+        seis = self._normalize_input_shape(seis)
+        return seis, np.reshape(labels, seis.shape)
+
+    def _normalize_input_shape(self, seis):
         expectedrank = self._expected_input_rank()
         if expectedrank is None:
-            return seis, labels
+            return seis
 
         if seis.ndim > expectedrank:
             raise ValueError(
@@ -170,7 +196,6 @@ class FaultNetTransferTrainer(TrainerBase):
             addaxes = expectedrank - seis.ndim
             newshape = (1,) * addaxes + tuple(seis.shape)
             seis = np.reshape(seis, newshape)
-            labels = np.reshape(labels, newshape)
 
         nrattribs = dgbhdf5.getNrAttribs(self.info_) if isinstance(self.info_, dict) else 1
         if seis.shape[1] not in (1, nrattribs):
@@ -179,7 +204,7 @@ class FaultNetTransferTrainer(TrainerBase):
                 f"Prepared seismic shape: {seis.shape}."
             )
 
-        return seis, labels
+        return seis
 
     @staticmethod
     def _normalize_seismic(seis):
@@ -379,14 +404,19 @@ class FaultNetTransferTrainer(TrainerBase):
         return self.metrics_
 
     def infere(self):
-        """Infer the entire stored volume, without cropping or augmentation."""
-        if self.metrics_ is None:
-            raise ValueError("No trained model available for inference. Call finalize first.")
-        
-        if len(self.samples_) != 1:
-            raise ValueError("Whole-volume inference requires exactly one stored input volume.")
+        """Infer explicit seismic-only input, or the stored volume after training."""
+        if self.model_ is None:
+            raise ValueError("No model available for inference. Initialize parameters first.")
 
-        seis = self.samples_[0][0]
+        seis = self.inference_input_
+        if seis is None:
+            if self.metrics_ is None:
+                raise ValueError(
+                    "No inference input available. Call InfereInputData or finalize first."
+                )
+            if len(self.samples_) != 1:
+                raise ValueError("Whole-volume inference requires exactly one stored input volume.")
+            seis = self.samples_[0][0]
         modes = [(module, module.training) for module in self.model_.modules()]
         self.model_.eval()
         try:
@@ -430,21 +460,118 @@ class FaultNetTransferTrainer(TrainerBase):
         if self.metrics_ is None:
             raise ValueError("No trained model available to save. Call finalize first.")
 
-        outfnm = path.join(targetdir, outputname)
+        import shutil
+        import h5py
+        import onnx
+        import odpy.hdf5 as odhdf5
+        from onnx import numpy_helper
+        from onnx2torch.onnx_graph import OnnxGraph
+
+        outfnm = path.abspath(path.join(targetdir, outputname))
+        if not outfnm.endswith(".h5"):
+            outfnm += ".h5"
+        outonnx = path.splitext(outfnm)[0] + ".onnx"
+
+        with h5py.File(self.modelfnm_, "r") as baseh5:
+            modelgrp = baseh5["model"]
+            if odhdf5.getText(modelgrp, "type") != "onnx":
+                raise ValueError(
+                    "Fault-Net transfer save requires an ONNX base model."
+                )
+            baseonnx = dgbhdf5.translateFnm(
+                odhdf5.getText(modelgrp, "path"), self.modelfnm_
+            )
+
+        onnxmodel = onnx.load(str(baseonnx))
+        graph = OnnxGraph(onnxmodel.graph)
+        initializers = {tensor.name: tensor for tensor in onnxmodel.graph.initializer}
+        parameters = dict(self.model_.named_parameters())
+        mappedparameters = set()
+        replacements = {}
+
+        for modulename, node in graph.nodes.items():
+            if node.operation_type != "Conv":
+                continue
+
+            module = self.model_.get_submodule(modulename)
+            if not isinstance(module, torch.nn.Conv3d):
+                raise TypeError(
+                    f"Expected Conv3d module for ONNX node {modulename}; "
+                    f"got {type(module).__name__}."
+                )
+
+            for parametername, inputindex in (("weight", 1), ("bias", 2)):
+                parameter = getattr(module, parametername)
+                if parameter is None:
+                    continue
+
+                fullname = f"{modulename}.{parametername}"
+                if fullname not in parameters:
+                    raise ValueError(f"Unmapped model parameter: {fullname}.")
+                if inputindex >= len(node.input_values):
+                    raise ValueError(f"Missing ONNX input for {fullname}.")
+
+                initializername = node.input_values[inputindex]
+                if initializername not in initializers:
+                    raise ValueError(
+                        f"Missing ONNX initializer {initializername} for {fullname}."
+                    )
+
+                original = numpy_helper.to_array(initializers[initializername])
+                updated = parameter.detach().cpu().numpy()
+                if updated.shape != original.shape:
+                    raise ValueError(
+                        f"Shape mismatch for {fullname}: "
+                        f"{updated.shape} versus {original.shape}."
+                    )
+                if updated.dtype != original.dtype:
+                    raise ValueError(
+                        f"Datatype mismatch for {fullname}: "
+                        f"{updated.dtype} versus {original.dtype}."
+                    )
+                if not np.all(np.isfinite(updated)):
+                    raise ValueError(f"Nonfinite values in {fullname}.")
+
+                previous = replacements.get(initializername)
+                if previous is not None and not np.array_equal(previous, updated):
+                    raise ValueError(
+                        f"Conflicting updates for shared initializer {initializername}."
+                    )
+
+                replacements[initializername] = updated.copy()
+                mappedparameters.add(fullname)
+
+        unmapped = sorted(set(parameters) - mappedparameters)
+        if unmapped:
+            raise ValueError(
+                "Fault-Net save cannot map these parameters: " + ", ".join(unmapped)
+            )
+
+        for initializername, updated in replacements.items():
+            initializers[initializername].CopyFrom(
+                numpy_helper.from_array(updated, name=initializername)
+            )
+
+        onnx.checker.check_model(onnxmodel)
+        onnx.save(onnxmodel, outonnx)
+
         modes = [(module, module.training) for module in self.model_.modules()]
         try:
-            dgbmlio.saveModel(self.model_, self.modelfnm_, dgbkeys.torchplfnm,
-                              self.info_, outfnm, self.params_)
+            shutil.copy2(self.modelfnm_, outfnm)
+            with h5py.File(outfnm, "r+") as outputh5:
+                outputh5["model"].attrs["path"] = np.bytes_(outonnx)
+                outputh5.attrs["training_config"] = np.bytes_(
+                    json.dumps(self.params_)
+                )
         finally:
             self.model_.to(self.device_)
             for module, training in modes:
                 module.training = training
 
-        metricsfnm = path.join(targetdir, f"{outputname}_transfertraining_metrics.json")
-        with open(metricsfnm, "w", encoding="utf-8") as fobj:
-            json.dump(self.metrics_, fobj, indent=2)
-
-        if not outfnm.endswith(".h5"):
-            outfnm += ".h5"
+        #_________________---------------SAVE METRICS FOR EVALUATION GRAPHICS (LOSS PLOT)
+        # metricsfnm = path.join(targetdir, f"{outputname}_transfertraining_metrics.json")
+        # with open(metricsfnm, "w", encoding="utf-8") as fobj:
+        #     json.dump(self.metrics_, fobj, indent=2)
+        #_________________---------------SAVE METRICS FOR EVALUATION GRAPHICS (LOSS PLOT)
         
         return outfnm
